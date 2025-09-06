@@ -32,7 +32,9 @@ class Dispatcher(abc.ABC):
                     if not match:
                         continue
 
-            tasks.add(self.loop.create_task(listener.func(*args, **kwargs)))
+            tasks.add(
+                self.loop.create_task(listener.func(*args, **kwargs), name="dispatch")
+            )
 
         if tasks:
             await asyncio.wait(tasks)
