@@ -84,6 +84,6 @@ def fmtexc() -> str:
 
 
 def fmtsec(start: int) -> str:
-    total = f"{(asyncio.get_event_loop().time() - start):.3f}".rstrip("0").rstrip(".")
+    total = f"{(asyncio.get_running_loop().time() - start):.3f}".rstrip("0").rstrip(".")
 
     return f"{total} s"
