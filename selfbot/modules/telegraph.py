@@ -1,5 +1,4 @@
 import asyncio
-import html
 import re
 
 from pyrogram import filters
@@ -23,6 +22,7 @@ pattern = re.compile(
 
 spoiler = re.compile(r"</?spoiler\b[^>]*>")
 emojiid = re.compile(r"<emoji id=\"\d+\">(.*?)</emoji>")
+htmltag = re.compile(r"<.*?>")
 
 
 class Telegraph(Module):
@@ -116,7 +116,7 @@ class Telegraph(Module):
                 "Telegraph Page Created",
                 {
                     "Title": data["title"] or "N/A",
-                    "Content": html.unescape(data["content"])[:16],
+                    "Content": htmltag.sub("", data["content"])[:16],
                 },
                 fmtsec(sec),
             )
