@@ -43,8 +43,9 @@ class System(Module):
                 (date - datetime.datetime.fromtimestamp(float(data[1]))).total_seconds()
             )
             text = fmtstr(
-                f"v{self.client.version} Restarted",
+                "Selfbot Restarted",
                 {
+                    "Version": self.client.version,
                     "Modules": len(self.client.modules),
                     "Handlers": len(self.client.handlers),
                     "Listeners": len(self.client.listeners),
