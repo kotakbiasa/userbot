@@ -15,7 +15,7 @@ from pyrogram.types import (
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import ikm, shell
+from selfbot.utils import fmtsec, fmtstr, ikm, shell
 
 pattern = re.compile(r"^r$")
 
@@ -39,13 +39,21 @@ class System(Module):
 
         data = await asyncio.to_thread(get_id, "r.txt")
         if data:
-            secs = (
-                date - datetime.datetime.fromtimestamp(float(data[1]))
-            ).total_seconds()
+            text = fmtstr(
+                "Selfbot Restarted",
+                {
+                    "Modules": len(self.client.modules),
+                    "Handlers": len(self.client.handlers),
+                    "Listeners": len(self.client.listeners),
+                },
+                fmtsec(
+                    (
+                        date - datetime.datetime.fromtimestamp(float(data[1]))
+                    ).total_seconds()
+                ),
+            )
             await self.client.bot.edit_inline_text(
-                data[0],
-                f"<code>Client Restarted</code>\n\n<b>{int(secs)} s</b>",
-                reply_markup=ikm(("Close", b"0")),
+                data[0], text, reply_markup=ikm(("Close", b"0"))
             )
 
     @listener.handler(filters.regex(pattern), 1)
