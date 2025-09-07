@@ -3,6 +3,8 @@ import logging
 
 from httpx import AsyncClient
 
+from selfbot import __version__
+
 from .dispatcher import Dispatcher
 from .extender import Extender
 from .telegram import Telegram
@@ -15,6 +17,8 @@ class Selfbot(Dispatcher, Extender, Telegram):
 
         self.loop = None
         self.http = None
+
+        self.version = __version__
 
         super().__init__()
 

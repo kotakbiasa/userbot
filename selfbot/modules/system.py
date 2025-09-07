@@ -39,14 +39,17 @@ class System(Module):
 
         data = await asyncio.to_thread(get_id, "r.txt")
         if data:
+            secs = int(
+                (date - datetime.datetime.fromtimestamp(float(data[1]))).total_seconds()
+            )
             text = fmtstr(
-                "Selfbot Restarted",
+                f"v{self.client.version} Restarted",
                 {
                     "Modules": len(self.client.modules),
                     "Handlers": len(self.client.handlers),
                     "Listeners": len(self.client.listeners),
                 },
-                f"{int((date - datetime.datetime.fromtimestamp(float(data[1]))).total_seconds())} s",
+                f"{secs} s",
             )
             await self.client.bot.edit_inline_text(
                 data[0], text, reply_markup=ikm(("Close", b"0"))
