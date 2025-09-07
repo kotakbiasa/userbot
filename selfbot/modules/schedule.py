@@ -15,7 +15,7 @@ from pyrogram.types import (
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, ids, ikm
+from selfbot.utils import fmtsec, fmtstr, ids, ikm
 
 pattern = re.compile(
     r"^"
@@ -97,23 +97,17 @@ class Schedule(Module):
         async with self.lock:
             data = await self.data.get()
 
-        time = int(data["time"])
-        unit = self.period[data["unit"]]
-        loop = data["loop"]
-        text = data["text"].strip()
-
         params = {
             "chat_id": data["self"] or ids(event.inline_message_id)[0],
-            "text": text,
+            "text": data["text"].strip(),
         }
 
-        units = unit.removesuffix("s").title() if time == 1 else unit.title()
-        start = self.client.loop.time()
-        count = 0
+        res = 0
+        sec = self.client.loop.time()
 
-        if loop:
-            for i in range(1, int(loop) + 1):
-                args = {unit: time * i}
+        if data["loop"]:
+            for i in range(1, int(data["loop"]) + 1):
+                args = {self.period[data["unit"]]: int(data["time"]) * i}
 
                 try:
                     await self.client.app.send_message(
@@ -125,21 +119,23 @@ class Schedule(Module):
                 except RPCError:
                     break
                 else:
-                    count += 1
+                    res += 1
 
                     if i % 5 == 0:
                         await asyncio.sleep(0.5)
 
-            await event.edit_message_text(
-                f"<b>Schedule Message</b>\n"
-                f"\n  <code>Self   </code> : <code>{bool(data['self'])}</code>"
-                f"\n  <code>Repeat </code> : <code>{loop}</code>"
-                f"\n  <code>Period </code> : <code>{time} {units}</code>"
-                f"\n  <code>Failed </code> : <code>{(int(loop) - count) or 'N/A'}</code>"
-                f"\n  <code>Content</code> : <code>{text}</code>"
-                f"\n\n<b>{fmtsec(start)}</b>",
-                reply_markup=ikm(("Close", b"0")),
+            text = fmtstr(
+                "Schedule Message",
+                {
+                    "Self": bool(data["self"]),
+                    "Repeat": data["loop"],
+                    "Period": f"{data['time']} {data['unit']}",
+                    "Failed": int(data["loop"]) - res,
+                    "Content": data["text"],
+                },
+                fmtsec(sec),
             )
+            await event.edit_message_text(text, reply_markup=ikm(("Close", b"0")))
 
         else:
             args = {self.period[data["unit"]]: int(data["time"])}
@@ -156,11 +152,13 @@ class Schedule(Module):
                     reply_markup=ikm(("Close", b"0")),
                 )
             else:
-                await event.edit_message_text(
-                    f"<b>Schedule Message</b>\n"
-                    f"\n  <code>Self   </code> : <code>{bool(data['self'])}</code>"
-                    f"\n  <code>Period </code> : <code>{time} {units}</code>"
-                    f"\n  <code>Content</code> : <code>{text}</code>"
-                    f"\n\n<b>{fmtsec(start)}</b>",
-                    reply_markup=ikm(("Close", b"0")),
+                text = fmtstr(
+                    "Schedule Message",
+                    {
+                        "Self": bool(data["self"]),
+                        "Period": f"{data['time']} {data['unit']}",
+                        "Content": data["text"],
+                    },
+                    fmtsec(sec),
                 )
+                await event.edit_message_text(text, reply_markup=ikm(("Close", b"0")))

@@ -70,7 +70,7 @@ class Network(Module):
         )
 
     async def ping(self, client: Client) -> str:
-        start = self.client.loop.time()
+        sec = self.client.loop.time()
         await client.invoke(Ping(ping_id=client.rnd_id()))
 
-        return f"<code>Pong! {fmtsec(start)}</code>\n\n<b>{client.name.title()}</b>"
+        return f"<code>Pong! {fmtsec(sec)}</code>\n\n<b>{client.name.title()}</b>"

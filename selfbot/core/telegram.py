@@ -48,12 +48,14 @@ class Telegram(abc.ABC):
         if self.__idle__ and not self.__idle__.done():
             raise RuntimeError("Selfbot Running")
 
+        self.logger.info("Starting Client...")
+
         try:
             await self.start()
-            self.logger.info("Client Started")
         except Exception as e:
             self.logger.error(str(e))
         else:
+            self.logger.info("Client Started")
             await self.idle()
         finally:
             await self.stop()

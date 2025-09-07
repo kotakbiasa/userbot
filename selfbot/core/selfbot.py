@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-import httpx
+from httpx import AsyncClient
 
 from .dispatcher import Dispatcher
 from .extender import Extender
@@ -13,8 +13,8 @@ class Selfbot(Dispatcher, Extender, Telegram):
         self.logger = logging.getLogger("Selfbot")
         self.config = config
 
-        self.loop = asyncio.get_event_loop()
-        self.http = httpx.AsyncClient()
+        self.loop = None
+        self.http = None
 
         super().__init__()
 
@@ -27,6 +27,9 @@ class Selfbot(Dispatcher, Extender, Telegram):
 
         selfbot = cls(config)
 
+        selfbot.loop = loop
+        selfbot.http = AsyncClient()
+
         try:
             await selfbot.run()
         finally:
@@ -36,6 +39,8 @@ class Selfbot(Dispatcher, Extender, Telegram):
         return selfbot
 
     async def stop(self) -> None:
+        self.logger.info("Stopping Client...")
+
         await asyncio.gather(
             *[self.app.stop(), self.bot.stop(), self.http.aclose()],
             return_exceptions=True

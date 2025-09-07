@@ -18,7 +18,7 @@ from pyrogram.types import (
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, ids, ikm
+from selfbot.utils import fmtsec, fmtstr, ids, ikm
 
 pattern = re.compile(
     r"^"
@@ -137,25 +137,22 @@ class Moderator(Module):
                 minutes=1
             )
 
-        now = self.client.loop.time()
+        sec = self.client.loop.time()
 
         try:
             await coro(**params)
         except RPCError as e:
             await event.edit_message_text(
-                f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
+                f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(sec)}</b>",
                 reply_markup=ikm(("Close", b"0")),
             )
         else:
-            past = self.verb(action, "past")
-            await event.edit_message_text(
-                f"<b><a href='tg://user?id={target}'>User</a> {past}</b>\n"
-                f"\n  <code>ID      </code> : <code>{target}</code>"
-                f"\n  <code>Reason  </code> : <code>{data['reason'] or 'N/A'}</code>"
-                f"\n  <code>Duration</code> : <code>{unit}</code>"
-                f"\n\n<b>{fmtsec(now)}</b>",
-                reply_markup=ikm(("Close", b"0")),
+            text = fmtstr(
+                f"<a href='tg://user?id={target}'>User</a> {self.verb(action, 'past')}",
+                {"ID": target, "Reason": data["reason"] or "N/A", "Duration": unit},
+                fmtsec(sec),
             )
+            await event.edit_message_text(text, reply_markup=ikm(("Close", b"0")))
 
     def verb(self, text: str, tense: str) -> str:
         suffix = "ing" if tense == "present" else "ed"

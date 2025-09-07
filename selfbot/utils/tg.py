@@ -1,3 +1,4 @@
+import asyncio
 import struct
 
 from pyrogram.types import CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup
@@ -59,3 +60,25 @@ def ikm(rows: list | tuple) -> InlineKeyboardMarkup:
         ikb.append(line)
 
     return InlineKeyboardMarkup(ikb)
+
+
+def fmtsec(start: int) -> str:
+    total = f"{(asyncio.get_running_loop().time() - start):.3f}".rstrip("0").rstrip(".")
+
+    return f"{total} s"
+
+
+def fmtstr(head: str, data: dict, foot: str = None) -> str:
+    padd = max(len(k) for k in data.keys())
+    body = "\n".join(
+        f"  <code>{k.ljust(padd)}</code> : <code>{v}</code>" for k, v in data.items()
+    )
+
+    text = [f"<b>{head}</b>"]
+
+    if body:
+        text.append(body)
+    if foot:
+        text.append(f"<b>{foot}</b>")
+
+    return "\n\n".join(text)

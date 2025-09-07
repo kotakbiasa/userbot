@@ -2,9 +2,8 @@ import asyncio
 import html
 import re
 
-from pyrogram import Client, filters
+from pyrogram import filters
 from pyrogram.types import (
-    CallbackQuery,
     ChosenInlineResult,
     InlineQuery,
     InlineQueryResultCachedSticker,
@@ -16,7 +15,7 @@ from telegraph.aio import Telegraph as Graph
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, ikm
+from selfbot.utils import fmtsec, fmtstr, ikm
 
 pattern = re.compile(
     r"^graph(?:\s(?P<content>(?!-t\s.+).*?))?(?:\s-t\s(?P<title>.+))?$", re.DOTALL
@@ -56,7 +55,7 @@ class Telegraph(Module):
             ):
                 content = f"{content}<img src='{event.reply_to_message.web_page.url}'>"
 
-            data.update({"content": content, "source": event.reply_to_message.link})
+            data["content"] = content
 
         async with self.lock:
             await self.data.put(data)
@@ -98,8 +97,8 @@ class Telegraph(Module):
         async with self.lock:
             data = await self.data.get()
 
-        now = self.client.loop.time()
         url = None
+        sec = self.client.loop.time()
 
         try:
             res = await self.graph.create_page(
@@ -111,24 +110,18 @@ class Telegraph(Module):
             url = res["url"]
         except Exception as e:
             await event.edit_message_text(
-                f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
+                f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(sec)}</b>",
                 reply_markup=ikm(("Close", b"0")),
             )
         else:
-            content = (
-                f"<a href={data['source']}>Message</a>"
-                if data["source"]
-                else (
-                    f"{html.escape(data['content'][:32])} ..."
-                    if len(data["content"]) > 64
-                    else html.escape(data["content"])
-                )
+            text = fmtstr(
+                "Telegraph Page Created",
+                {
+                    "Title": data["title"] or "N/A",
+                    "Content": f"{html.unescape(data['content'][:16])} ...",
+                },
+                fmtsec(sec),
             )
-
             await event.edit_message_text(
-                f"<b>Telegraph Page Created</b>\n"
-                f"\n  <code>Title  </code> : <code>{data['title'] or 'N/A'}</code>"
-                f"\n  <code>Content</code> : {content}"
-                f"\n\n<b>{fmtsec(now)}</b>",
-                reply_markup=ikm([("Copy", "copy", url), ("Open", "url", url)]),
+                text, reply_markup=ikm([("Copy", "copy", url), ("Open", "url", url)])
             )

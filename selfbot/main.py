@@ -7,8 +7,8 @@ import dotenv
 from .core import Selfbot
 
 logging.basicConfig(
-    format="%(asctime)s [%(levelname).1s] %(name)s: %(message)s",
-    datefmt="%b %-d, %-I:%M %p",
+    format="%(asctime)s,%(msecs)03d [ %(levelname).1s ] %(name)s: %(message)s",
+    datefmt="%b %-d | %-I:%M %p | %-S",
     level=logging.INFO,
 )
 

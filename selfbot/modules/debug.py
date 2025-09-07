@@ -152,7 +152,7 @@ class Debug(Module):
                 aexec(code, self.scope), name=f"{msg.chat.id}/{msg.id}"
             )
 
-            now = self.client.loop.time()
+            sec = self.client.loop.time()
 
             try:
                 res = await asyncio.wait_for(
@@ -163,7 +163,7 @@ class Debug(Module):
             else:
                 out = (buf.getvalue() or str(res)).rstrip()
             finally:
-                rtt = fmtsec(now)
+                rtt = fmtsec(sec)
                 self.tasks.pop(event.inline_message_id, None)
 
         if code.endswith("#"):

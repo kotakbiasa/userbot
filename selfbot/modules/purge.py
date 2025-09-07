@@ -93,17 +93,17 @@ class Purge(Module):
         async with self.lock:
             cid, ids = await self.data.get()
 
-        count = 0
-        start = self.client.loop.time()
+        res = 0
+        sec = self.client.loop.time()
 
         for chunk in [ids[i : i + 100] for i in range(0, len(ids), 100)]:
-            count += await self.client.app.delete_messages(cid, chunk)
+            res += await self.client.app.delete_messages(cid, chunk)
 
-            if count % 100 == 0:
+            if res % 100 == 0:
                 await asyncio.sleep(5)
 
         await event.edit_message_text(
-            f"<code>{count} Message{'' if count == 1 else 's'} Purged</code>"
-            f"\n\n<b>{fmtsec(start)}</b>",
+            f"<code>{res} Message{'' if res == 1 else 's'} Purged</code>"
+            f"\n\n<b>{fmtsec(sec)}</b>",
             reply_markup=ikm(("Close", b"0")),
         )

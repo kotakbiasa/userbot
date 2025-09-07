@@ -97,6 +97,6 @@ class System(Module):
         await event.edit_message_text("<code>Restarting...</code>")
 
         try:
-            self.client.__idle__.cancel()
+            self.client.__idle__.set()
         finally:
             os.execv(sys.executable, (sys.executable, "-m", "selfbot"))
