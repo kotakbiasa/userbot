@@ -56,8 +56,6 @@ class System(Module):
             event.delete(True),
         )
 
-        setattr(self.client, "restart", True)
-
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:
         await event.answer(
@@ -81,6 +79,8 @@ class System(Module):
             return await event.edit_message_text(
                 "<code>Restart is Called</code>", reply_markup=ikm(("Close", b"0"))
             )
+
+        setattr(self.client, "restart", True)
 
         if os.path.isdir(".git"):
             await shell(
