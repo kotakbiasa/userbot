@@ -48,7 +48,7 @@ class Telegram(abc.ABC):
         if self.__idle__ and not self.__idle__.is_set():
             raise RuntimeError("Selfbot Running")
 
-        rflag = "Restart" if getattr(self, "restart", None) else "Start"
+        rflag = "Restart" if os.path.exists("r.txt") else "Start"
         self.logger.info(f"{rflag}ing Client...")
 
         try:
