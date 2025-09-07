@@ -68,8 +68,8 @@ def fmtsec(start: int) -> str:
     return f"{total} s"
 
 
-def fmtstr(head: str, data: dict, foot: str = None) -> str:
-    padd = max(len(k) for k in data.keys())
+def fmtstr(head: str, data: dict = {}, foot: str = None) -> str:
+    padd = max((len(k) for k in data.keys()), default=0)
     body = "\n".join(
         f"  <code>{k.ljust(padd)}</code> : <code>{v}</code>" for k, v in data.items()
     )
