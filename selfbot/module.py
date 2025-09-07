@@ -1,3 +1,4 @@
+import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -9,6 +10,7 @@ class Module:
 
     def __init__(self, client: "Selfbot") -> None:
         self.client = client
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.period = {"m": "minutes", "h": "hours", "d": "days", "w": "weeks"}
 
 

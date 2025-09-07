@@ -75,7 +75,7 @@ class Telegram(abc.ABC):
         await self.app.resolve_peer(self.bot.me.username)
 
         await asyncio.to_thread(self.loads)
-        await self.dispatch("startup")
+        self.loop.create_task(self.dispatch("startup"))
 
         for cred in ["api_id", "api_hash", "bot_token", "session_string"]:
             self.config.pop(cred, None)
