@@ -60,12 +60,12 @@ class Network(Module):
         )
 
         await event.edit_message_text(
-            fmtstr("Selfbot Pong!", {"App": app, "Bot": bot}, fmtsec(sec)),
-            reply_markup=ikm(("Close", b"0")),
+            fmtstr("Selfbot Latency", {"App": app, "Bot": bot}, fmtsec(sec)),
+            reply_markup=ikm([[("Ping!", b"ping")], [("Close", b"0")]]),
         )
 
     async def ping(self, client: Client) -> str:
         sec = self.client.loop.time()
         await client.invoke(Ping(ping_id=client.rnd_id()))
 
-        return f"{fmtsec(sec)} s"
+        return f"{fmtsec(sec)}"
