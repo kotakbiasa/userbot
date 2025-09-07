@@ -15,7 +15,7 @@ from pyrogram.types import (
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, ikm
+from selfbot.utils import fmtsec, fmtstr, ikm
 
 pattern = re.compile(r"^ping$")
 
@@ -38,9 +38,7 @@ class Network(Module):
                 InlineQueryResultCachedSticker(
                     sticker_file_id=self.client.config["sticker_file_id"],
                     reply_markup=ikm((">_", "user_id", event._client.me.id)),
-                    input_message_content=InputTextMessageContent(
-                        "<code>Calculating...</code>"
-                    ),
+                    input_message_content=InputTextMessageContent("<code>...</code>"),
                 )
             ],
             cache_time=900,
@@ -48,29 +46,26 @@ class Network(Module):
 
     @listener.handler(filters.regex(pattern), 3)
     async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
-        await self.edit(event._client, event)
+        await self.edit(event)
 
-    @listener.handler(filters.regex(r"^ping/(app|bot)$"), 4)
+    @listener.handler(filters.regex(pattern), 4)
     async def on_callback_query(self, event: CallbackQuery) -> None:
-        query = event.data.split("/")[1]
+        await self.edit(event)
 
-        await event.edit_message_text(
-            "<code>Calculating...</code>",
-            reply_markup=ikm((">_", "user_id", event._client.me.id)),
+    async def edit(self, event: Update) -> None:
+        await event.edit_message_text("<code>Calculating...</code>")
+
+        sec, (app, bot) = self.client.loop.time(), await asyncio.gather(
+            self.ping(self.client.app), self.ping(event._client)
         )
-        await self.edit(self.client.app if query == "app" else event._client, event)
 
-    async def edit(self, client: Client, event: Update) -> None:
-        result = await self.ping(client)
         await event.edit_message_text(
-            result,
-            reply_markup=ikm(
-                [[("App", b"ping/app"), ("Bot", b"ping/bot")], [("Close", b"0")]]
-            ),
+            fmtstr("Selfbot Pong!", {"App": app, "Bot": bot}, fmtsec(sec)),
+            reply_markup=ikm(("Close", b"0")),
         )
 
     async def ping(self, client: Client) -> str:
         sec = self.client.loop.time()
         await client.invoke(Ping(ping_id=client.rnd_id()))
 
-        return f"<code>Pong! {fmtsec(sec)}</code>\n\n<b>{client.name.title()}</b>"
+        return f"{fmtsec(sec)} s"
