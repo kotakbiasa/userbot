@@ -116,7 +116,7 @@ class Telegraph(Module):
                 "Telegraph Page Created",
                 {
                     "Title": data["title"] or "N/A",
-                    "Content": f"{html.unescape(data['content'][:16])} ...",
+                    "Content": html.unescape(data["content"])[:16],
                 },
                 fmtsec(sec),
             )
