@@ -15,7 +15,7 @@ from pyrogram.types import (
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, fmtstr, ikm, shell
+from selfbot.utils import fmtstr, ikm, shell
 
 pattern = re.compile(r"^r$")
 
@@ -46,11 +46,7 @@ class System(Module):
                     "Handlers": len(self.client.handlers),
                     "Listeners": len(self.client.listeners),
                 },
-                fmtsec(
-                    (
-                        date - datetime.datetime.fromtimestamp(float(data[1]))
-                    ).total_seconds()
-                ),
+                f"{int((date - datetime.datetime.fromtimestamp(float(data[1]))).total_seconds())} s",
             )
             await self.client.bot.edit_inline_text(
                 data[0], text, reply_markup=ikm(("Close", b"0"))
