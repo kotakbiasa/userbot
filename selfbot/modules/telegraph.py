@@ -39,8 +39,6 @@ class Telegraph(Module):
     async def on_message(self, event: Message) -> None:
         data = pattern.match(event.content.html).groupdict()
 
-        data["source"] = None
-
         if not data["content"]:
             if not event.reply_to_message.content:
                 return await event.edit("<code>Reply to Content or Give a Text</code>")
