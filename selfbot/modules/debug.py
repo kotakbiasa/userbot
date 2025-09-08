@@ -71,9 +71,9 @@ class Debug(Module):
             if not self.calls:
                 delattr(self, "calls")
             else:
-                if -999 in self.client.app.dispatcher.groups:
-                    for handler in self.client.app.dispatcher.groups(-999):
-                        self.client.app.remove_handler(handler, -999)
+                if -9999 in self.client.app.dispatcher.groups:
+                    for handler in self.client.app.dispatcher.groups[-9999]:
+                        self.client.app.remove_handler(handler, -9999)
 
                 self.scope["calls"] = self.calls
 
