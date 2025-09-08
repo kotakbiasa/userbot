@@ -91,16 +91,25 @@ class System(Module):
         setattr(self.client, "restart", True)
 
         if os.path.isdir(".git"):
-            await shell(
-                "git fetch ; git reset --hard origin/{}".format(
-                    self.client.config.get("upstream_branch", "debug")
+            await shell("rm -fr .git")
+
+        await asyncio.gather(
+            event.edit_message_text("<code>Fetching...</code>"),
+            shell(
+                "git init; git remote add origin {repo}"
+                "; git fetch; git reset --hard origin/{branch}".format(
+                    repo=self.client.config.get(
+                        "repo", "https://github.com/DeltaUniverse/selfbot"
+                    ),
+                    branch=self.client.config.get("branch", "debug"),
                 )
-            )
+            ),
+        )
 
         await asyncio.gather(
             event.edit_message_text("<code>Updating...</code>"),
             shell(
-                "pip install --upgrade pip ; pip install --upgrade -r requirements.txt"
+                "pip install --upgrade pip; pip install --upgrade -r requirements.txt"
             ),
             asyncio.to_thread(
                 put_id,

@@ -79,6 +79,7 @@ class Telegram(abc.ABC):
 
         for cred in ["api_id", "api_hash", "bot_token", "session_string"]:
             self.config.pop(cred, None)
+            os.environ.pop(cred.upper(), None)
 
     async def idle(self) -> None:
         if self.__idle__ and not self.__idle__.is_set():
