@@ -134,6 +134,15 @@ class Telegram(abc.ABC):
                 finally:
                     self.handlers[name] = dispatcher
 
+        for client in [self.app, self.bot]:
+            for group in client.dispatcher.groups.keys():
+                if group != -1:
+                    try:
+                        for handler in client.dispatcher.groups[group]:
+                            client.remove_handler(handler, group)
+                    finally:
+                        client.dispatcher.groups.pop(group, None)
+
     def safe(self) -> None:
         for key in os.environ.keys():
             if key != "STICKER_FILE_ID":
