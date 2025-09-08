@@ -1,8 +1,5 @@
 import abc
-import asyncio
 import bisect
-
-from pyrogram.types import Update
 
 from selfbot.listener import Listener
 from selfbot.module import Module
@@ -15,29 +12,13 @@ class Dispatcher(abc.ABC):
         super().__init__(**kwargs)
 
     async def dispatch(self, event: str, *args, **kwargs) -> None:
-        listeners = self.listeners.get(event)
+        for listener in self.listeners.get(event, []):
+            if listener.filters:
+                event = args[0]
+                if not await listener.filters(event._client, event):
+                    continue
 
-        if not listeners:
-            return
-
-        tasks = set()
-
-        for listener in listeners:
-            if listener.filters and args:
-                update = args[0]
-
-                if isinstance(update, Update):
-                    match = await listener.filters(update._client, update)
-
-                    if not match:
-                        continue
-
-            tasks.add(
-                self.loop.create_task(listener.func(*args, **kwargs), name="dispatch")
-            )
-
-        if tasks:
-            await asyncio.wait(tasks)
+            await listener.func(*args, **kwargs)
 
     def registers(self, mod: "Module") -> None:
         for event, func in mod_funcs(mod, "on_"):

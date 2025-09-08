@@ -107,7 +107,7 @@ class Telegram(abc.ABC):
     def updates(self) -> None:
         fltapp = flt.user(self.app.me.id)
         events = {
-            "message": (self.app, MessageHandler, flt.me, 0),
+            "message": (self.app, MessageHandler, flt.me & flt.text & ~flt.via_bot, 0),
             "callback_query": (self.bot, CallbackQueryHandler, fltapp, 0),
             "chosen_inline_result": (self.bot, ChosenInlineResultHandler, fltapp, 0),
             "inline_query": (self.bot, InlineQueryHandler, fltapp, 0),

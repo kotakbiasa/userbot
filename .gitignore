@@ -203,4 +203,4 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Telegram session
-selfbot/storage/*.session*
+selfbot/storage/*

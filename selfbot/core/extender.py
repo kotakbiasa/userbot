@@ -31,17 +31,17 @@ class Extender(abc.ABC):
         if mod.name in self.modules:
             raise ModuleExists(type(self.modules[mod.name]), mod)
 
-        new = mod(self)
+        obj = mod(self)
 
         try:
-            self.registers(new)
+            self.registers(obj)
         except Exception as e:
-            self.unregisters(new)
+            self.unregisters(obj)
             self.logger.error(str(e))
         else:
             self.logger.info(f"{mod.name} Loaded")
         finally:
-            self.modules[mod.name] = new
+            self.modules[mod.name] = obj
 
     def unload(self, mod: "Module") -> None:
         try:
