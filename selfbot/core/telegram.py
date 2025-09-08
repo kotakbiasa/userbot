@@ -24,6 +24,10 @@ from pyrogram.raw.types import (
 )
 from pyrogram.storage import FileStorage
 from pyrogram.types import LinkPreviewOptions, Update
+from pytgcalls import PyTgCalls
+from pytgcalls.pytgcalls_session import PyTgCallsSession
+
+PyTgCallsSession.notice_displayed = True
 
 commons = {
     "workdir": "./selfbot/storage/",
@@ -41,6 +45,8 @@ class Telegram(abc.ABC):
 
         self.app = self._app
         self.bot = self._bot
+
+        self.tgc = PyTgCalls(self.app, workers=1, cache_duration=900)
 
         super().__init__(**kwargs)
 
@@ -106,10 +112,10 @@ class Telegram(abc.ABC):
     def updates(self) -> None:
         fltapp = flt.user(self.app.me.id)
         events = {
-            "message": (self.app, MessageHandler, flt.me & flt.text & ~flt.via_bot, 0),
-            "callback_query": (self.bot, CallbackQueryHandler, fltapp, 0),
-            "chosen_inline_result": (self.bot, ChosenInlineResultHandler, fltapp, 0),
-            "inline_query": (self.bot, InlineQueryHandler, fltapp, 0),
+            "message": (self.app, MessageHandler, flt.me & flt.text & ~flt.via_bot, -1),
+            "callback_query": (self.bot, CallbackQueryHandler, fltapp, -1),
+            "chosen_inline_result": (self.bot, ChosenInlineResultHandler, fltapp, -1),
+            "inline_query": (self.bot, InlineQueryHandler, fltapp, -1),
         }
 
         for name, (client, handler, filters, group) in events.items():

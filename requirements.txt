@@ -2,6 +2,7 @@ aiorun
 git+https://github.com/TelegramPlayground/pyrogram
 git+https://github.com/TelegramPlayground/pyrogram-tgcrypto
 httpx
+py-tgcalls
 python-dotenv
 telegraph[aio]
 uvloop
