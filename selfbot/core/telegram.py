@@ -131,7 +131,7 @@ class Telegram(abc.ABC):
     def safe(self) -> None:
         for key in os.environ.keys():
             if key != "STICKER_FILE_ID":
-                self.config.pop(key.lower, None)
+                self.config.pop(key.lower(), None)
 
         for cred in ["API_ID", "API_HASH", "BOT_TOKEN", "SESSION_STRING"]:
             os.environ.pop(cred, None)
