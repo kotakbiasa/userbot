@@ -77,9 +77,7 @@ class Telegram(abc.ABC):
         await asyncio.to_thread(self.loads)
         self.loop.create_task(self.dispatch("startup"))
 
-        for cred in ["api_id", "api_hash", "bot_token", "session_string"]:
-            self.config.pop(cred, None)
-            os.environ.pop(cred.upper(), None)
+        await asyncio.to_thread(self.safe)
 
     async def idle(self) -> None:
         if self.__idle__ and not self.__idle__.is_set():
@@ -129,6 +127,14 @@ class Telegram(abc.ABC):
                     client.add_handler(*dispatcher)
                 finally:
                     self.handlers[name] = dispatcher
+
+    def safe(self) -> None:
+        for key in os.environ.keys():
+            if key != "STICKER_FILE_ID":
+                self.config.pop(key.lower, None)
+
+        for cred in ["API_ID", "API_HASH", "BOT_TOKEN", "SESSION_STRING"]:
+            os.environ.pop(cred, None)
 
     @staticmethod
     async def migrate(client: Client, storage: FileStorage) -> None:
