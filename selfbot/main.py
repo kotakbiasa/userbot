@@ -1,8 +1,9 @@
 import asyncio
 import logging
+import os
 
 import aiorun
-import dotenv
+from dotenv import dotenv_values
 
 from .core import Selfbot
 
@@ -17,7 +18,9 @@ for lib in ["pyrogram", "httpx"]:
 
 
 def run() -> None:
-    config = dotenv.dotenv_values()
+    config = dotenv_values()
+    if not config:
+        config = {k.lower(): v for k, v in os.environ.items()}
 
     try:
         import uvloop
