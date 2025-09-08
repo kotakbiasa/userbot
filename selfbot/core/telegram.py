@@ -24,10 +24,6 @@ from pyrogram.raw.types import (
 )
 from pyrogram.storage import FileStorage
 from pyrogram.types import LinkPreviewOptions, Update
-from pytgcalls import PyTgCalls
-from pytgcalls.pytgcalls_session import PyTgCallsSession
-
-PyTgCallsSession.notice_displayed = True
 
 commons = {
     "workdir": "./selfbot/storage/",
@@ -45,8 +41,6 @@ class Telegram(abc.ABC):
 
         self.app = self._app
         self.bot = self._bot
-
-        self.tgc = PyTgCalls(self.app, workers=1, cache_duration=900)
 
         super().__init__(**kwargs)
 
@@ -78,9 +72,7 @@ class Telegram(abc.ABC):
                 )
 
         await asyncio.gather(self.app.start(), self.bot.start())
-        await asyncio.gather(
-            self.app.resolve_peer(self.bot.me.username), self.tgc.start()
-        )
+        await self.app.resolve_peer(self.bot.me.username)
 
         await asyncio.to_thread(self.loads)
         self.loop.create_task(self.dispatch("startup"))
@@ -135,15 +127,6 @@ class Telegram(abc.ABC):
                     client.add_handler(*dispatcher)
                 finally:
                     self.handlers[name] = dispatcher
-
-        for client in [self.app, self.bot]:
-            for group in client.dispatcher.groups.keys():
-                if group != -1:
-                    try:
-                        for handler in client.dispatcher.groups[group]:
-                            client.remove_handler(handler, group)
-                    finally:
-                        client.dispatcher.groups.pop(group, None)
 
     def safe(self) -> None:
         for key in os.environ.keys():
