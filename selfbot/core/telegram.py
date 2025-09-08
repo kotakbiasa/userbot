@@ -79,6 +79,7 @@ class Telegram(abc.ABC):
 
         for cred in ["api_id", "api_hash", "bot_token", "session_string"]:
             self.config.pop(cred, None)
+            os.environ.pop(cred.upper(), None)
 
     async def idle(self) -> None:
         if self.__idle__ and not self.__idle__.is_set():
@@ -164,13 +165,18 @@ class Telegram(abc.ABC):
 
     @property
     def _bot(self) -> Client:
-        client = Client(
-            "bot",
-            api_id=self.config["api_id"],
-            api_hash=self.config["api_hash"],
-            bot_token=self.config["bot_token"],
-            **commons,
-        )
+        kwargs = {"name": "bot"}
+
+        if not os.path.exists(f"{commons['workdir']}/{kwargs['name']}.session"):
+            kwargs.update(
+                {
+                    "api_id": self.config["api_id"],
+                    "api_hash": self.config["api_hash"],
+                    "bot_token": self.config["bot_token"],
+                }
+            )
+
+        client = Client(**kwargs, **commons)
 
         client.dispatcher.update_parsers = {
             k: v
