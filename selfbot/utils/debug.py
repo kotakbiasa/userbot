@@ -68,13 +68,7 @@ def fmtexc() -> str:
         fmt += f":\n  {exc._str}"
 
     ftb = traceback.format_list(
-        [
-            frame
-            for frame in exc.stack
-            if not any(
-                name in frame.filename for name in ["<string>", "/selfbot/", "/usr/"]
-            )
-        ]
+        [frame for frame in exc.stack if "/site-packages/" in frame.filename]
     )
 
     if ftb:
