@@ -29,7 +29,6 @@ class Debug(Module):
     name = "Debug"
 
     async def on_startup(self) -> None:
-        self.calls = None
         self.tasks = {}
         self.scope = {
             "asyncio": asyncio,
@@ -52,34 +51,6 @@ class Debug(Module):
             "http": self.client.http,
             "loop": self.client.loop,
         }
-
-        try:
-            import pytgcalls
-        except ImportError:
-            self.logger.error("Skip PyTgCalls Client")
-        else:
-            from pytgcalls.pytgcalls_session import PyTgCallsSession
-
-            PyTgCallsSession.notice_displayed = True
-
-            self.calls = pytgcalls.PyTgCalls(
-                self.client.app, workers=1, cache_duration=900
-            )
-            await self.calls.start()
-        finally:
-            # https://github.com/pytgcalls/pytgcalls/blob/9e4b1abc6a5dfe19b29821d91b9008bf5d515807/pytgcalls/mtproto/pyrogram_client.py#L100
-            if not self.calls:
-                delattr(self, "calls")
-            else:
-                group = -999
-
-                if group in self.client.app.dispatcher.groups:
-                    for handler in self.client.app.dispatcher.groups[group]:
-                        self.client.app.remove_handler(handler, group)
-
-                    self.client.app.dispatcher.groups.pop(group, None)
-
-                self.scope["calls"] = self.calls
 
     @listener.handler(filters.regex(r"^#\s+.*"), 1)
     async def on_message(self, event: Message) -> None:
