@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import datetime
 import html
 import io
 import re
@@ -152,7 +153,7 @@ class Debug(Module):
                 aexec(code, self.scope), name=f"{msg.chat.id}/{msg.id}"
             )
 
-            sec = self.client.loop.time()
+            now = datetime.datetime.now()
 
             try:
                 res = await asyncio.wait_for(
@@ -163,7 +164,7 @@ class Debug(Module):
             else:
                 out = (buf.getvalue() or str(res)).rstrip()
             finally:
-                rtt = fmtsec(sec)
+                rtt = fmtsec(now)
                 self.tasks.pop(event.inline_message_id, None)
 
         if code.endswith("#"):

@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import re
 
 from pyrogram import filters
@@ -94,7 +95,7 @@ class Purge(Module):
             cid, ids = await self.data.get()
 
         res = 0
-        sec = self.client.loop.time()
+        now = datetime.datetime.now()
 
         for chunk in [ids[i : i + 100] for i in range(0, len(ids), 100)]:
             res += await self.client.app.delete_messages(cid, chunk)
@@ -104,6 +105,6 @@ class Purge(Module):
 
         await event.edit_message_text(
             f"<code>{res} Message{'' if res == 1 else 's'} Purged</code>"
-            f"\n\n<b>{fmtsec(sec)}</b>",
+            f"\n\n<b>{fmtsec(now)}</b>",
             reply_markup=ikm(("Close", b"0")),
         )

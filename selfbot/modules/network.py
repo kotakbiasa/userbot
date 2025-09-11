@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import re
 
 from pyrogram import Client, filters
@@ -55,17 +56,17 @@ class Network(Module):
     async def edit(self, event: Update) -> None:
         await event.edit_message_text("<code>Calculating...</code>")
 
-        sec, (app, bot) = self.client.loop.time(), await asyncio.gather(
+        now, (app, bot) = datetime.datetime.now(), await asyncio.gather(
             self.ping(self.client.app), self.ping(event._client)
         )
 
         await event.edit_message_text(
-            fmtstr("Selfbot Latency", {"App": app, "Bot": bot}, fmtsec(sec)),
+            fmtstr("Selfbot Latency", {"App": app, "Bot": bot}, fmtsec(now)),
             reply_markup=ikm([[("Ping!", b"ping")], [("Close", b"0")]]),
         )
 
     async def ping(self, client: Client) -> str:
-        sec = self.client.loop.time()
+        now = datetime.datetime.now()
         await client.invoke(Ping(ping_id=client.rnd_id()))
 
-        return f"{fmtsec(sec)}"
+        return f"{fmtsec(now)}"

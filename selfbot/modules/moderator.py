@@ -137,20 +137,20 @@ class Moderator(Module):
                 minutes=1
             )
 
-        sec = self.client.loop.time()
+        now = datetime.datetime.now()
 
         try:
             await coro(**params)
         except RPCError as e:
             await event.edit_message_text(
-                f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(sec)}</b>",
+                f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
                 reply_markup=ikm(("Close", b"0")),
             )
         else:
             text = fmtstr(
                 f"<a href='tg://user?id={target}'>User</a> {self.verb(action, 'past')}",
                 {"ID": target, "Reason": data["reason"] or "N/A", "Duration": unit},
-                fmtsec(sec),
+                fmtsec(now),
             )
             await event.edit_message_text(text, reply_markup=ikm(("Close", b"0")))
 

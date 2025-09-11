@@ -103,7 +103,7 @@ class Schedule(Module):
         }
 
         res = 0
-        sec = self.client.loop.time()
+        now = datetime.datetime.now()
 
         if data["loop"]:
             for i in range(1, int(data["loop"]) + 1):
@@ -133,7 +133,7 @@ class Schedule(Module):
                     "Failed": int(data["loop"]) - res,
                     "Content": data["text"],
                 },
-                fmtsec(sec),
+                fmtsec(now),
             )
             await event.edit_message_text(text, reply_markup=ikm(("Close", b"0")))
 
@@ -159,6 +159,6 @@ class Schedule(Module):
                         "Period": f"{data['time']} {data['unit']}",
                         "Content": data["text"],
                     },
-                    fmtsec(sec),
+                    fmtsec(now),
                 )
                 await event.edit_message_text(text, reply_markup=ikm(("Close", b"0")))

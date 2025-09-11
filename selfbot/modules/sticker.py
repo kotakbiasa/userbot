@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import re
 
 from pyrogram import filters
@@ -107,14 +108,14 @@ class Sticker(Module):
         async with self.lock:
             data = await self.data.get()
 
-        sec = self.client.loop.time()
+        now = datetime.datetime.now()
 
         if data["mode"] == "get":
             await event.edit_message_text(
                 fmtstr(
                     "List Owned Stickers",
                     [f"{k} ({v})" for k, v in self.sets.items()],
-                    fmtsec(sec),
+                    fmtsec(now),
                 ),
                 reply_markup=ikm(("Close", b"0")),
             )
@@ -147,7 +148,7 @@ class Sticker(Module):
                 last = await self.client.app.invoke(func)
             except Exception as e:
                 return await event.edit_message_text(
-                    f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(sec)}</b>",
+                    f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
                     reply_markup=ikm(("Close", b"0")),
                 )
             else:
@@ -159,7 +160,7 @@ class Sticker(Module):
                             "Emoji": data["emoji"],
                             "Source": data["source"]["name"],
                         },
-                        fmtsec(sec),
+                        fmtsec(now),
                     ),
                     "reply_markup": ikm(
                         [

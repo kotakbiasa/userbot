@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import re
 
 from pyrogram import filters
@@ -96,7 +97,7 @@ class Telegraph(Module):
             data = await self.data.get()
 
         url = None
-        sec = self.client.loop.time()
+        now = datetime.datetime.now()
 
         try:
             res = await self.graph.create_page(
@@ -108,7 +109,7 @@ class Telegraph(Module):
             url = res["url"]
         except Exception as e:
             await event.edit_message_text(
-                f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(sec)}</b>",
+                f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
                 reply_markup=ikm(("Close", b"0")),
             )
         else:
@@ -118,7 +119,7 @@ class Telegraph(Module):
                     "Title": data["title"] or "N/A",
                     "Content": htmltag.sub("", data["content"])[:16],
                 },
-                fmtsec(sec),
+                fmtsec(now),
             )
             await event.edit_message_text(
                 text, reply_markup=ikm([("Copy", "copy", url), ("Open", "url", url)])

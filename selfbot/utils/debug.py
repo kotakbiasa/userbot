@@ -1,8 +1,6 @@
 import ast
 import asyncio
 import inspect
-import sys
-import traceback
 
 
 async def aexec(code: str, scopes: dict) -> any:
@@ -58,20 +56,3 @@ async def shell(cmd: str) -> str:
             pass
         else:
             await proc.wait()
-
-
-def fmtexc() -> str:
-    exc = traceback.TracebackException(*sys.exc_info())
-    fmt = exc.exc_type.__name__
-
-    if exc._str:
-        fmt += f":\n  {exc._str}"
-
-    ftb = traceback.format_list(
-        [frame for frame in exc.stack if "/site-packages/" in frame.filename]
-    )
-
-    if ftb:
-        fmt += f"\n\nTraceback:\n{''.join(ftb)}"
-
-    return fmt
