@@ -15,7 +15,7 @@ from pyrogram.types import (
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtstr, ikm, shell
+from selfbot.utils import fmtsec, fmtstr, ikm, shell
 
 pattern = re.compile(r"^r$")
 
@@ -24,8 +24,6 @@ class System(Module):
     name = "System"
 
     async def on_startup(self) -> None:
-        date = datetime.datetime.now()
-
         def get_id(file: str) -> tuple | None:
             if os.path.exists(file):
                 with open(file, "r") as f:
@@ -39,9 +37,6 @@ class System(Module):
 
         data = await asyncio.to_thread(get_id, "r.txt")
         if data:
-            secs = int(
-                (date - datetime.datetime.fromtimestamp(float(data[1]))).total_seconds()
-            )
             text = fmtstr(
                 "Selfbot Restarted",
                 {
@@ -50,7 +45,7 @@ class System(Module):
                     "Handlers": len(self.client.handlers),
                     "Listeners": len(self.client.listeners),
                 },
-                f"{secs} s",
+                fmtsec(datetime.datetime.fromtimestamp(float(data[1]))),
             )
             await self.client.bot.edit_inline_text(
                 data[0], text, reply_markup=ikm(("Close", b"0"))
@@ -101,7 +96,7 @@ class System(Module):
                     repo=self.client.config.get(
                         "repo", "https://github.com/DeltaUniverse/selfbot"
                     ),
-                    branch=self.client.config.get("branch", "debug"),
+                    branch=self.client.config.get("branch", "staging"),
                 )
             ),
         )
