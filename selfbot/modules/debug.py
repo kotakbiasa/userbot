@@ -86,7 +86,9 @@ class Debug(Module):
         if event.from_user.id != self.client.app.me.id:
             return await event.answer("Who are You?", show_alert=True, cache_time=900)
 
-        msg, cmd = await self.msgs(event)
+        (msg, cmd), _ = await asyncio.gather(
+            self.msgs(event), event.answer(cache_time=0)
+        )
 
         if event.data == "0":
             task = next(
