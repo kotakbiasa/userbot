@@ -24,7 +24,7 @@ class System(Module):
     name = "System"
 
     cmds = "r"
-    desc = ["Restart Selfbot"]
+    desc = "Restart Selfbot"
 
     async def on_startup(self) -> None:
         def get_id(file: str) -> tuple | None:

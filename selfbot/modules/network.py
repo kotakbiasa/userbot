@@ -25,7 +25,7 @@ class Network(Module):
     name = "Network"
 
     cmds = "ping"
-    desc = ["Selfbot Latency"]
+    desc = "Selfbot Latency"
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message(self, event: Message) -> None:

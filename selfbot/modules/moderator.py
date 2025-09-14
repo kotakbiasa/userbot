@@ -33,15 +33,15 @@ pattern = re.compile(
 class Moderator(Module):
     name = "Moderator"
 
-    cmds = "{action} {target} *{n}{unit} *{-r reason}"
-    desc = [
-        "Action: ban, kick, mute, unban, unmute",
-        "Target: User ID or Username or Reply to User",
-        "*     : Optional",
-        "N     : 1 - 5",
-        "Unit  : (m: minute, h: hour, d: day, w: week)",
-        "Reason: String",
-    ]
+    cmds = "{action} {target} *{n}{unit} *{(-r) reason}"
+    desc = {
+        "action": "[ban, kick, mute, unban, unmute]",
+        "target": "User ID or Username or Reply to User",
+        "*": "Optional",
+        "n": "1 - 99",
+        "unit": "{m: minute, h: hour, d: day, w: week}",
+        "reason": "String",
+    }
 
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()

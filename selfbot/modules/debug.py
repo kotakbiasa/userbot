@@ -30,7 +30,7 @@ class Debug(Module):
     name = "Debug"
 
     cmds = "{code} #"
-    desc = ["Code: Python Code"]
+    desc = {"code": "Python Code"}
 
     async def on_startup(self) -> None:
         self.args = {

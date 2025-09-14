@@ -10,7 +10,7 @@ class Module:
     hide: bool = False
 
     cmds: str = ""
-    desc: list = []
+    desc: any = None
 
     def __init__(self, client: "Selfbot") -> None:
         self.client = client

@@ -38,10 +38,9 @@ class Main(Module):
 
             self.maps[name] = len(self.ikbs)
 
-            desc = "\n".join([f"    • <code>{i}</code>" for i in mod.desc])
             self.mods[name] = (
                 f"<b>{mod.name}</b>\n\n  <b>Pattern</b>\n    <code>{mod.cmds}</code>"
-                f"\n\n{desc}"
+                f"\n\n{self.fmtmod(mod.desc)}"
             )
 
             page.append((mod.name, f"help/mod/{name}"))
@@ -129,3 +128,15 @@ class Main(Module):
         ikb.append(nav)
 
         return ikb
+
+    @staticmethod
+    def fmtmod(data: any) -> str:
+        if isinstance(data, dict):
+            res = []
+
+            for k in list(data.keys()):
+                res.append(f"   • <b>{k}</b>\n        <code>{data[k]}</code>")
+
+            return "\n\n".join(res)
+
+        return f"    • <b>{data}</b>"
