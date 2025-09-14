@@ -57,6 +57,7 @@ class Network(Module):
         if event.from_user.id != self.client.app.me.id:
             return await event.answer("Who are You?", show_alert=True, cache_time=900)
 
+        await event.answer(cache_time=0)
         await self.edit(event)
 
     async def edit(self, event: Update) -> None:
