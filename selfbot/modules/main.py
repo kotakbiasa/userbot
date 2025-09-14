@@ -114,7 +114,7 @@ class Main(Module):
         ikbs = len(self.ikbs)
         page = max(0, min(page, ikbs - 1))
 
-        ikb = [self.ikbs[page]]
+        ikb = self.ikbs[page][:]
         ikb.append([("Page Info", f"help/info/{page}")])
 
         nav = []
@@ -124,7 +124,7 @@ class Main(Module):
         nav.append(("Close", b"0"))
 
         if page < ikbs - 1:
-            nav.append((f"({page+2}) »", f"help/page/{page+1}"))
+            nav.append((f"({page + 2}) »", f"help/page/{page + 1}"))
 
         ikb.append(nav)
 
