@@ -91,7 +91,7 @@ class Main(Module):
         act, val = pattern.match(event.data).groups()
 
         if act == "info":
-            await event.answer(
+            return await event.answer(
                 f"Page {int(val) + 1} of {len(self.ikb)}",
                 show_alert=True,
                 cache_time=900,
