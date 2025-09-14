@@ -31,7 +31,11 @@ class Telegraph(Module):
     name = "Telegraph"
 
     cmds = "graph *{-t title} {content}"
-    desc = "*      : Optional\nTitle  : String\nContent: String or Reply to Content"
+    desc = [
+        "*      : Optional",
+        "Title  : String",
+        "Content: String or Reply to Content",
+    ]
 
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()
