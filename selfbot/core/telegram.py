@@ -133,13 +133,14 @@ class Telegram(abc.ABC):
                     self.handlers[name] = dispatcher
 
     def safe(self) -> None:
-        for key in os.environ.keys():
-            if key != "STICKER_FILE_ID":
-                self.config.pop(key.lower(), None)
+        self.config.clear()
 
-        for key in os.environ:
+        for key in list(os.environ):
             if key.endswith("_SESSION_STRING"):
                 os.environ.pop(key)
+
+            elif key == "STICKER_FILE_ID":
+                self.config[key.lower()] = os.environ[key]
 
     @property
     def _app(self) -> Client:
