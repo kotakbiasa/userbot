@@ -40,7 +40,7 @@ class Main(Module):
 
             desc = "\n".join([f"    • <code>{i}</code>" for i in mod.desc])
             self.mods[name] = (
-                f"<b>{mod.name}\n\n  <b>Pattern<b> </code>{mod.cmds}</code>\n{desc}"
+                f"<b>{mod.name}\n\n  <b>Pattern</b> <code>{mod.cmds}</code>\n{desc}"
             )
 
             page.append((mod.name, f"help/mod/{name}"))
@@ -95,12 +95,12 @@ class Main(Module):
         if act == "mod":
             page = self.maps.get(val, 0)
             await event.edit_message_text(
-                self.mods[value],
+                self.mods[val],
                 reply_markup=ikm([("Back", f"help/page/{page}"), ("Close", b"0")]),
             )
 
         elif act == "page":
-            await event.edit_message_reply_text(
+            await event.edit_message_text(
                 "<b>Selfbot Modules</b>", reply_markup=ikm(self.build(int(val)))
             )
 
@@ -110,8 +110,8 @@ class Main(Module):
             )
 
     def build(self, page: int = 0) -> list:
-        total = len(self.ikbs)
-        max(0, min(page, total - 1))
+        ikbs = len(self.ikbs)
+        page = max(0, min(page, ikbs - 1))
 
         ikb = [self.ikbs[page]]
         ikb.append([("Page Info", f"help/info/{page}")])
