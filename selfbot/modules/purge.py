@@ -23,7 +23,7 @@ class Purge(Module):
     name = "Purge"
 
     cmds = "{action} {limit}"
-    desc = "Action: purge, purgeme\n" "Limit : 1 - 999"
+    desc = "Action: purge, purgeme\nLimit : 1 - 999"
 
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()

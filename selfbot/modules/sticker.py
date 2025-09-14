@@ -33,7 +33,7 @@ class Sticker(Module):
     name = "Sticker"
 
     cmds = "{mode}sticker {name} {emoji}"
-    desc = "Mode : add, get, set\n" "Name : String\n" "Emoji: String"
+    desc = "Mode : add, get, set\nName : String\nEmoji: String"
 
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()
