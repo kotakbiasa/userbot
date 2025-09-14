@@ -35,7 +35,7 @@ class Moderator(Module):
 
     cmds = "{action} {target} *{n}{unit} *{-r reason}"
     desc = (
-        "Action : ban, kick, mute, unban, unmute"
+        "Action : ban, kick, mute, unban, unmute\n"
         "Target : User ID or Username or Reply to User\n"
         "*      : Optional\n"
         "N      : 1 - 5\n"
