@@ -64,17 +64,15 @@ class Telegram(abc.ABC):
             self.logger.info("Client Stopped")
 
     async def start(self) -> None:
-        async def migrate(name: str, session_string: str) -> None:
-            async with Client(name, session_string=session_string) as client:
-                await self._migrate(client)
+        async def migrate(name: str, key: str) -> None:
+            if self.config.get(key):
+                async with Client(name, session_string=self.config[key]) as client:
+                    await self._migrate(client)
 
-        if self.config.get("app_session_string", None) and self.config.get(
-            "bot_session_string", None
-        ):
-            await asyncio.gather(
-                migrate(self.app.name, self.config["app_session_string"]),
-                migrate(self.bot.name, self.config["bot_session_string"]),
-            )
+        await asyncio.gather(
+            migrate(self.app.name, "app_session_string"),
+            migrate(self.bot.name, "bot_session_string"),
+        )
 
         await asyncio.gather(self.app.start(), self.bot.start())
         await self.app.resolve_peer(self.bot.me.username)
