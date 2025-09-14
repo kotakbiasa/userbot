@@ -27,7 +27,7 @@ class Help(Module):
         self.mod = {}
 
         ikb = []
-        for mod in self.modules.values():
+        for mod in self.client.modules.values():
             if not mod.hide:
                 self.mod[mod.name.lower()] = f"{mod.name}\n\n{mod.cmds}\n\n{mod.desc}"
                 ikb.append((mod.name, f"help/{mod.name.lower()}"))
