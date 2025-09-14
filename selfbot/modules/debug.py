@@ -92,7 +92,7 @@ class Debug(Module):
                 None,
             )
             if task:
-                return tasks[event.inline_message_id].cancel()
+                return task.cancel()
 
             if msg:
                 if msg.outgoing or (msg.from_user and msg.from_user.is_self):
