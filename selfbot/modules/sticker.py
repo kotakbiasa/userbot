@@ -133,7 +133,7 @@ class Sticker(Module):
             func = None
 
             if data["mode"] == "add":
-                text = "Sticker Added to Set"
+                text = "Added to Sticker Set"
                 func = AddStickerToSet(
                     stickerset=InputStickerSetShortName(short_name=data["name"]),
                     sticker=sticker,

@@ -128,7 +128,7 @@ class Schedule(Module):
 
             await event.edit_message_text(
                 fmtstr(
-                    "Schedule Message",
+                    "Scheduled Message",
                     {
                         "Self": bool(data["self"]),
                         "Repeat": data["loop"],
@@ -158,7 +158,7 @@ class Schedule(Module):
             else:
                 await event.edit_message_text(
                     fmtstr(
-                        "Schedule Message",
+                        "Scheduled Message",
                         {
                             "Self": bool(data["self"]),
                             "Period": f"{data['time']} {data['unit']}",
