@@ -22,6 +22,9 @@ pattern = re.compile(r"^purge(me)?(\s(\d{1,3}))?$")
 class Purge(Module):
     name = "Purge"
 
+    cmds = "{action} {limit}"
+    desc = "Action: purge, purgeme\n" "Limit : 1 - 999"
+
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()

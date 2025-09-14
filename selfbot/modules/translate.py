@@ -24,6 +24,9 @@ pattern = re.compile(
 class Translate(Module):
     name = "Translate"
 
+    cmds = "tr {lang} {content}"
+    desc = "Lang   : Language Code\n" "Content: String or Reply to Content"
+
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()

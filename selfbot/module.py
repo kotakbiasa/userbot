@@ -7,6 +7,10 @@ if TYPE_CHECKING:
 
 class Module:
     name: str = "Unnamed"
+    hide: bool = False
+
+    cmds: str = ""
+    desc: str = ""
 
     def __init__(self, client: "Selfbot") -> None:
         self.client = client

@@ -30,6 +30,16 @@ pattern = re.compile(
 class Schedule(Module):
     name = "Schedule"
 
+    cmds = "{action} {n}{unit} *{repeat} {text}"
+    desc = (
+        "Action: sch, schme\n"
+        "N     : 1 - 99\n"
+        "Unit  : (m: minute, h: hour, d: day, w: week)\n"
+        "*     : Optional\n"
+        "Repeat: 1 - 99\n"
+        "Text  : String"
+    )
+
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()

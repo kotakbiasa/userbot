@@ -24,6 +24,9 @@ pattern = re.compile(r"^ping$")
 class Network(Module):
     name = "Network"
 
+    cmds = "ping"
+    desc = "Selfbot Latency"
+
     @listener.handler(filters.regex(pattern), 1)
     async def on_message(self, event: Message) -> None:
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "ping")
