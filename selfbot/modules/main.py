@@ -16,7 +16,7 @@ from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import ikm
 
-pattern = re.compile(r"^main/?(mod|info|page)?/?(\d{1}|[a-z]+)?$")
+pattern = re.compile(r"^help/?(mod|info|page)?/?(\d{1}|[a-z]+)?$")
 
 
 class Main(Module):
@@ -44,7 +44,7 @@ class Main(Module):
                 f"\n\n{desc}"
             )
 
-            page.append((mod.name, f"main/mod/{name}"))
+            page.append((mod.name, f"help/mod/{name}"))
             if len(page) == 4:
                 self.ikbs.append([page[i : i + 2] for i in range(0, 4, 2)])
                 page = []
@@ -95,7 +95,7 @@ class Main(Module):
             page = self.maps.get(val, 0)
             await event.edit_message_text(
                 self.mods[val],
-                reply_markup=ikm([("Back", f"main/page/{page}"), ("Close", b"0")]),
+                reply_markup=ikm([("Back", f"help/page/{page}"), ("Close", b"0")]),
             )
 
         elif act == "page":
@@ -115,16 +115,16 @@ class Main(Module):
         page = max(0, min(page, ikbs - 1))
 
         ikb = [self.ikbs[page]]
-        ikb.append([("Page Info", f"main/info/{page}")])
+        ikb.append([("Page Info", f"help/info/{page}")])
 
         nav = []
         if page > 0:
-            nav.append((f"« ({page})", f"main/page/{page - 1}"))
+            nav.append((f"« ({page})", f"help/page/{page - 1}"))
 
         nav.append(("Close", b"0"))
 
         if page < ikbs - 1:
-            nav.append((f"({page+2}) »", f"main/page/{page+1}"))
+            nav.append((f"({page+2}) »", f"help/page/{page+1}"))
 
         ikb.append(nav)
 
