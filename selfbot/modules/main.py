@@ -40,13 +40,13 @@ class Main(Module):
 
             desc = "\n".join([f"    • <code>{i}</code>" for i in mod.desc])
             self.mods[name] = (
-                f"<b>{mod.name}\n\n  <b>Pattern</b> <code>{mod.cmds}</code>\n{desc}"
+                f"<b>{mod.name}</b>\n\n  <b>Pattern</b> <code>{mod.cmds}</code>\n{desc}"
             )
 
             page.append((mod.name, f"help/mod/{name}"))
             if len(page) == 2:
                 self.ikbs.append(page)
-                page.clear()
+                page = []
 
         if page:
             self.ikbs.append(page)
@@ -88,9 +88,7 @@ class Main(Module):
 
     @listener.handler(filters.regex(pattern), 4)
     async def on_callback_query(self, event: CallbackQuery) -> None:
-        match = pattern.match(event.data)
-
-        act, val = match.groups()
+        act, val = pattern.match(event.data).groups()
 
         if act == "mod":
             page = self.maps.get(val, 0)
@@ -106,7 +104,9 @@ class Main(Module):
 
         elif act == "info":
             await event.answer(
-                f"Page {val + 1} of {len(self.ikbs)}", show_alert=True, cache_time=900
+                f"Page {int(val) + 1} of {len(self.ikbs)}",
+                show_alert=True,
+                cache_time=900,
             )
 
     def build(self, page: int = 0) -> list:
@@ -122,7 +122,7 @@ class Main(Module):
 
         nav.append(("Close", b"0"))
 
-        if page < total - 1:
+        if page < ikbs - 1:
             nav.append((f"({page+2}) »", f"help/page/{page+1}"))
 
         ikb.append(nav)
