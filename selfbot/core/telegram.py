@@ -31,6 +31,7 @@ commons = {
     "sleep_threshold": 900,
     "max_message_cache_size": 0,
     "link_preview_options": LinkPreviewOptions(is_disabled=True),
+    "no_joined_notifications": True,
 }
 
 
@@ -63,21 +64,24 @@ class Telegram(abc.ABC):
             self.logger.info("Client Stopped")
 
     async def start(self) -> None:
-        if not os.path.exists(f"{commons['workdir']}/{self.app.name}.session"):
-            async with Client(
-                self.app.name, session_string=self.config["session_string"]
-            ) as client:
-                await self.migrate(
-                    client, FileStorage(client.name, pathlib.Path(commons["workdir"]))
-                )
+        async def migrate(name: str, session_string: str) -> None:
+            if not os.path.exists(f"{commons['workdir']}/{name}.session"):
+                async with Client(name, session_string=session_string) as client:
+                    await self._migrate(client)
+
+        await asyncio.gather(
+            migrate(self.app.name, self.config["app_session_string"]),
+            migrate(self.bot.name, self.config["bot_session_string"]),
+        )
 
         await asyncio.gather(self.app.start(), self.bot.start())
         await self.app.resolve_peer(self.bot.me.username)
 
-        await asyncio.to_thread(self.loads)
-        self.loop.create_task(self.dispatch("startup"))
+        await asyncio.gather(
+            asyncio.to_thread(self.loads), asyncio.to_thread(self.safe)
+        )
 
-        await asyncio.to_thread(self.safe)
+        self.loop.create_task(self.dispatch("startup"))
 
     async def idle(self) -> None:
         if self.__idle__ and not self.__idle__.is_set():
@@ -133,11 +137,27 @@ class Telegram(abc.ABC):
             if key != "STICKER_FILE_ID":
                 self.config.pop(key.lower(), None)
 
-        for cred in ["API_ID", "API_HASH", "BOT_TOKEN", "SESSION_STRING"]:
-            os.environ.pop(cred, None)
+        for key in os.environ:
+            if key.endswith("_SESSION_STRING"):
+                os.environ.pop(key)
+
+    @property
+    def _app(self) -> Client:
+        return self._build("app", updates=(UpdateNewChannelMessage, UpdateNewMessage))
+
+    @property
+    def _bot(self) -> Client:
+        return self._build(
+            "bot",
+            updates=(
+                UpdateBotInlineQuery,
+                UpdateBotInlineSend,
+                UpdateInlineBotCallbackQuery,
+            ),
+        )
 
     @staticmethod
-    async def migrate(client: Client, storage: FileStorage) -> None:
+    async def _migrate(client: Client) -> None:
         attrs = [
             "dc_id",
             "api_id",
@@ -147,49 +167,28 @@ class Telegram(abc.ABC):
             "user_id",
             "is_bot",
         ]
+
         creds = await asyncio.gather(
             *[getattr(client.storage, attr)() for attr in attrs]
         )
 
-        await storage.open()
+        files = FileStorage(client.name, pathlib.Path(commons["workdir"]))
+        await files.open()
+
         await asyncio.gather(
-            *[getattr(storage, attr)(cred) for attr, cred in zip(attrs, creds)]
+            *[getattr(files, attr)(cred) for attr, cred in zip(attrs, creds)]
         )
 
-    @property
-    def _app(self) -> Client:
-        client = Client("app", no_joined_notifications=True, **commons)
+    @staticmethod
+    def _build(name: str, updates: tuple = ()) -> Client:
+        client = Client(name, **commons)
 
-        client.dispatcher.update_parsers = {
-            k: v
-            for k, v in client.dispatcher.update_parsers.items()
-            if k in (UpdateNewChannelMessage, UpdateNewMessage)
-        }
+        if updates:
+            client.dispatcher.update_parsers = {
+                k: v
+                for k, v in client.dispatcher.update_parsers.items()
+                if k in updates
+            }
+
         setattr(client, "workers", len(client.dispatcher.update_parsers))
-
-        return client
-
-    @property
-    def _bot(self) -> Client:
-        kwargs = {"name": "bot"}
-
-        if not os.path.exists(f"{commons['workdir']}/{kwargs['name']}.session"):
-            kwargs.update(
-                {
-                    "api_id": self.config["api_id"],
-                    "api_hash": self.config["api_hash"],
-                    "bot_token": self.config["bot_token"],
-                }
-            )
-
-        client = Client(**kwargs, **commons)
-
-        client.dispatcher.update_parsers = {
-            k: v
-            for k, v in client.dispatcher.update_parsers.items()
-            if k
-            in (UpdateBotInlineQuery, UpdateBotInlineSend, UpdateInlineBotCallbackQuery)
-        }
-        setattr(client, "workers", len(client.dispatcher.update_parsers))
-
         return client
