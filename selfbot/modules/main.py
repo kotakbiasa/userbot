@@ -83,7 +83,7 @@ class Main(Module):
     @listener.handler(filters.regex(pattern), 3)
     async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
         await event.edit_message_text(
-            "<b>Selfbot Modules</b>", reply_markup=ikm(self.ikb)
+            "<b>Selfbot Modules</b>", reply_markup=ikm(self.build(0))
         )
 
     @listener.handler(filters.regex(pattern), 4)
@@ -93,7 +93,7 @@ class Main(Module):
         act, val = match.groups()
 
         if act == "mod":
-            page = self.maps.get(value, 0)
+            page = self.maps.get(val, 0)
             await event.edit_message_text(
                 self.mods[value],
                 reply_markup=ikm([("Back", f"help/page/{page}"), ("Close", b"0")]),
