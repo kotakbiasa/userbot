@@ -30,27 +30,13 @@ class Debug(Module):
     name = "Debug"
 
     async def on_startup(self) -> None:
-        self.tasks = {}
-        self.scope = {
+        self.args = {
             "asyncio": asyncio,
-            "io": io,
-            "re": re,
             "pyrogram": pyrogram,
-            "filters": filters,
-            "enums": pyrogram.enums,
-            "types": pyrogram.types,
-            "utils": pyrogram.utils,
-            "raw": pyrogram.raw,
             "selfbot": selfbot,
-            "aexec": aexec,
             "shell": shell,
-            "ids": ids,
-            "ikm": ikm,
-            "self": self,
-            "app": self.client.app,
-            "bot": self.client.bot,
-            "http": self.client.http,
-            "loop": self.client.loop,
+            "self": self.client,
+            "mod": self,
         }
 
     @listener.handler(filters.regex(pattern), 1)
@@ -97,14 +83,16 @@ class Debug(Module):
         msg, cmd = await self.msgs(event)
 
         if event.data == "0":
-            if event.inline_message_id in self.tasks:
-                self.tasks[event.inline_message_id].cancel()
-            else:
-                if msg:
-                    if msg.outgoing or (msg.from_user and msg.from_user.is_self):
-                        self.client.loop.create_task(msg.delete(True))
+            tasks = {task.get_name(): task for task in asyncio.all_tasks()}
 
-                await cmd.delete(True)
+            if tasks.get(event.inline_message_id, None):
+                return tasks[event.inline_message_id].cancel()
+
+            if msg:
+                if msg.outgoing or (msg.from_user and msg.from_user.is_self):
+                    self.client.loop.create_task(msg.delete(True))
+
+            await cmd.delete(True)
 
         elif event.data == "1":
             if not msg:
@@ -135,7 +123,7 @@ class Debug(Module):
             code = msg.content.markdown
             ikb[0].insert(0, ("Run", "1"))
 
-        self.scope.update(
+        self.args.update(
             {
                 "msg": msg,
                 "rep": msg.reply_to_message,
@@ -152,23 +140,19 @@ class Debug(Module):
 
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            self.tasks[event.inline_message_id] = self.client.loop.create_task(
-                aexec(code, self.scope), name=f"{msg.chat.id}/{msg.id}"
+            fut = self.client.loop.create_task(
+                aexec(code, self.args), name=event.inline_message_id
             )
-
             now = datetime.datetime.now()
 
             try:
-                res = await asyncio.wait_for(
-                    self.tasks[event.inline_message_id], timeout=900
-                )
+                res = await asyncio.wait_for(fut, timeout=900)
             except (asyncio.CancelledError, asyncio.TimeoutError, Exception):
                 out = fmtexc()
             else:
                 out = (buf.getvalue() or str(res)).rstrip()
             finally:
                 rtt = fmtsec(now)
-                self.tasks.pop(event.inline_message_id, None)
 
         if code.endswith("#"):
             return
