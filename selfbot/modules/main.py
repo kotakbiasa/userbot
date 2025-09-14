@@ -90,9 +90,16 @@ class Main(Module):
     async def on_callback_query(self, event: CallbackQuery) -> None:
         act, val = pattern.match(event.data).groups()
 
-        if act == "mod":
-            await event.answer(cache_time=0)
+        if act == "info":
+            await event.answer(
+                f"Page {int(val) + 1} of {len(self.ikb)}",
+                show_alert=True,
+                cache_time=900,
+            )
 
+        await event.answer(cache_time=0)
+
+        if act == "mod":
             page = self.map.get(val, 0)
             await event.edit_message_text(
                 self.mod[val],
@@ -100,17 +107,8 @@ class Main(Module):
             )
 
         elif act == "page":
-            await event.answer(cache_time=0)
-
             await event.edit_message_text(
                 "<b>Selfbot Modules</b>", reply_markup=ikm(self.build(int(val)))
-            )
-
-        elif act == "info":
-            await event.answer(
-                f"Page {int(val) + 1} of {len(self.ikb)}",
-                show_alert=True,
-                cache_time=900,
             )
 
     def build(self, page: int = 0) -> list:
