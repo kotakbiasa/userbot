@@ -30,14 +30,14 @@ pattern = re.compile(
 class Schedule(Module):
     name = "Schedule"
 
-    cmds = "{action} {n}{unit}*{*repeat} {text}"
+    cmds = "{action} {n}{unit}*{repeat} {text}"
     desc = [
-        "Action : sch, schme",
-        "N      : 1 - 99",
-        "Unit   : (m: minute, h: hour, d: day, w: week)",
-        "*      : Optional",
-        "*Repeat: (*)1 - 99",
-        "Text   : String",
+        "Action: sch, schme",
+        "N     : 1 - 99",
+        "Unit  : (m: minute, h: hour, d: day, w: week)",
+        "*     : Optional",
+        "Repeat: (*)1 - 99",
+        "Text  : String",
     ]
 
     async def on_startup(self) -> None:

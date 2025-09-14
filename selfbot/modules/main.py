@@ -95,7 +95,7 @@ class Main(Module):
             page = self.maps.get(val, 0)
             await event.edit_message_text(
                 self.mods[val],
-                reply_markup=ikm([("Back", f"help/page/{page}"), ("Close", b"0")]),
+                reply_markup=ikm([("« Back", f"help/page/{page}"), ("Close", b"0")]),
             )
 
         elif act == "page":
