@@ -32,7 +32,7 @@ pattern = re.compile(
 class Sticker(Module):
     name = "Sticker"
 
-    cmds = "{mode}sticker {name} {emoji}"
+    cmds = "{mode(sticker)} {name} {emoji}"
     desc = {"mode": "[add, get, set]", "name": "String", "emoji": "String"}
 
     async def on_startup(self) -> None:
