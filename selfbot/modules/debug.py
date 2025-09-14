@@ -83,9 +83,15 @@ class Debug(Module):
         msg, cmd = await self.msgs(event)
 
         if event.data == "0":
-            tasks = {task.get_name(): task for task in asyncio.all_tasks()}
-
-            if tasks.get(event.inline_message_id, None):
+            task = next(
+                (
+                    t
+                    for t in asyncio.all_tasks()
+                    if t.get_name() == event.inline_message_id
+                ),
+                None,
+            )
+            if task:
                 return tasks[event.inline_message_id].cancel()
 
             if msg:
