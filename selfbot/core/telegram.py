@@ -65,14 +65,16 @@ class Telegram(abc.ABC):
 
     async def start(self) -> None:
         async def migrate(name: str, session_string: str) -> None:
-            if not os.path.exists(f"{commons['workdir']}/{name}.session"):
-                async with Client(name, session_string=session_string) as client:
-                    await self._migrate(client)
+            async with Client(name, session_string=session_string) as client:
+                await self._migrate(client)
 
-        await asyncio.gather(
-            migrate(self.app.name, self.config["app_session_string"]),
-            migrate(self.bot.name, self.config["bot_session_string"]),
-        )
+        if self.config.get("app_session_string", None) and self.config.get(
+            "bot_session_string", None
+        ):
+            await asyncio.gather(
+                migrate(self.app.name, self.config["app_session_string"]),
+                migrate(self.bot.name, self.config["bot_session_string"]),
+            )
 
         await asyncio.gather(self.app.start(), self.bot.start())
         await self.app.resolve_peer(self.bot.me.username)
