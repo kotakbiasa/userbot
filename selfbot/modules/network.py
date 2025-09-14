@@ -67,6 +67,9 @@ class Network(Module):
 
     async def ping(self, client: Client) -> str:
         now = datetime.datetime.now()
-        await client.invoke(Ping(ping_id=client.rnd_id()))
+        await client.invoke(Ping(ping_id=0))
+        res = f"{(datetime.datetime.no() - now).total_seconds() * 1000 : .2f}".rstrip(
+            "0"
+        ).rstrip(".")
 
-        return f"{fmtsec(now)}"
+        return f"{res} ms"
