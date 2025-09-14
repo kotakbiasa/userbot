@@ -91,7 +91,7 @@ class Main(Module):
         act, val = pattern.match(event.data).groups()
 
         if act == "mod":
-            await event.answer(cache_time=900)
+            await event.answer(cache_time=0)
 
             page = self.map.get(val, 0)
             await event.edit_message_text(
@@ -100,7 +100,7 @@ class Main(Module):
             )
 
         elif act == "page":
-            await event.answer(cache_time=900)
+            await event.answer(cache_time=0)
 
             await event.edit_message_text(
                 "<b>Selfbot Modules</b>", reply_markup=ikm(self.build(int(val)))
