@@ -39,9 +39,7 @@ class Network(Module):
                 InlineQueryResultCachedSticker(
                     sticker_file_id=self.client.config["sticker_file_id"],
                     reply_markup=ikm((">_", "user_id", event._client.me.id)),
-                    input_message_content=InputTextMessageContent(
-                        "<code>Pinging...</code>"
-                    ),
+                    input_message_content=InputTextMessageContent("<code>...</code>"),
                 )
             ],
             cache_time=900,
@@ -56,7 +54,7 @@ class Network(Module):
         await self.edit(event)
 
     async def edit(self, event: Update) -> None:
-        await event.edit_message_text("<code>Calculating...</code>")
+        await event.edit_message_text("<code>Pinging...</code>")
 
         now, (app, bot) = datetime.datetime.now(), await asyncio.gather(
             self.ping(self.client.app), self.ping(event._client)
