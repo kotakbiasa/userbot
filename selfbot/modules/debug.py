@@ -106,13 +106,12 @@ class Debug(Module):
                 if msg.outgoing or (msg.from_user and msg.from_user.is_self):
                     self.client.loop.create_task(msg.delete(True))
 
-            await cmd.delete(True)
+            return await cmd.delete(True)
 
-        elif event.data == "1":
-            if not msg:
-                return await cmd.delete()
+        if not msg:
+            return await cmd.delete()
 
-            await self.execute(msg, event)
+        await self.execute(msg, event)
 
     async def msgs(self, event: Update) -> tuple:
         cid, mid = ids(event.inline_message_id)

@@ -117,7 +117,7 @@ class Sticker(Module):
         now = datetime.datetime.now()
 
         if data["mode"] == "get":
-            await event.edit_message_text(
+            return await event.edit_message_text(
                 fmtstr(
                     "List Owned Stickers",
                     [f"{k} ({v})" for k, v in self.sets.items()],
@@ -126,68 +126,67 @@ class Sticker(Module):
                 reply_markup=ikm(("Close", b"0")),
             )
 
+        sticker = InputStickerSetItem(
+            document=get_input_media_from_file_id(data["source"]["file"]).id,
+            emoji=data["emoji"],
+        )
+
+        text = ""
+        func = None
+
+        if data["mode"] == "add":
+            text = "Added to Sticker Set"
+            func = AddStickerToSet(
+                stickerset=InputStickerSetShortName(short_name=data["name"]),
+                sticker=sticker,
+            )
         else:
-            sticker = InputStickerSetItem(
-                document=get_input_media_from_file_id(data["source"]["file"]).id,
-                emoji=data["emoji"],
+            text = "Sticker Set Created"
+            func = CreateStickerSet(
+                user_id=await self.client.app.resolve_peer("me"),
+                title="Sticker Set",
+                short_name=data["name"],
+                stickers=[sticker],
             )
 
-            text = ""
-            func = None
+        try:
+            last = await self.client.app.invoke(func)
+        except Exception as e:
+            return await event.edit_message_text(
+                f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
+                reply_markup=ikm(("Close", b"0")),
+            )
 
-            if data["mode"] == "add":
-                text = "Added to Sticker Set"
-                func = AddStickerToSet(
-                    stickerset=InputStickerSetShortName(short_name=data["name"]),
-                    sticker=sticker,
-                )
-            else:
-                text = "Sticker Set Created"
-                func = CreateStickerSet(
-                    user_id=await self.client.app.resolve_peer("me"),
-                    title="Sticker Set",
-                    short_name=data["name"],
-                    stickers=[sticker],
-                )
-
-            try:
-                last = await self.client.app.invoke(func)
-            except Exception as e:
-                return await event.edit_message_text(
-                    f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
-                    reply_markup=ikm(("Close", b"0")),
-                )
-            else:
-                try:
-                    await event.edit_message_text(
-                        fmtstr(
-                            text,
-                            {
-                                "Name": last.set.short_name,
-                                "Emoji": data["emoji"],
-                                "Source": data["source"]["name"],
-                            },
-                            fmtsec(now),
-                        ),
-                        reply_markup=ikm(
-                            [
-                                [
-                                    (
-                                        "Old",
-                                        "url",
-                                        f"https://t.me/addstickers/{data['source']['name']}",
-                                    ),
-                                    (
-                                        "New",
-                                        "url",
-                                        f"https://t.me/addstickers/{last.set.short_name}",
-                                    ),
-                                ],
-                                [("Close", b"0")],
-                            ]
-                        ),
-                    )
-                finally:
-                    async with self.lock:
-                        self.last = last.set.short_name
-                        self.sets[self.last] = last.set.count
+        try:
+            await event.edit_message_text(
+                fmtstr(
+                    text,
+                    {
+                        "Name": last.set.short_name,
+                        "Emoji": data["emoji"],
+                        "Source": data["source"]["name"],
+                    },
+                    fmtsec(now),
+                ),
+                reply_markup=ikm(
+                    [
+                        [
+                            (
+                                "Old",
+                                "url",
+                                f"https://t.me/addstickers/{data['source']['name']}",
+                            ),
+                            (
+                                "New",
+                                "url",
+                                f"https://t.me/addstickers/{last.set.short_name}",
+                            ),
+                        ],
+                        [("Close", b"0")],
+                    ]
+                ),
+            )
+        finally:
+            async with self.lock:
+                self.last = last.set.short_name
+                self.sets[self.last] = last.set.count
