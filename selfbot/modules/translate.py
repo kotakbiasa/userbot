@@ -24,7 +24,7 @@ pattern = re.compile(
 class Translate(Module):
     name = "Translate"
 
-    cmds = "(tr) {lang} {content}"
+    cmds = "(tr) {(-to) lang} {content}"
     desc = {"lang": "Language Code", "content": "String or Reply to Content"}
 
     async def on_startup(self) -> None:
