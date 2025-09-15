@@ -19,8 +19,8 @@ from selfbot.utils import ikm
 pattern = re.compile(r"^help/?(mod|info|page)?/?(\d{1}|[a-z]+)?$")
 
 
-class Main(Module):
-    name = "Main"
+class Help(Module):
+    name = "Help"
     hide = True
 
     async def on_startup(self) -> None:
