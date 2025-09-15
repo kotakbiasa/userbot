@@ -135,11 +135,12 @@ class Main(Module):
     def fmtmod(data: any) -> str:
         if isinstance(data, dict):
             res = [
-                f"   • <b>{k}</b>\n        <code>{v}</code>" for k, v in data.items()
+                f"{' ' * 4}• <b>{k}</b>\n{' ' * 8}<code>{v}</code>"
+                for k, v in data.items()
             ]
             return "\n\n".join(res)
 
         elif isinstance(data, list):
-            return "\n".join([f"   • <b>{i}</b>" for i in data])
+            return "\n".join([f"{' ' * 4}• <b>{i}</b>" for i in data])
 
-        return f"   • <b>{data}</b>"
+        return f"{' ' * 4}<b>{data}</b>"
