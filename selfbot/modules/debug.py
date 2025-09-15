@@ -39,7 +39,7 @@ class Debug(Module):
             "selfbot": selfbot,
             "shell": shell,
             "self": self.client,
-            "mod": self,
+            "cls": self,
         }
 
     @listener.handler(filters.regex(pattern), 1)
