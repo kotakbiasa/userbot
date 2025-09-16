@@ -22,14 +22,13 @@ pattern = re.compile(r"^r$")
 
 class System(Module):
     name = "System"
-
     cmds = "r"
     desc = "Restart Selfbot"
 
     async def on_startup(self) -> None:
         def get_id(file: str) -> tuple | None:
             if os.path.exists(file):
-                with open(file, "r") as f:
+                with open(file) as f:
                     try:
                         data = f.readlines()
                         return data[0], float(data[1])
@@ -90,7 +89,6 @@ class System(Module):
             )
 
         setattr(self.client, "restart", True)
-
         if os.path.isdir(".git"):
             await shell("rm -fr .git")
 
@@ -106,7 +104,6 @@ class System(Module):
                 )
             ),
         )
-
         await asyncio.gather(
             event.edit_message_text("<code>Updating...</code>"),
             shell(
@@ -118,9 +115,7 @@ class System(Module):
                 f"{event.inline_message_id}\n{datetime.datetime.now().timestamp()}",
             ),
         )
-
         await event.edit_message_text("<code>Restarting...</code>")
-
         try:
             self.client.__idle__.set()
         finally:

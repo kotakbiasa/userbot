@@ -7,13 +7,10 @@ submods = [
     importlib.import_module(f".{info.name}", __name__)
     for info in pkgutil.iter_modules(parents)
 ]
-
 try:
     again: bool
-
     if again:
         for module in submods:
             importlib.reload(module)
-
 except NameError:
     again = True

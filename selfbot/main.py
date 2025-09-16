@@ -12,14 +12,12 @@ logging.basicConfig(
     datefmt="%b %-d | %-I:%M %p | %-S",
     level=logging.INFO,
 )
-
 for lib in ["pyrogram", "httpx"]:
     logging.getLogger(lib).setLevel(logging.ERROR)
 
 
 def config() -> dict:
     config = dotenv_values()
-
     if not config:
         config = {k.lower(): v for k, v in os.environ.items()}
 
@@ -36,6 +34,5 @@ def run() -> None:
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-
     aiorun.logger.disabled = True
     aiorun.run(Selfbot.launch(config(), loop=loop), loop=loop)

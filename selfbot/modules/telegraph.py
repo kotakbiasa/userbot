@@ -20,7 +20,6 @@ from selfbot.utils import fmtsec, fmtstr, ikm
 pattern = re.compile(
     r"^graph(?:\s(?P<content>(?!-t\s.+).*?))?(?:\s-t\s(?P<title>.+))?$", re.DOTALL
 )
-
 spoiler = re.compile(r"</?spoiler\b[^>]*>")
 emojiid = re.compile(r"<emoji id=\"\d+\">(.*?)</emoji>")
 htmltag = re.compile(r"<.*?>")
@@ -29,21 +28,18 @@ mention = re.compile(r"(?<!\S)@([a-zA-Z0-9_]{5,32})(?!\S)")
 
 class Telegraph(Module):
     name = "Telegraph"
-
     cmds = "(graph) *{(-t) title} {content}"
     desc = {"*": "Optional", "title": "String", "content": "String or Reply to Content"}
 
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
-
         self.graph = Graph(access_token=None, domain="graph.org")
         await self.graph.create_account(short_name=self.client.bot.me.username)
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message(self, event: Message) -> None:
         data = pattern.match(event.content.html).groupdict()
-
         if not data["content"]:
             if not event.reply_to_message.content:
                 return await event.edit("<code>Reply to Content or Give a Text</code>")
@@ -58,7 +54,6 @@ class Telegraph(Module):
                     ),
                 ),
             ).replace("\n", "<br>")
-
             if (
                 event.reply_to_message.web_page
                 and event.reply_to_message.web_page.photo
@@ -69,7 +64,6 @@ class Telegraph(Module):
 
         async with self.lock:
             await self.data.put(data)
-
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
         )
@@ -108,10 +102,8 @@ class Telegraph(Module):
 
         async with self.lock:
             data = await self.data.get()
-
         url = None
         now = datetime.datetime.now()
-
         try:
             res = await self.graph.create_page(
                 data["title"] or "Untitled",

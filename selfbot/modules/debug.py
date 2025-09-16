@@ -7,7 +7,7 @@ import re
 
 import pyrogram
 from pyrogram import filters
-from pyrogram.errors import MessageIdsEmpty
+from pyrogram.errors import MessageIdsEmpty, MessageNotModified
 from pyrogram.types import (
     CallbackQuery,
     ChosenInlineResult,
@@ -28,7 +28,6 @@ pattern = re.compile(r"^.*#$", flags=re.DOTALL)
 
 class Debug(Module):
     name = "Debug"
-
     cmds = "{code} #"
     desc = {"code": "Python Code"}
 
@@ -45,10 +44,12 @@ class Debug(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_message(self, event: Message) -> None:
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "#")
-        await asyncio.gather(
-            event.edit(html.escape(event.content.markdown).removesuffix("#").rstrip()),
-            event.reply_inline_bot_result(res.query_id, res.results[0].id, quote=True),
-        )
+        with contextlib.suppress(MessageNotModified):
+            await event.edit(
+                html.escape(event.content.markdown).removesuffix("#").rstrip()
+            )
+
+        await event.reply_inline_bot_result(res.query_id, res.results[0].id, quote=True)
 
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:
@@ -71,7 +72,6 @@ class Debug(Module):
     async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
         btn = False
         msg, cmd = await self.msgs(event)
-
         if not msg:
             if len(event.query) <= 1:
                 return await cmd.delete()
@@ -89,7 +89,6 @@ class Debug(Module):
         (msg, cmd), _ = await asyncio.gather(
             self.msgs(event), event.answer(cache_time=0)
         )
-
         if event.data == "0":
             task = next(
                 (
@@ -115,7 +114,6 @@ class Debug(Module):
 
     async def msgs(self, event: Update) -> tuple:
         cid, mid = ids(event.inline_message_id)
-
         msg, cmd = await asyncio.gather(
             self.client.app.get_replied_message(cid, mid),
             self.client.app.get_messages(cid, mid),
@@ -128,7 +126,6 @@ class Debug(Module):
 
     async def execute(self, msg: Message, event: Update, btn: bool = False) -> None:
         ikb = [[("Del", "0")]]
-
         if btn:
             code = event.query.removesuffix("#").rstrip()
             ikb[0].insert(0, ("Run", "switch_inline_query_current_chat", code))
@@ -145,22 +142,18 @@ class Debug(Module):
                 "event": event,
             }
         )
-
         await event.edit_message_reply_markup(ikm(("Cancel", "0")))
-
         out = ""
         rtt = ""
-
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             fut = self.client.loop.create_task(
                 aexec(code, self.args), name=event.inline_message_id
             )
             now = datetime.datetime.now()
-
             try:
                 res = await asyncio.wait_for(fut, timeout=900)
-            except (asyncio.CancelledError, asyncio.TimeoutError, Exception):
+            except (asyncio.CancelledError, TimeoutError, Exception):
                 out = fmtexc()
             else:
                 out = (buf.getvalue() or str(res)).rstrip()
@@ -175,7 +168,6 @@ class Debug(Module):
                 await self.client.http.post("https://paste.rs", data=out.encode())
             ).text.strip()
             ikb.insert(0, [("Output", "url", url)])
-
             out = f"{out[:512]}..."
 
         await event.edit_message_text(

@@ -31,10 +31,8 @@ async def aexec(code: str, args: dict = {}) -> any:
         type_ignores=[],
     )
     ast.fix_missing_locations(node)
-
     temp = {}
     exec(compile(node, "<string>", "exec"), temp)
-
     coro = await temp[name](*args.values())
     return await coro if inspect.iscoroutine(coro) else coro
 
@@ -43,7 +41,6 @@ async def shell(cmd: str) -> str:
     proc = await asyncio.create_subprocess_shell(
         cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
-
     try:
         stdout, stderr = await proc.communicate()
         return (stdout + stderr).decode()

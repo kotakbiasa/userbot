@@ -23,7 +23,6 @@ pattern = re.compile(r"^ping$")
 
 class Network(Module):
     name = "Network"
-
     cmds = "ping"
     desc = "Selfbot Latency"
 
@@ -62,11 +61,9 @@ class Network(Module):
 
     async def edit(self, event: Update) -> None:
         await event.edit_message_text("<code>Pinging...</code>")
-
         now, (app, bot) = datetime.datetime.now(), await asyncio.gather(
             self.ping(self.client.app), self.ping(event._client)
         )
-
         await event.edit_message_text(
             fmtstr("Selfbot Latency", {"App": app, "Bot": bot}, fmtsec(now)),
             reply_markup=ikm([[("Ping!", b"ping")], [("Close", b"0")]]),
@@ -78,5 +75,4 @@ class Network(Module):
         res = f"{(datetime.datetime.now() - now).total_seconds() * 1e3:.2f}".rstrip(
             "0"
         ).rstrip(".")
-
         return f"{res} ms"

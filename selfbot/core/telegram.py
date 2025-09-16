@@ -39,10 +39,8 @@ class Telegram(abc.ABC):
     def __init__(self, **kwargs) -> None:
         self.handlers = {}
         self.__idle__ = None
-
         self.app = self._app
         self.bot = self._bot
-
         super().__init__(**kwargs)
 
     async def run(self) -> None:
@@ -51,7 +49,6 @@ class Telegram(abc.ABC):
 
         rflag = "Restart" if os.path.exists("r.txt") else "Start"
         self.logger.info(f"{rflag}ing Client...")
-
         try:
             await self.start()
         except Exception as e:
@@ -73,14 +70,11 @@ class Telegram(abc.ABC):
             migrate(self.app.name, "app_session_string"),
             migrate(self.bot.name, "bot_session_string"),
         )
-
         await asyncio.gather(self.app.start(), self.bot.start())
         await self.app.resolve_peer(self.bot.me.username)
-
         await asyncio.gather(
             asyncio.to_thread(self.loads), asyncio.to_thread(self.safe)
         )
-
         self.loop.create_task(self.dispatch("startup"))
 
     async def idle(self) -> None:
@@ -99,7 +93,6 @@ class Telegram(abc.ABC):
             )
 
         self.__idle__ = asyncio.Event()
-
         try:
             await self.__idle__.wait()
         finally:
@@ -115,7 +108,6 @@ class Telegram(abc.ABC):
             "chosen_inline_result": (self.bot, ChosenInlineResultHandler, fltapp, -1),
             "callback_query": (self.bot, CallbackQueryHandler, flt.all, -1),
         }
-
         for name, (client, handler, filters, group) in events.items():
             if name in self.handlers:
                 client.remove_handler(*self.handlers.pop(name))
@@ -126,7 +118,6 @@ class Telegram(abc.ABC):
                     await self.dispatch(bound, event)
 
                 dispatcher = (handler(callback, filters), group)
-
                 try:
                     client.add_handler(*dispatcher)
                 finally:
@@ -134,11 +125,9 @@ class Telegram(abc.ABC):
 
     def safe(self) -> None:
         self.config.clear()
-
         for key in list(os.environ):
             if key.endswith("_SESSION_STRING"):
                 os.environ.pop(key)
-
             elif key == "STICKER_FILE_ID":
                 self.config[key.lower()] = os.environ[key]
 
@@ -168,14 +157,11 @@ class Telegram(abc.ABC):
             "user_id",
             "is_bot",
         ]
-
         creds = await asyncio.gather(
             *[getattr(client.storage, attr)() for attr in attrs]
         )
-
         files = FileStorage(client.name, pathlib.Path(commons["workdir"]))
         await files.open()
-
         await asyncio.gather(
             *[getattr(files, attr)(cred) for attr, cred in zip(attrs, creds)]
         )
@@ -183,7 +169,6 @@ class Telegram(abc.ABC):
     @staticmethod
     def _build(name: str, updates: tuple = ()) -> Client:
         client = Client(name, **commons)
-
         if updates:
             client.dispatcher.update_parsers = {
                 k: v

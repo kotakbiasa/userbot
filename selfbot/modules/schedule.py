@@ -29,7 +29,6 @@ pattern = re.compile(
 
 class Schedule(Module):
     name = "Schedule"
-
     cmds = "{action} {n}{unit}*{(*)repeat} {text}"
     desc = {
         "action": "[sch, schme]",
@@ -47,7 +46,6 @@ class Schedule(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_message(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
-
         data["reply"] = {}
         if event.external_reply and event.external_reply.message_id:
             data["reply"] = {
@@ -71,7 +69,6 @@ class Schedule(Module):
 
         async with self.lock:
             await self.data.put(data)
-
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
         )
@@ -108,19 +105,15 @@ class Schedule(Module):
 
         async with self.lock:
             data = await self.data.get()
-
         params = {
             "chat_id": data["self"] or ids(event.inline_message_id)[0],
             "text": data["text"].strip(),
         }
-
         res = 0
         now = datetime.datetime.now()
-
         if data["loop"]:
             for i in range(1, int(data["loop"]) + 1):
                 args = {self.period[data["unit"]]: int(data["time"]) * i}
-
                 try:
                     await self.client.app.send_message(
                         **params,
@@ -132,7 +125,6 @@ class Schedule(Module):
                     break
                 else:
                     res += 1
-
                     if i % 5 == 0:
                         await asyncio.sleep(0.5)
 
@@ -150,10 +142,8 @@ class Schedule(Module):
                 ),
                 reply_markup=ikm(("Close", b"0")),
             )
-
         else:
             args = {self.period[data["unit"]]: int(data["time"])}
-
             try:
                 await self.client.app.send_message(
                     **params,

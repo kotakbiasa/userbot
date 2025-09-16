@@ -10,7 +10,6 @@ from pyrogram.utils import (
 
 def ids(inline_message_id: str) -> tuple:
     data = unpack_inline_message_id(inline_message_id)
-
     try:
         cid, mid = data.owner_id, data.id
     except AttributeError:
@@ -30,27 +29,21 @@ def ikm(rows: list | tuple) -> InlineKeyboardMarkup:
         rows = [rows]
 
     ikb = []
-
     for row in rows:
         line = []
-
         for button in row:
             args = {"text": button[0]}
             last = button[-1]
-
             if len(button) == 2:
                 args.update({"callback_data": last})
-
             elif len(button) == 3:
                 arg = button[1]
-
                 if arg == "user":
                     args.update({"user_id": last})
                 elif arg == "copy":
                     args.update({"copy_text": CopyTextButton(text=last)})
                 else:
                     args.update({arg: last})
-
             else:
                 raise ValueError
 

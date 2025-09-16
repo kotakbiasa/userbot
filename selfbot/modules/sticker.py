@@ -31,17 +31,14 @@ pattern = re.compile(
 
 class Sticker(Module):
     name = "Sticker"
-
     cmds = "{mode(sticker)} {name} {emoji}"
     desc = {"mode": "[add, get, set]", "name": "String", "emoji": "String"}
 
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
-
         self.last = None
         self.sets = {}
-
         res = await self.client.app.invoke(GetMyStickers(offset_id=0, limit=0))
         if res and res.sets:
             for i in res.sets:
@@ -50,7 +47,6 @@ class Sticker(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_message(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
-
         if data["mode"] != "get":
             if not event.reply_to_message or (
                 event.reply_to_message and not event.reply_to_message.sticker
@@ -61,7 +57,6 @@ class Sticker(Module):
                 "file": event.reply_to_message.sticker.file_id,
                 "name": event.reply_to_message.sticker.set_name or "N/A",
             }
-
             if not data["emoji"]:
                 data["emoji"] = event.reply_to_message.sticker.emoji or "🤖"
 
@@ -73,7 +68,6 @@ class Sticker(Module):
 
         async with self.lock:
             await self.data.put(data)
-
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
         )
@@ -113,9 +107,7 @@ class Sticker(Module):
 
         async with self.lock:
             data = await self.data.get()
-
         now = datetime.datetime.now()
-
         if data["mode"] == "get":
             return await event.edit_message_text(
                 fmtstr(
@@ -130,10 +122,8 @@ class Sticker(Module):
             document=get_input_media_from_file_id(data["source"]["file"]).id,
             emoji=data["emoji"],
         )
-
         text = ""
         func = None
-
         if data["mode"] == "add":
             text = "Added to Sticker Set"
             func = AddStickerToSet(

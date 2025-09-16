@@ -16,7 +16,6 @@ def handler(filters: callable, priority: int) -> callable:
     def wrapper(func: callable) -> callable:
         setattr(func, "filters", filters)
         setattr(func, "priority", priority)
-
         return func
 
     return wrapper

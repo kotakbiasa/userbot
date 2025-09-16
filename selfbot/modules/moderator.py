@@ -32,7 +32,6 @@ pattern = re.compile(
 
 class Moderator(Module):
     name = "Moderator"
-
     cmds = "{action} {target} *{n}{unit} *{(-r) reason}"
     desc = {
         "action": "[ban, kick, mute, unban, unmute]",
@@ -50,7 +49,6 @@ class Moderator(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_message(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
-
         user = data["target"]
         if user:
             if (
@@ -73,7 +71,6 @@ class Moderator(Module):
 
         async with self.lock:
             await self.data.put(data)
-
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
         )
@@ -113,15 +110,11 @@ class Moderator(Module):
 
         async with self.lock:
             data = await self.data.get()
-
         action = data["action"]
         target = data["target"]
-
         params = {"chat_id": ids(event.inline_message_id)[0], "user_id": int(target)}
-
         coro = None
         unit = "N/A"
-
         if action in ["ban", "kick"]:
             coro = self.client.app.ban_chat_member
         elif action in ["mute", "unmute"]:
@@ -151,7 +144,6 @@ class Moderator(Module):
             )
 
         now = datetime.datetime.now()
-
         try:
             await coro(**params)
         except RPCError as e:
@@ -171,7 +163,6 @@ class Moderator(Module):
 
     def verb(self, text: str, tense: str) -> str:
         suffix = "ing" if tense == "present" else "ed"
-
         result = text.removesuffix("e")
         if result.endswith("n"):
             result += "n"

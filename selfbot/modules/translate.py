@@ -23,7 +23,6 @@ pattern = re.compile(
 
 class Translate(Module):
     name = "Translate"
-
     cmds = "(tr) {(-to) lang} {content}"
     desc = {"lang": "Language Code", "content": "String or Reply to Content"}
 
@@ -35,7 +34,6 @@ class Translate(Module):
     async def on_message(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
         args = {}
-
         if not data["text"]:
             if event.quote and event.quote.text:
                 data["text"] = event.quote.text
@@ -51,7 +49,6 @@ class Translate(Module):
 
         async with self.lock:
             await self.data.put(data)
-
         if event.external_reply and event.external_reply.message_id:
             args.update(
                 {
@@ -100,10 +97,8 @@ class Translate(Module):
 
         async with self.lock:
             data = await self.data.get()
-
         now = datetime.datetime.now()
         res = await self.client.app.translate_text(data["lang"] or "id", data["text"])
-
         await event.edit_message_text(
             fmtstr(
                 "Translated Text",

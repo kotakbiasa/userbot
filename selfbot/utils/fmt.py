@@ -5,13 +5,11 @@ import traceback
 
 def fmtsec(now: datetime.datetime) -> str:
     delta = datetime.datetime.now() - now
-
     return f"{delta.total_seconds()} s"
 
 
 def fmtstr(head: str, data: any = None, foot: str = None) -> str:
     body = ""
-
     if isinstance(data, dict):
         padd = max((len(k) for k in data.keys()), default=0)
         body = "\n".join(
@@ -27,9 +25,9 @@ def fmtstr(head: str, data: any = None, foot: str = None) -> str:
         body = f"  {data}"
 
     text = [f"<b>{head}</b>"]
-
     if body:
         text.append(body)
+
     if foot:
         text.append(f"<b>{foot}</b>")
 
@@ -39,14 +37,12 @@ def fmtstr(head: str, data: any = None, foot: str = None) -> str:
 def fmtexc() -> str:
     exc = traceback.TracebackException(*sys.exc_info())
     fmt = exc.exc_type.__name__
-
     if exc._str:
         fmt += f":\n  {exc._str}"
 
     ftb = traceback.format_list(
         [frame for frame in exc.stack if "/site-packages/" in frame.filename]
     )
-
     if ftb:
         fmt += f"\n\nTraceback:\n{''.join(ftb)}"
 

@@ -27,22 +27,16 @@ class Help(Module):
         self.mod = {}
         self.map = {}
         self.ikb = []
-
         mods = [mod for mod in self.client.modules.values() if not mod.hide]
         mods.sort(key=lambda mod: mod.name.lower())
-
         page = []
-
         for i, mod in enumerate(mods):
             name = mod.name.lower()
-
             self.map[name] = len(self.ikb)
-
             self.mod[name] = (
                 f"<b>{mod.name}</b>\n\n  <b>Pattern</b>\n    <code>{mod.cmds}</code>"
                 f"\n\n{self.fmtmod(mod.desc)}"
             )
-
             page.append((mod.name, f"help/mod/{name}"))
             if len(page) == 4:
                 self.ikb.append([page[i : i + 2] for i in range(0, 4, 2)])
@@ -89,7 +83,6 @@ class Help(Module):
     @listener.handler(filters.regex(pattern), 4)
     async def on_callback_query(self, event: CallbackQuery) -> None:
         act, val = pattern.match(event.data).groups()
-
         if act == "info":
             return await event.answer(
                 f"Page {int(val) + 1} of {len(self.ikb)}",
@@ -98,10 +91,8 @@ class Help(Module):
             )
 
         await event.answer(cache_time=0)
-
         if act == "mod":
             page = self.map.get(val, 0)
-
             return await event.edit_message_text(
                 self.mod[val],
                 reply_markup=ikm([("« Back", f"help/page/{page}"), ("Close", b"0")]),
@@ -114,21 +105,17 @@ class Help(Module):
     def build(self, page: int = 0) -> list:
         ikbs = len(self.ikb)
         page = max(0, min(page, ikbs - 1))
-
         ikb = self.ikb[page][:]
         ikb.append([("Page Info", f"help/info/{page}")])
-
         nav = []
         if page > 0:
             nav.append((f"« ({page})", f"help/page/{page - 1}"))
 
         nav.append(("Close", b"0"))
-
         if page < ikbs - 1:
             nav.append((f"({page + 2}) »", f"help/page/{page + 1}"))
 
         ikb.append(nav)
-
         return ikb
 
     @staticmethod
@@ -139,7 +126,6 @@ class Help(Module):
                 for k, v in data.items()
             ]
             return "\n\n".join(res)
-
         elif isinstance(data, list):
             return "\n".join([f"{' ' * 4}• <b>{i}</b>" for i in data])
 
