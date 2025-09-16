@@ -51,7 +51,7 @@ class Sticker(Module):
     async def on_message(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
 
-        if data["mode"] not in ["del", "get"]:
+        if data["mode"] != "get":
             if not event.reply_to_message or (
                 event.reply_to_message and not event.reply_to_message.sticker
             ):
