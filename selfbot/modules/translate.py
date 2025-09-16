@@ -32,8 +32,7 @@ class Translate(Module):
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message(self, event: Message) -> None:
-        data = pattern.match(event.content).groupdict()
-        args = {}
+        data, args = pattern.match(event.content).groupdict(), {}
         if not data["text"]:
             if event.quote and event.quote.text:
                 data["text"] = event.quote.text
@@ -49,6 +48,7 @@ class Translate(Module):
 
         async with self.lock:
             await self.data.put(data)
+
         if event.external_reply and event.external_reply.message_id:
             args.update(
                 {
@@ -97,6 +97,7 @@ class Translate(Module):
 
         async with self.lock:
             data = await self.data.get()
+
         now = datetime.datetime.now()
         res = await self.client.app.translate_text(data["lang"] or "id", data["text"])
         await event.edit_message_text(

@@ -14,9 +14,12 @@ class Selfbot(Dispatcher, Extender, Telegram):
     def __init__(self, config: dict) -> None:
         self.logger = logging.getLogger("Selfbot")
         self.config = config
+
         self.loop = None
         self.http = None
+
         self.version = __version__
+
         super().__init__()
 
     @classmethod
@@ -27,8 +30,7 @@ class Selfbot(Dispatcher, Extender, Telegram):
             asyncio.set_event_loop(loop)
 
         selfbot = cls(config)
-        selfbot.loop = loop
-        selfbot.http = AsyncClient()
+        selfbot.loop, selfbot.http = loop, AsyncClient()
         try:
             await selfbot.run()
         finally:

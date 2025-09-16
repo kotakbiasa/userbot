@@ -11,6 +11,7 @@ from selfbot.module import Module
 class Dispatcher(abc.ABC):
     def __init__(self, **kwargs) -> None:
         self.listeners = {}
+
         super().__init__(**kwargs)
 
     async def dispatch(self, event: str, *args, **kwargs) -> None:

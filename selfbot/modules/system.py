@@ -89,6 +89,7 @@ class System(Module):
             )
 
         setattr(self.client, "restart", True)
+
         if os.path.isdir(".git"):
             await shell("rm -fr .git")
 
@@ -115,6 +116,7 @@ class System(Module):
                 f"{event.inline_message_id}\n{datetime.datetime.now().timestamp()}",
             ),
         )
+
         await event.edit_message_text("<code>Restarting...</code>")
         try:
             self.client.__idle__.set()

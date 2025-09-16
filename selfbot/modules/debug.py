@@ -70,14 +70,12 @@ class Debug(Module):
 
     @listener.handler(filters.regex(pattern), 3)
     async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
-        btn = False
-        msg, cmd = await self.msgs(event)
+        btn, (msg, cmd) = False, await self.msgs(event)
         if not msg:
             if len(event.query) <= 1:
                 return await cmd.delete()
 
-            btn = True
-            msg = cmd
+            btn, msg = True, cmd
 
         await self.execute(msg, event, btn)
 
@@ -125,7 +123,7 @@ class Debug(Module):
         return msg, cmd
 
     async def execute(self, msg: Message, event: Update, btn: bool = False) -> None:
-        ikb = [[("Del", "0")]]
+        ikb, out, rtt = [[("Del", "0")]], "", ""
         if btn:
             code = event.query.removesuffix("#").rstrip()
             ikb[0].insert(0, ("Run", "switch_inline_query_current_chat", code))
@@ -143,8 +141,7 @@ class Debug(Module):
             }
         )
         await event.edit_message_reply_markup(ikm(("Cancel", "0")))
-        out = ""
-        rtt = ""
+
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             fut = self.client.loop.create_task(

@@ -27,8 +27,10 @@ class Help(Module):
         self.mod = {}
         self.map = {}
         self.ikb = []
+
         mods = [mod for mod in self.client.modules.values() if not mod.hide]
         mods.sort(key=lambda mod: mod.name.lower())
+
         page = []
         for i, mod in enumerate(mods):
             name = mod.name.lower()
@@ -103,17 +105,17 @@ class Help(Module):
         )
 
     def build(self, page: int = 0) -> list:
-        ikbs = len(self.ikb)
-        page = max(0, min(page, ikbs - 1))
-        ikb = self.ikb[page][:]
-        ikb.append([("Page Info", f"help/info/{page}")])
+        idx = max(0, min(page, len(self.ikb) - 1))
+        ikb = self.ikb[idx][:]
+        ikb.append([("Page Info", f"help/info/{idx}")])
+
         nav = []
-        if page > 0:
-            nav.append((f"« ({page})", f"help/page/{page - 1}"))
+        if idx > 0:
+            nav.append((f"« ({idx})", f"help/page/{idx - 1}"))
 
         nav.append(("Close", b"0"))
-        if page < ikbs - 1:
-            nav.append((f"({page + 2}) »", f"help/page/{page + 1}"))
+        if idx < len(self.ikb) - 1:
+            nav.append((f"({idx + 2}) »", f"help/page/{idx + 1}"))
 
         ikb.append(nav)
         return ikb

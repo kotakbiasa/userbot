@@ -37,18 +37,21 @@ commons = {
 
 class Telegram(abc.ABC):
     def __init__(self, **kwargs) -> None:
-        self.handlers = {}
-        self.__idle__ = None
         self.app = self._app
         self.bot = self._bot
+
+        self.__idle__ = None
+        self.handlers = {}
+
         super().__init__(**kwargs)
 
     async def run(self) -> None:
         if self.__idle__ and not self.__idle__.is_set():
             raise RuntimeError("Selfbot Running")
 
-        rflag = "Restart" if os.path.exists("r.txt") else "Start"
-        self.logger.info(f"{rflag}ing Client...")
+        self.logger.info(
+            f"{'Restart' if os.path.exists('r.txt') else 'Start'}ing Client..."
+        )
         try:
             await self.start()
         except Exception as e:

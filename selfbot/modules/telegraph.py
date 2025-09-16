@@ -34,6 +34,7 @@ class Telegraph(Module):
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
+
         self.graph = Graph(access_token=None, domain="graph.org")
         await self.graph.create_account(short_name=self.client.bot.me.username)
 
@@ -64,6 +65,7 @@ class Telegraph(Module):
 
         async with self.lock:
             await self.data.put(data)
+
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
         )
@@ -102,8 +104,8 @@ class Telegraph(Module):
 
         async with self.lock:
             data = await self.data.get()
-        url = None
-        now = datetime.datetime.now()
+
+        url, now = None, datetime.datetime.now()
         try:
             res = await self.graph.create_page(
                 data["title"] or "Untitled",

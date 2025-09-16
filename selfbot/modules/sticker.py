@@ -37,8 +37,10 @@ class Sticker(Module):
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
+
         self.last = None
         self.sets = {}
+
         res = await self.client.app.invoke(GetMyStickers(offset_id=0, limit=0))
         if res and res.sets:
             for i in res.sets:
@@ -68,6 +70,7 @@ class Sticker(Module):
 
         async with self.lock:
             await self.data.put(data)
+
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
         )
@@ -107,6 +110,7 @@ class Sticker(Module):
 
         async with self.lock:
             data = await self.data.get()
+
         now = datetime.datetime.now()
         if data["mode"] == "get":
             return await event.edit_message_text(
@@ -122,8 +126,7 @@ class Sticker(Module):
             document=get_input_media_from_file_id(data["source"]["file"]).id,
             emoji=data["emoji"],
         )
-        text = ""
-        func = None
+        text, func = "", None
         if data["mode"] == "add":
             text = "Added to Sticker Set"
             func = AddStickerToSet(

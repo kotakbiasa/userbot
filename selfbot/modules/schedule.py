@@ -105,12 +105,12 @@ class Schedule(Module):
 
         async with self.lock:
             data = await self.data.get()
+
         params = {
             "chat_id": data["self"] or ids(event.inline_message_id)[0],
             "text": data["text"].strip(),
         }
-        res = 0
-        now = datetime.datetime.now()
+        res, now = 0, datetime.datetime.now()
         if data["loop"]:
             for i in range(1, int(data["loop"]) + 1):
                 args = {self.period[data["unit"]]: int(data["time"]) * i}

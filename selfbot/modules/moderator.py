@@ -71,6 +71,7 @@ class Moderator(Module):
 
         async with self.lock:
             await self.data.put(data)
+
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
         )
@@ -110,16 +111,16 @@ class Moderator(Module):
 
         async with self.lock:
             data = await self.data.get()
-        action = data["action"]
-        target = data["target"]
-        params = {"chat_id": ids(event.inline_message_id)[0], "user_id": int(target)}
-        coro = None
-        unit = "N/A"
+
+        action, target = data["action"], data["target"]
+        kwargs = {"chat_id": ids(event.inline_message_id)[0], "user_id": int(target)}
+
+        unit, coro = "N/A", None
         if action in ["ban", "kick"]:
             coro = self.client.app.ban_chat_member
         elif action in ["mute", "unmute"]:
             coro = self.client.app.restrict_chat_member
-            params["permissions"] = ChatPermissions(
+            kwargs["permissions"] = ChatPermissions(
                 **{
                     k: True if action == "unmute" else False
                     for k in inspect.signature(ChatPermissions).parameters
@@ -135,17 +136,17 @@ class Moderator(Module):
                     f"{v} {k.title() if v > 1 else k.removesuffix('s').title()}"
                     for k, v in args.items()
                 )
-                params["until_date"] = datetime.datetime.now() + datetime.timedelta(
+                kwargs["until_date"] = datetime.datetime.now() + datetime.timedelta(
                     **args
                 )
         else:
-            params["until_date"] = datetime.datetime.now() + datetime.timedelta(
+            kwargs["until_date"] = datetime.datetime.now() + datetime.timedelta(
                 minutes=1
             )
 
         now = datetime.datetime.now()
         try:
-            await coro(**params)
+            await coro(**kwargs)
         except RPCError as e:
             await event.edit_message_text(
                 f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
@@ -162,8 +163,8 @@ class Moderator(Module):
             )
 
     def verb(self, text: str, tense: str) -> str:
-        suffix = "ing" if tense == "present" else "ed"
         result = text.removesuffix("e")
+        suffix = "ing" if tense == "present" else "ed"
         if result.endswith("n"):
             result += "n"
 

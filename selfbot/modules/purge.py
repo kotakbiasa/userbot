@@ -30,8 +30,7 @@ class Purge(Module):
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message(self, event: Message) -> None:
-        match = pattern.match(event.content)
-        limit = 0
+        match, limit = pattern.match(event.content), 0
         if match.group(2):
             limit = int(match.group(3))
 
@@ -63,6 +62,7 @@ class Purge(Module):
 
         async with self.lock:
             await self.data.put((event.chat.id, ids))
+
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "purge")
         await asyncio.gather(
             event.reply_inline_bot_result(res.query_id, res.results[0].id),
@@ -93,8 +93,8 @@ class Purge(Module):
 
         async with self.lock:
             cid, ids = await self.data.get()
-        res = 0
-        now = datetime.datetime.now()
+
+        res, now = 0, datetime.datetime.now()
         for chunk in [ids[i : i + 100] for i in range(0, len(ids), 100)]:
             res += await self.client.app.delete_messages(cid, chunk)
             if res % 100 == 0:

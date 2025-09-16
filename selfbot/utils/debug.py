@@ -31,8 +31,10 @@ async def aexec(code: str, args: dict = {}) -> any:
         type_ignores=[],
     )
     ast.fix_missing_locations(node)
+
     temp = {}
     exec(compile(node, "<string>", "exec"), temp)
+
     coro = await temp[name](*args.values())
     return await coro if inspect.iscoroutine(coro) else coro
 
