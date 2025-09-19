@@ -11,6 +11,7 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
+    ReplyParameters,
 )
 
 from selfbot import listener

@@ -19,8 +19,9 @@ for lib in ["pyrogram", "httpx"]:
 def config() -> dict:
     config = dotenv_values()
     if not config:
-        config = {k.lower(): v for k, v in os.environ.items()}
+        return {k.lower(): v for k, v in os.environ.items()}
 
+    os.environ.update({k.upper(): v for k, v in config.items()})
     return config
 
 
