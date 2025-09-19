@@ -4,7 +4,8 @@ repos:
     hooks:
       - id: pyupgrade
         args:
-         - --py313-plus
+          - --py313-plus
+
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.3.1
     hooks:
@@ -14,22 +15,26 @@ repos:
           - --remove-unused-variables
           - --remove-duplicate-keys
           - --in-place
+
   - repo: https://github.com/PyCQA/isort
     rev: 6.0.1
     hooks:
       - id: isort
         args:
           - --profile=black
+
   - repo: https://github.com/jsh9/blank-line-after-blocks
     rev: 0.1.4
     hooks:
       - id: blank-line-after-blocks
+
   - repo: https://github.com/psf/black
     rev: 25.1.0
     hooks:
       - id: black
         args:
-         - --skip-magic-trailing-comma
+          - --skip-magic-trailing-comma
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
@@ -38,3 +43,21 @@ repos:
       - id: mixed-line-ending
       - id: requirements-txt-fixer
       - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      - id: poetry-export-requirements
+        name: poetry export requirements.txt
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml|poetry\.lock)$
+        entry: |
+          bash -c '
+            if command -v poetry >/dev/null 2>&1 && poetry export --help | grep -q requirements.txt; then
+              poetry export --without-hashes --format=requirements.txt -o requirements.txt || exit 0u
+              # git add requirements.txt || true
+            else
+              echo "[pre-commit] poetry export not available, skipping"
+              exit 0
+            fi
+          '
