@@ -14,7 +14,9 @@ from pyrogram.types import (
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, ids, ikm
+from selfbot.utils import fmtsec
+from selfbot.utils import ids as inline_ids
+from selfbot.utils import ikm
 
 pattern = re.compile(r"^purge(me)?(\s(\d{1,3}))?$")
 
@@ -34,9 +36,9 @@ class Purge(Module):
         if match.group(2):
             limit = int(match.group(3))
 
-        ids = []
+        msg_ids = []
         if match.group(1):
-            ids = [
+            msg_ids = [
                 m.id
                 async for m in event._client.search_messages(
                     event.chat.id,
@@ -51,17 +53,17 @@ class Purge(Module):
                 return await event.edit(f"<code>Unsupported {event.chat.type}</code>")
             elif event.reply_to_message_id:
                 if limit:
-                    ids = range(
+                    msg_ids = range(
                         event.reply_to_message_id, event.reply_to_message_id + limit
                     )
                 else:
-                    ids = range(event.reply_to_message_id, event.id)
+                    msg_ids = range(event.reply_to_message_id, event.id)
             else:
                 end = limit or 100
-                ids = range(event.id - 1, event.id - (end + 1), -1)
+                msg_ids = range(event.id - 1, event.id - (end + 1), -1)
 
         async with self.lock:
-            await self.data.put((event.chat.id, ids))
+            await self.data.put((event.chat.id, list(msg_ids)))
 
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "purge")
         await asyncio.gather(
@@ -88,14 +90,15 @@ class Purge(Module):
     async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
         if self.data.empty():
             return await self.client.app.delete_messages(
-                *ids(event.inline_message_id), True
+                *inline_ids(event.inline_message_id), True
             )
 
         async with self.lock:
-            cid, ids = await self.data.get()
+            cid, msg_ids = await self.data.get()
 
         res, now = 0, datetime.datetime.now()
-        for chunk in [ids[i : i + 100] for i in range(0, len(ids), 100)]:
+        for chunk_start in range(0, len(msg_ids), 100):
+            chunk = msg_ids[chunk_start : chunk_start + 100]
             res += await self.client.app.delete_messages(cid, chunk)
             if res % 100 == 0:
                 await asyncio.sleep(5)
