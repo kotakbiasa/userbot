@@ -55,7 +55,10 @@ class Dispatcher(abc.ABC):
                 return
 
             nd = max(int(getattr(e, "value", 0) or 0), 0)
-            asyncio.create_task(self._retry(listener, args, kwargs, nd, attempt + 1))
+            if nd <= 30:
+                asyncio.create_task(
+                    self._retry(listener, args, kwargs, nd, attempt + 1)
+                )
         except Exception as exc:
             tb = exc.__traceback__
             while tb and tb.tb_next:
