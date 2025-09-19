@@ -34,10 +34,26 @@ class Debug(Module):
     async def on_startup(self) -> None:
         self.args = {
             "asyncio": asyncio,
+            "dt": datetime,
+            "io": io,
+            "re": re,
             "pyrogram": pyrogram,
+            "filters": filters,
+            "enums": pyrogram.enums,
+            "raw": pyrogram.raw,
+            "types": pyrogram.types,
+            "utils": pyrogram.utils,
             "selfbot": selfbot,
+            "aexec": aexec,
+            "fmtexc": fmtexc,
+            "fmtsec": fmtsec,
+            "ids": ids,
+            "ikm": ikm,
             "shell": shell,
             "self": self.client,
+            "app": self.client.app,
+            "bot": self.client.bot,
+            "loop": self.client.loop,
             "cls": self,
         }
 
