@@ -2,10 +2,9 @@ import abc
 import asyncio
 import bisect
 import contextlib
-import traceback
 from typing import Any
 
-from pyrogram.errors import FloodWait, MessageNotModified, SlowmodeWait
+from pyrogram.errors import FloodWait, MessageNotModified, QueryIdInvalid, SlowmodeWait
 
 from selfbot.listener import Listener
 from selfbot.module import Module
@@ -30,58 +29,42 @@ class Dispatcher(abc.ABC):
                 continue
 
             except (FloodWait, SlowmodeWait) as e:
-                delay = max(int(getattr(e, "value", 0) or 0), 0)
-                self._schedule_retry(listener, args, kwargs, delay)
+                d = max(int(getattr(e, "value", 0) or 0), 0)
+                asyncio.create_task(self._retry(listener, args, kwargs, d, 1))
 
             except Exception as exc:
+                tb = exc.__traceback__
+                while tb and tb.tb_next:
+                    tb = tb.tb_next
 
-                tb = traceback.extract_tb(exc.__traceback__)
-                if tb:
-                    file, line, _, _ = tb[-1]
-                    msg = f"{exc.__class__.__name__}: {exc} at {file}:{line}"
-                else:
-                    msg = f"{exc.__class__.__name__}: {exc}"
-
+                f = tb.tb_frame.f_code.co_filename if tb else "?"
+                ln = tb.tb_lineno if tb else "?"
                 with contextlib.suppress(Exception):
-                    self.logger.error(msg)
+                    self.logger.error(f"{exc.__class__.__name__}: {exc} at {f}:{ln}")
 
-    def _schedule_retry(
-        self,
-        listener: "Listener",
-        args: tuple[Any, ...],
-        kwargs: dict[str, Any],
-        delay: int,
-    ) -> None:
-        asyncio.create_task(self._retry_once(listener, args, kwargs, delay))
-
-    async def _retry_once(
-        self,
-        listener: "Listener",
-        args: tuple[Any, ...],
-        kwargs: dict[str, Any],
-        delay: int,
-    ) -> None:
+    async def _retry(self, listener, args, kwargs, delay, attempt):
         if delay > 0:
-            await asyncio.sleep(delay)
+            await asyncio.sleep(delay + min(1.0, 0.1 * attempt))
 
         try:
             await listener.func(*args, **kwargs)
-        except MessageNotModified:
+        except (MessageNotModified, QueryIdInvalid):
             return
         except (FloodWait, SlowmodeWait) as e:
-            next_delay = max(int(getattr(e, "value", 0) or 0), 0)
-            self._schedule_retry(listener, args, kwargs, next_delay)
+            if attempt >= 3:
+                return
+
+            nd = max(int(getattr(e, "value", 0) or 0), 0)
+            asyncio.create_task(self._retry(listener, args, kwargs, nd, attempt + 1))
         except Exception as exc:
+            tb = exc.__traceback__
+            while tb and tb.tb_next:
+                tb = tb.tb_next
 
-            tb = traceback.extract_tb(exc.__traceback__)
-            if tb:
-                file, line, _, _ = tb[-1]
-                msg = f"{exc.__class__.__name__}: {exc} at {file}:{line}"
-            else:
-                msg = f"{exc.__class__.__name__}: {exc}"
-
+            f = tb.tb_frame.f_code.co_filename if tb else "?"
+            ln = tb.tb_lineno if tb else "?"
             with contextlib.suppress(Exception):
-                self.logger.error(msg)
+                self.logger.error(f"{exc.__class__.__name__}: {exc} at {f}:{ln}")
 
     def registers(self, mod: "Module") -> None:
         for event, func in self._funcs(mod, "on_"):
