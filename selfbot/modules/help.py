@@ -37,7 +37,7 @@ class Help(Module):
             self.map[name] = len(self.ikb)
             self.mod[name] = (
                 f"<b>{mod.name}</b>\n\n  <b>Pattern</b>\n    <code>{mod.cmds}</code>"
-                f"\n\n{self.fmthelp(mod.desc)}"
+                f"\n\n{self._fmthelp(mod.desc)}"
             )
             page.append((mod.name, f"help/mod/{name}"))
             if len(page) == 4:
@@ -121,7 +121,7 @@ class Help(Module):
         return ikb
 
     @staticmethod
-    def fmthelp(data: any) -> str:
+    def _fmthelp(data: any) -> str:
         if isinstance(data, dict):
             res = [
                 f"{' ' * 4}• <b>{k}</b>\n{' ' * 8}<code>{v}</code>"

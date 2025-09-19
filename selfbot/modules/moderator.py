@@ -88,7 +88,7 @@ class Moderator(Module):
 
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:
-        action = self.verb(pattern.match(event.query).groupdict()["action"], "present")
+        action = self._verb(pattern.match(event.query).groupdict()["action"], "present")
         await event.answer(
             [
                 InlineQueryResultCachedSticker(
@@ -155,7 +155,7 @@ class Moderator(Module):
         else:
             await event.edit_message_text(
                 fmtstr(
-                    f"<a href='tg://user?id={target}'>User</a> {self.verb(action, 'past')}",
+                    f"<a href='tg://user?id={target}'>User</a> {self._verb(action, 'past')}",
                     {"ID": target, "Reason": data["reason"] or "N/A", "Duration": unit},
                     fmtsec(now),
                 ),
@@ -163,7 +163,7 @@ class Moderator(Module):
             )
 
     @staticmethod
-    def verb(text: str, tense: str) -> str:
+    def _verb(text: str, tense: str) -> str:
         result = text.removesuffix("e")
         suffix = "ing" if tense == "present" else "ed"
         if result.endswith("n"):

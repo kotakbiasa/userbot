@@ -36,7 +36,7 @@ class Dispatcher(abc.ABC):
                         await listener.func(*args, **kwargs)
 
     def registers(self, mod: "Module") -> None:
-        for event, func in self.funcs(mod, "on_"):
+        for event, func in self._funcs(mod, "on_"):
             done = False
             try:
                 self.register(

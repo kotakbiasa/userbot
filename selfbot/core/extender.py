@@ -52,7 +52,7 @@ class Extender(abc.ABC):
             del self.modules[type(mod).name]
 
     @staticmethod
-    def funcs(mod: "Module", prefix: str) -> list:
+    def _funcs(mod: "Module", prefix: str) -> list:
         res = []
         for attr in dir(mod):
             if attr.startswith(prefix):
