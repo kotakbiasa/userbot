@@ -101,7 +101,7 @@ class System(Module):
                     repo=self.client.config.get(
                         "repo", "https://github.com/DeltaUniverse/selfbot"
                     ),
-                    branch=self.client.config.get("branch", "staging"),
+                    branch=self.client.config.get("branch", "heroku"),
                 )
             ),
         )

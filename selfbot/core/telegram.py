@@ -131,7 +131,7 @@ class Telegram(abc.ABC):
         for key in list(os.environ):
             if key.endswith("_SESSION_STRING"):
                 os.environ.pop(key)
-            elif key == "STICKER_FILE_ID":
+            elif key in ["STICKER_FILE_ID", "BRANCH"]:
                 self.config[key.lower()] = os.environ[key]
 
     @property
