@@ -7,7 +7,7 @@ import re
 
 import pyrogram
 from pyrogram import filters
-from pyrogram.errors import MessageIdsEmpty, MessageNotModified
+from pyrogram.errors import MessageIdsEmpty
 from pyrogram.types import (
     CallbackQuery,
     ChosenInlineResult,
@@ -44,12 +44,11 @@ class Debug(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_message(self, event: Message) -> None:
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "#")
-        with contextlib.suppress(MessageNotModified):
-            await event.edit(
-                html.escape(event.content.markdown).removesuffix("#").rstrip()
-            )
-
-        await event.reply_inline_bot_result(res.query_id, res.results[0].id, quote=True)
+        await asyncio.gather(
+            event.edit(html.escape(event.content.markdown).removesuffix("#").rstrip()),
+            event.reply_inline_bot_result(res.query_id, res.results[0].id, quote=True),
+            return_exceptions=True,
+        )
 
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:

@@ -37,7 +37,7 @@ class Help(Module):
             self.map[name] = len(self.ikb)
             self.mod[name] = (
                 f"<b>{mod.name}</b>\n\n  <b>Pattern</b>\n    <code>{mod.cmds}</code>"
-                f"\n\n{self.fmtmod(mod.desc)}"
+                f"\n\n{self.fmthelp(mod.desc)}"
             )
             page.append((mod.name, f"help/mod/{name}"))
             if len(page) == 4:
@@ -79,7 +79,7 @@ class Help(Module):
     @listener.handler(filters.regex(pattern), 3)
     async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
         await event.edit_message_text(
-            "<b>Selfbot Modules</b>", reply_markup=ikm(self.build(0))
+            "<b>Selfbot Modules</b>", reply_markup=ikm(self.build())
         )
 
     @listener.handler(filters.regex(pattern), 4)
@@ -121,7 +121,7 @@ class Help(Module):
         return ikb
 
     @staticmethod
-    def fmtmod(data: any) -> str:
+    def fmthelp(data: any) -> str:
         if isinstance(data, dict):
             res = [
                 f"{' ' * 4}• <b>{k}</b>\n{' ' * 8}<code>{v}</code>"

@@ -50,3 +50,14 @@ class Extender(abc.ABC):
             self.logger.info(f"{mod.name} Unloaded")
         finally:
             del self.modules[type(mod).name]
+
+    @staticmethod
+    def funcs(mod: "Module", prefix: str) -> list:
+        res = []
+        for attr in dir(mod):
+            if attr.startswith(prefix):
+                func = getattr(mod, attr)
+                if callable(func):
+                    res.append((attr[len(prefix) :], func))
+
+        return res
