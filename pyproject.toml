@@ -1,0 +1,24 @@
+[project]
+name = "selfbot"
+version = "2025.9.19"
+description = "Ultimate self userbot, uses pyrogram [pyrotgforrk] With advance low-high level API."
+authors = [
+    {name = "DeltaUniverse <deltauniverse@github.org>"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "aiorun (>=2025.1.1,<2026.0.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
+    "uvloop (>=0.21.0,<0.22.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "telegraph[aio] (>=2.2.0,<3.0.0)",
+    "pytgcrypto @ git+https://github.com/TelegramPlayground/pyrogram-tgcrypto",
+    "pyrotgfork @ git+https://github.com/TelegramPlayground/pyrogram@dev"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
