@@ -11,6 +11,7 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
+    ReplyParameters,
     Update,
 )
 
@@ -30,7 +31,13 @@ class Network(Module):
     async def on_message(self, event: Message) -> None:
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "ping")
         await asyncio.gather(
-            event.reply_inline_bot_result(res.query_id, res.results[0].id),
+            event.reply_inline_bot_result(
+                res.query_id,
+                res.results[0].id,
+                reply_parameters=ReplyParameters(
+                    message_id=event.reply_to_message_id or event.id
+                ),
+            ),
             event.delete(True),
         )
 
