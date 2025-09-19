@@ -110,6 +110,10 @@ class Schedule(Module):
             "chat_id": data["self"] or ids(event.inline_message_id)[0],
             "text": data["text"].strip(),
         }
+
+        unit = self.period.get(data["unit"])
+        unit = unit.removesuffix("s").title() if data["time"] == "1" else unit.title()
+
         res, now = 0, datetime.datetime.now()
         if data["loop"]:
             for i in range(1, int(data["loop"]) + 1):
@@ -134,7 +138,7 @@ class Schedule(Module):
                     {
                         "Self": bool(data["self"]),
                         "Repeat": data["loop"],
-                        "Period": f"{data['time']} {data['unit']}",
+                        "Period": f"{data['time']} {unit}",
                         "Failed": int(data["loop"]) - res,
                         "Content": data["text"],
                     },
@@ -161,7 +165,7 @@ class Schedule(Module):
                         "Scheduled Message",
                         {
                             "Self": bool(data["self"]),
-                            "Period": f"{data['time']} {data['unit']}",
+                            "Period": f"{data['time']} {unit}",
                             "Content": data["text"],
                         },
                         fmtsec(now),

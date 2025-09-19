@@ -133,7 +133,7 @@ class Moderator(Module):
             if "until_date" in inspect.signature(coro).parameters and data["duration"]:
                 args = {self.period[data["unit"]]: int(data["duration"])}
                 unit = "".join(
-                    f"{v} {k.title() if v > 1 else k.removesuffix('s').title()}"
+                    f"{v} {k.removesuffix('s').title() if v == 1 else k.title()}"
                     for k, v in args.items()
                 )
                 kwargs["until_date"] = datetime.datetime.now() + datetime.timedelta(
