@@ -17,9 +17,9 @@ for lib in ["pyrogram", "httpx"]:
 
 
 def config() -> dict:
-    config = dotenv_values()
-    if not config:
-        config = {k.lower(): v for k, v in os.environ.items()}
+    config = {k.lower(): v for k, v in (dotenv_values() or os.environ).items()}
+    if not (config.get("app_string_session") or config.get("bot_string_session")):
+        raise SystemExit("Missing app_string_session or bot_string_session")
 
     return config
 
