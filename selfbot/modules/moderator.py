@@ -162,7 +162,8 @@ class Moderator(Module):
                 reply_markup=ikm(("Close", b"0")),
             )
 
-    def verb(self, text: str, tense: str) -> str:
+    @staticmethod
+    def verb(text: str, tense: str) -> str:
         result = text.removesuffix("e")
         suffix = "ing" if tense == "present" else "ed"
         if result.endswith("n"):
