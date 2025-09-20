@@ -44,7 +44,7 @@ class Schedule(Module):
         self.lock = asyncio.Lock()
 
     @listener.handler(filters.regex(pattern), 1)
-    async def on_message(self, event: Message) -> None:
+    async def on_message_out(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
         data["reply"] = {}
         if event.external_reply and event.external_reply.message_id:
@@ -97,7 +97,7 @@ class Schedule(Module):
         )
 
     @listener.handler(filters.regex(pattern), 3)
-    async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
         if self.data.empty():
             return await self.client.app.delete_messages(
                 *ids(event.inline_message_id), True

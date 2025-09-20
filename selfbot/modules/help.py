@@ -23,7 +23,7 @@ class Help(Module):
     name = "Help"
     hide = True
 
-    async def on_startup(self) -> None:
+    async def on_starting(self) -> None:
         self.mod = {}
         self.map = {}
         self.ikb = []
@@ -48,7 +48,7 @@ class Help(Module):
             self.ikb.append([page[i : i + 2] for i in range(0, len(page), 2)])
 
     @listener.handler(filters.regex(pattern), 1)
-    async def on_message(self, event: Message) -> None:
+    async def on_message_out(self, event: Message) -> None:
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
         )
@@ -77,13 +77,13 @@ class Help(Module):
         )
 
     @listener.handler(filters.regex(pattern), 3)
-    async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
         await event.edit_message_text(
             "<b>Selfbot Modules</b>", reply_markup=ikm(self.build())
         )
 
     @listener.handler(filters.regex(pattern), 4)
-    async def on_callback_query(self, event: CallbackQuery) -> None:
+    async def on_inline_callback(self, event: CallbackQuery) -> None:
         act, val = pattern.match(event.data).groups()
         if act == "info":
             return await event.answer(
