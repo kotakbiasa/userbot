@@ -36,7 +36,8 @@ class Help(Module):
             name = mod.name.lower()
             self.map[name] = len(self.ikb)
             self.mod[name] = (
-                f"<b>{mod.name}</b>\n\n  <b>Pattern</b>\n    <code>{mod.cmds}</code>"
+                f"<b>{mod.name}</b>"
+                f"\n\n{' ' * 2}<b>Pattern</b>\n{' ' * 4}<code>{mod.cmds}</code>"
                 f"\n\n{self._fmthelp(mod.desc)}"
             )
             page.append((mod.name, f"help/mod/{name}"))
@@ -124,10 +125,10 @@ class Help(Module):
     def _fmthelp(data: any) -> str:
         if isinstance(data, dict):
             res = [
-                f"{' ' * 4}• <b>{k}</b>\n{' ' * 8}<code>{v}</code>"
+                f"{' ' * 4}• <b>{k}</b>\n{' ' * 6}<code>{v}</code>"
                 for k, v in data.items()
             ]
-            return "\n\n".join(res)
+            return "\n".join(res)
         elif isinstance(data, list):
             return "\n".join([f"{' ' * 4}• <b>{i}</b>" for i in data])
 

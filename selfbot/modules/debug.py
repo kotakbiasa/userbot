@@ -28,7 +28,7 @@ pattern = re.compile(r"^.*#$", flags=re.DOTALL)
 
 class Debug(Module):
     name = "Debug"
-    cmds = "{code} #"
+    cmds = "{code(#)}"
     desc = {"code": "Python Code"}
 
     async def on_starting(self) -> None:
