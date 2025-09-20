@@ -30,7 +30,7 @@ class Translate(Module):
         "content": "[string, reply_content, quote_content]",
     }
 
-    async def on_startup(self) -> None:
+    async def on_starting(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 

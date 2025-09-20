@@ -39,7 +39,7 @@ class Schedule(Module):
         "text": "String",
     }
 
-    async def on_startup(self) -> None:
+    async def on_starting(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
