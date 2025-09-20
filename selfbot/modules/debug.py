@@ -68,17 +68,19 @@ class Debug(Module):
 
             PyTgCallsSession.notice_displayed = True
 
-            self.client.tgc = PyTgCalls(self.app, 1, 900)
+            self.client.tgc = PyTgCalls(self.client.app, 1, 900)
             await self.client.tgc.start()
 
-            for group in self.client.dispatcher.groups:
+            for group in self.client.app.dispatcher.groups:
                 if group == -1:
                     continue
 
-                for handler in self.client.dispatcher.groups[group]:
-                    await asyncio.to_thread(self.app.remove_handler, handler, group)
+                for handler in self.client.app.dispatcher.groups[group]:
+                    await asyncio.to_thread(
+                        self.client.app.remove_handler, handler, group
+                    )
 
-                del self.client.dispatcher.groups[group]
+                del self.client.app.dispatcher.groups[group]
 
             self.args.update({"pytgcalls": pytgcalls, "tgc": self.client.tgc})
 
