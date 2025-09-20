@@ -70,6 +70,8 @@ class Debug(Module):
             self.client.tgc = PyTgCalls(self.client.app, 1, 900)
             await self.client.tgc.start()
 
+            self.args.update({"pytgcalls": pytgcalls, "tgc": self.client.tgc})
+
             for group in self.client.app.dispatcher.groups:
                 if group == -1:
                     continue
@@ -80,8 +82,6 @@ class Debug(Module):
                     )
 
                 self.client.app.dispatcher.groups.pop(group, None)
-
-            self.args.update({"pytgcalls": pytgcalls, "tgc": self.client.tgc})
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message(self, event: Message) -> None:
