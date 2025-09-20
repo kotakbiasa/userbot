@@ -1,0 +1,43 @@
+[project]
+name = "selfbot"
+version = "2025.9.19"
+description = "Ultimate self userbot, uses pyrogram [pyrotgforrk] With advance low-high level API."
+authors = [
+    {name = "DeltaUniverse <deltauniverse@github.org>"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+
+keywords = ["chat", "telegram", "selfbot", "telegram-bot", "pyrogram"]
+classifiers = [
+    "Environment :: Console",
+    "Framework :: AsyncIO",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Communications",
+    "Topic :: Communications :: Chat",
+]
+
+requires-python = ">=3.11"
+
+[tool.poetry.scripts]
+selfbot = "selfbot.main:run"
+gensesi = "tools.string_generator:main"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<4.0"
+
+aiorun = ">=2025.1.1,<2026.0.0"
+python-dotenv = ">=1.1.1,<2.0.0"
+uvloop = ">=0.21.0,<0.22.0"
+httpx = ">=0.28.1,<0.29.0"
+telegraph = { version = ">=2.2.0,<3.0.0", extras = ["aio"] }
+pytgcrypto = { git = "https://github.com/TelegramPlayground/pyrogram-tgcrypto" }
+pyrotgfork = { git = "https://github.com/TelegramPlayground/pyrogram", branch = "dev" }
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
