@@ -35,9 +35,9 @@ class Moderator(Module):
     cmds = "{action} {target} *{{n}{unit}} *{(-r) reason}"
     desc = {
         "action": "[ban, kick, mute, unban, unmute]",
-        "target": "User ID or Username or Reply to User",
+        "target": "[user_id, username, reply_user]",
         "*": "Optional",
-        "n": "1 - 99",
+        "n": "[1-99]",
         "unit": "{m: minute, h: hour, d: day, w: week}",
         "reason": "String",
     }

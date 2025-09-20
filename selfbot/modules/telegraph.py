@@ -29,7 +29,7 @@ mention = re.compile(r"(?<!\S)@([a-zA-Z0-9_]{5,32})(?!\S)")
 class Telegraph(Module):
     name = "Telegraph"
     cmds = "(graph) *{(-t) title} {content}"
-    desc = {"*": "Optional", "title": "String", "content": "String or Reply to Content"}
+    desc = {"*": "Optional", "title": "String", "content": "[string, reply_content]"}
 
     async def on_starting(self) -> None:
         self.data = asyncio.Queue()

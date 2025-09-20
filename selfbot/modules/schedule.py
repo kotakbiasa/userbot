@@ -32,10 +32,10 @@ class Schedule(Module):
     cmds = "{action} {{n}{unit}}*{(*)repeat} {text}"
     desc = {
         "action": "[sch, schme]",
-        "n": "1 - 99",
+        "n": "[1-99]",
         "unit": "{m: minute, h: hour, d: day, w: week}",
         "*": "Optional",
-        "repeat": "1 - 99",
+        "repeat": "[1-99]",
         "text": "String",
     }
 

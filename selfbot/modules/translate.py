@@ -23,8 +23,12 @@ pattern = re.compile(
 
 class Translate(Module):
     name = "Translate"
-    cmds = "(tr) {(-to) lang} {content}"
-    desc = {"lang": "Language Code", "content": "String or Reply to Content"}
+    cmds = "(tr) *{(-to) lang} {content}"
+    desc = {
+        "*": "Optional",
+        "lang": "Language Code",
+        "content": "[string, reply_content, quote_content]",
+    }
 
     async def on_startup(self) -> None:
         self.data = asyncio.Queue()
