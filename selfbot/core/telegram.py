@@ -78,7 +78,7 @@ class Telegram(abc.ABC):
         await asyncio.gather(
             asyncio.to_thread(self.loads), asyncio.to_thread(self.safe)
         )
-        self.loop.create_task(self.dispatch("startup"))
+        self.loop.create_task(self.dispatch("starting"))
 
     async def idle(self) -> None:
         if self.__idle__ and not self.__idle__.is_set():
