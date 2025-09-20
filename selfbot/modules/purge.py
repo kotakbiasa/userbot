@@ -35,9 +35,9 @@ class Purge(Module):
         if match.group(2):
             limit = int(match.group(3))
 
-        ids = []
+        mid = []
         if match.group(1):
-            ids = [
+            mid = [
                 m.id
                 async for m in event._client.search_messages(
                     event.chat.id,
@@ -52,17 +52,17 @@ class Purge(Module):
                 return await event.edit(f"<code>Unsupported {event.chat.type}</code>")
             elif event.reply_to_message_id:
                 if limit:
-                    ids = range(
+                    mid = range(
                         event.reply_to_message_id, event.reply_to_message_id + limit
                     )
                 else:
-                    ids = range(event.reply_to_message_id, event.id)
+                    mid = range(event.reply_to_message_id, event.id)
             else:
                 end = limit or 100
-                ids = range(event.id - 1, event.id - (end + 1), -1)
+                mid = range(event.id - 1, event.id - (end + 1), -1)
 
         async with self.lock:
-            await self.data.put((event.chat.id, ids))
+            await self.data.put((event.chat.id, mid))
 
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "purge")
         await asyncio.gather(
@@ -99,10 +99,10 @@ class Purge(Module):
             )
 
         async with self.lock:
-            cid, ids = await self.data.get()
+            cid, mid = await self.data.get()
 
         res, now = 0, datetime.datetime.now()
-        for chunk in [ids[i : i + 100] for i in range(0, len(ids), 100)]:
+        for chunk in [mid[i : i + 100] for i in range(0, len(mid), 100)]:
             res += await self.client.app.delete_messages(cid, chunk)
             if res % 100 == 0:
                 await asyncio.sleep(5)
