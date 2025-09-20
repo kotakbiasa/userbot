@@ -62,7 +62,6 @@ class Debug(Module):
         except ImportError:
             pass
         else:
-            import pytgcalls
             from pytgcalls import PyTgCalls
             from pytgcalls.pytgcalls_session import PyTgCallsSession
 
@@ -80,7 +79,7 @@ class Debug(Module):
                         self.client.app.remove_handler, handler, group
                     )
 
-                del self.client.app.dispatcher.groups[group]
+                self.client.app.dispatcher.groups.pop(group, None)
 
             self.args.update({"pytgcalls": pytgcalls, "tgc": self.client.tgc})
 
