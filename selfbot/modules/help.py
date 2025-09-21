@@ -29,8 +29,6 @@ class Help(Module):
         self.ikb = []
 
         mods = [mod for mod in self.client.modules.values() if not mod.hide]
-        mods.sort(key=lambda mod: mod.name.lower())
-
         page = []
         for i, mod in enumerate(mods):
             name = mod.name.lower()
