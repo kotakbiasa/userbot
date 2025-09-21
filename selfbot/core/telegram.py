@@ -73,11 +73,12 @@ class Telegram(abc.ABC):
             migrate(self.app.name, "app_session_string"),
             migrate(self.bot.name, "bot_session_string"),
         )
-        await asyncio.gather(self.app.start(), self.bot.start(), self.connect())
+        await asyncio.gather(self.app.start(), self.bot.start())
         await self.app.resolve_peer(self.bot.me.username)
         await asyncio.gather(
             asyncio.to_thread(self.loads), asyncio.to_thread(self.safe)
         )
+        self.db = await self.database()
         self.loop.create_task(self.dispatch("starting"))
 
     async def idle(self) -> None:
