@@ -57,32 +57,6 @@ class Debug(Module):
             "cls": self,
         }
 
-        try:
-            import pytgcalls
-        except ImportError:
-            pass
-        else:
-            from pytgcalls import PyTgCalls
-            from pytgcalls.pytgcalls_session import PyTgCallsSession
-
-            PyTgCallsSession.notice_displayed = True
-
-            self.client.tgc = PyTgCalls(self.client.app, 1, 900)
-            await self.client.tgc.start()
-
-            self.args.update({"pytgcalls": pytgcalls, "tgc": self.client.tgc})
-
-            for group in self.client.app.dispatcher.groups:
-                if group == -1:
-                    continue
-
-                for handler in self.client.app.dispatcher.groups[group]:
-                    await asyncio.to_thread(
-                        self.client.app.remove_handler, handler, group
-                    )
-
-                self.client.app.dispatcher.groups.pop(group, None)
-
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "#")

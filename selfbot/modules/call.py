@@ -1,0 +1,152 @@
+import asyncio
+import datetime
+import re
+
+from pyrogram import filters
+from pyrogram.errors import RPCError
+from pyrogram.types import (
+    ChosenInlineResult,
+    InlineQuery,
+    InlineQueryResultCachedSticker,
+    InputTextMessageContent,
+    Message,
+    ReplyParameters,
+)
+from pytgcalls import PyTgCalls
+from pytgcalls.pytgcalls_session import PyTgCallsSession
+from pytgcalls.types import GroupCallConfig
+
+from selfbot import listener
+from selfbot.module import Module
+from selfbot.utils import fmtsec, fmtstr, ids, ikm
+
+PyTgCallsSession.notice_displayed = True
+
+pattern = re.compile(
+    r"^(?P<action>(?:create|discard|join|leave)call)"
+    r"(?:\s+as@(?P<as>@?[a-z][a-zA-Z0-9_]{4,32}|-100\d{10}))?"
+    r"(?:\s+(?P<mute>-mute))?"
+    r"(?:\s+(?P<title>.+))?"
+)
+
+
+class Call(Module):
+    name = "Call"
+    cmds = "{action} *{(-as) entity} *(-mute) *{(-t) title}"
+    desc = {
+        "action": "[create, discard, join, leave]",
+        "*": "Optional",
+        "title": "String",
+    }
+
+    async def on_starting(self) -> None:
+        self.data = asyncio.Queue()
+        self.lock = asyncio.Lock()
+
+        self.client.tgc = PyTgCalls(self.client.app, 1, 900)
+        await self.client.tgc.start()
+
+        for group in self.client.app.dispatcher.groups:
+            if group == -1:
+                continue
+
+            for handler in self.client.app.dispatcher.groups[group]:
+                await asyncio.to_thread(self.client.app.remove_handler, handler, group)
+
+            self.client.app.dispatcher.groups.pop(group, None)
+
+    @listener.handler(filters.regex(pattern, 1))
+    async def on_message_out(self, event: Message) -> None:
+        data["chat_id"] = event.chat.id
+
+        async with self.lock:
+            await self.data.put(pattern.match(event.content).groupdict())
+
+        res = await event._client.get_inline_bot_results(
+            self.client.bot.me.id, event.content
+        )
+        await asyncio.gather(
+            event.reply_inline_bot_result(
+                res.query_id,
+                res.results[0].id,
+                reply_parameters=ReplyParameters(
+                    message_id=event.reply_to_message_id or event.id
+                ),
+            ),
+            event.delete(True),
+        )
+
+    @listener.handler(filters.regex(pattern), 2)
+    async def on_inline_query(self, event: InlineQuery) -> None:
+        await event.answer(
+            [
+                InlineQueryResultCachedSticker(
+                    sticker_file_id=self.client.config["sticker_file_id"],
+                    reply_markup=ikm((">_", "user_id", event._client.me.id)),
+                    input_message_content=InputTextMessageContent(
+                        f"<code>Processing...</code>"
+                    ),
+                )
+            ],
+            cache_time=900,
+        )
+
+    @listener.handler(filters.regex(pattern), 3)
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
+        if self.data.empty():
+            return await self.client.app.delete_messages(
+                *ids(event.inline_message_id), True
+            )
+
+        async with self.lock:
+            data = await self.data.get()
+
+        text = {"data": {"Chat": data["chat_id"]}}
+        coro = None
+        args = {"chat_id": data["chat_id"]}
+
+        now = datetime.datetime.now()
+        if data["action"] == "join":
+            text["head"] = "Joined Call"
+            if not data["as"]:
+                text["data"]["Peer"] = None
+            else:
+                try:
+                    peer = await self.client.app.resolve_peer(data["as"])
+                except RPCError as e:
+                    return await event.edit_message_text(
+                        f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
+                        reply_markup=ikm(("Close", b"0")),
+                    )
+                else:
+                    text["data"]["Peer"] = data["as"]
+                    args["config"] = GroupCallConfig(join_as=peer)
+
+            coro = self.client.tgc.play
+        elif data["action"] == "leave":
+            text["head"] = "Left the Call"
+            coro = self.client.tgc.leave_call
+        elif data["action"] == "create":
+            text["head"] = "Created Call"
+            text["data"]["Title"] = "N/A"
+            if data["title"]:
+                text["data"]["Title"] = data["title"]
+                args["title"] = data["title"]
+
+            coro = self.client.app.create_video_chat
+        else:
+            text["head"] = "Discarded the Call"
+            coro = self.client.app.discard_group_call
+
+        try:
+            await coro(**args)
+        except Exception as e:
+            await event.edit_message_text(
+                f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
+                reply_markup=ikm(("Close", b"0")),
+            )
+        else:
+            text["foot"] = fmtsec(now)
+            await event.edit_message_text(
+                fmtstr(**text), reply_markup=ikm(("Close", b"0"))
+            )
