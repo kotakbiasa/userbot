@@ -23,20 +23,24 @@ from selfbot.utils import fmtsec, fmtstr, ids, ikm
 PyTgCallsSession.notice_displayed = True
 
 pattern = re.compile(
-    r"^(?P<action>(?:create|discard|join|leave))call"
-    r"(?:\s+as@(?P<as>@?[a-z][a-zA-Z0-9_]{4,32}|-100\d{10}))?"
+    r"^"
+    r"(?P<action>(?:start|end|join|leave))call"
+    r"(?:\s+chat@(?P<chat>@?[a-z][a-zA-Z0-9_]{5,32}|-100\d{10}))?"
+    r"(?:\s+as@(?P<as>@?[a-z][a-zA-Z0-9_]{5,32}|-100\d{10}))?"
     r"(?:\s+(?P<mute>-mute))?"
     r"(?:\s+-t\s(?P<title>.+))?"
+    r"$"
 )
 
 
 class Call(Module):
     name = "Call"
-    cmds = "{action(call)} *{(as@) entity} *(-mute) *{(-t) title}"
+    cmds = "{action(call)} *{(chat@) chat} *{(as@) as} *(-mute) *{(-t) title}"
     desc = {
-        "action": "[create, discard, join, leave]",
+        "action": "[join, leave, start, end]",
         "*": "Optional",
-        "entity": "[username, chat_id]",
+        "chat": "[username, chat_id]",
+        "as": "[username, chat_id]",
         "title": "String",
     }
 
@@ -59,7 +63,7 @@ class Call(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
-        data["chat_id"] = event.chat.id
+        data["chat_id"] = data["chat"] or event.chat.id
         async with self.lock:
             await self.data.put(data)
 
@@ -110,7 +114,7 @@ class Call(Module):
         if data["action"] == "join":
             text["head"] = "Joined Call"
             if not data["as"]:
-                text["data"]["Peer"] = None
+                text["data"]["Peer"] = "Self"
             else:
                 try:
                     peer = await self.client.app.resolve_peer(data["as"])
@@ -123,20 +127,24 @@ class Call(Module):
                     text["data"]["Peer"] = data["as"]
                     args["config"] = GroupCallConfig(join_as=peer)
 
+            text["data"]["Mute"] = True if data["mute"] else False
             coro = self.client.tgc.play
+
         elif data["action"] == "leave":
-            text["head"] = "Left the Call"
+            text["head"] = "Left Call"
             coro = self.client.tgc.leave_call
-        elif data["action"] == "create":
-            text["head"] = "Created Call"
+
+        elif data["action"] == "start":
+            text["head"] = "Started Call"
             text["data"]["Title"] = "N/A"
             if data["title"]:
                 text["data"]["Title"] = data["title"]
                 args["title"] = data["title"]
 
             coro = self.client.app.create_video_chat
+
         else:
-            text["head"] = "Discarded the Call"
+            text["head"] = "Ended Call"
             coro = self.client.app.discard_group_call
 
         try:
@@ -147,7 +155,9 @@ class Call(Module):
                 reply_markup=ikm(("Close", b"0")),
             )
         else:
-            text["foot"] = fmtsec(now)
+            if data["action"] == "join" and data["mute"]:
+                self.loop.create_task(self.client.tgc.mute(data["chat_id"]))
+
             await event.edit_message_text(
-                fmtstr(**text), reply_markup=ikm(("Close", b"0"))
+                fmtstr(**text, foot=fmtsec(now)), reply_markup=ikm(("Close", b"0"))
             )
