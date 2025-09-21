@@ -69,6 +69,7 @@ class Schedule(Module):
 
         async with self.lock:
             await self.data.put(data)
+
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
         )
