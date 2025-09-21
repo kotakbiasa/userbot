@@ -2,8 +2,9 @@ import abc
 import asyncio
 import bisect
 import contextlib
+from typing import Any
 
-from pyrogram.errors import FloodWait, MessageNotModified, SlowmodeWait
+from pyrogram.errors import FloodWait, MessageNotModified, QueryIdInvalid, SlowmodeWait
 
 from selfbot.listener import Listener
 from selfbot.module import Module
@@ -11,29 +12,62 @@ from selfbot.module import Module
 
 class Dispatcher(abc.ABC):
     def __init__(self, **kwargs) -> None:
-        self.listeners = {}
-
+        self.listeners: dict[str, list[Listener]] = {}
         super().__init__(**kwargs)
 
-    async def dispatch(self, event: str, *args, **kwargs) -> None:
-        tasks = []
-
+    async def dispatch(self, event: str, *args: Any, **kwargs: Any) -> None:
         for listener in self.listeners.get(event, []):
-            if listener.filters:
-                arg = args[0]
-                if not await listener.filters(arg._client, arg):
-                    continue
+            try:
+                if listener.filters:
+                    first_arg = args[0] if args else None
+                    if not await listener.filters(first_arg._client, first_arg):
+                        continue
 
-            task = self.loop.create_task(listener.func(*args, **kwargs))
-            tasks.append((listener, task))
+                await listener.func(*args, **kwargs)
 
-        if tasks:
-            coros = await asyncio.gather(*(t[1] for t in tasks), return_exceptions=True)
-            for listener, result in zip((t[0] for t in tasks), coros):
-                if isinstance(result, (FloodWait, SlowmodeWait)):
-                    await asyncio.sleep(result.value)
-                    with contextlib.suppress(MessageNotModified):
-                        await listener.func(*args, **kwargs)
+            except MessageNotModified:
+                continue
+
+            except (FloodWait, SlowmodeWait) as e:
+                d = max(int(getattr(e, "value", 0) or 0), 0)
+                asyncio.create_task(self._retry(listener, args, kwargs, d, 1))
+
+            except Exception as exc:
+                tb = exc.__traceback__
+                while tb and tb.tb_next:
+                    tb = tb.tb_next
+
+                f = tb.tb_frame.f_code.co_filename if tb else "?"
+                ln = tb.tb_lineno if tb else "?"
+                with contextlib.suppress(Exception):
+                    self.logger.error(f"{exc.__class__.__name__}: {exc} at {f}:{ln}")
+
+    async def _retry(self, listener, args, kwargs, delay, attempt):
+        if delay > 0:
+            await asyncio.sleep(delay + min(1.0, 0.1 * attempt))
+
+        try:
+            await listener.func(*args, **kwargs)
+        except (MessageNotModified, QueryIdInvalid):
+            return
+        except (FloodWait, SlowmodeWait) as e:
+            if attempt >= 3:
+                return
+
+            nd = max(int(getattr(e, "value", 0) or 0), 0)
+            if nd <= 30:
+                asyncio.create_task(
+                    self._retry(listener, args, kwargs, nd, attempt + 1)
+                )
+        except Exception as exc:
+            tb = exc.__traceback__
+            while tb and tb.tb_next:
+                tb = tb.tb_next
+
+            f = tb.tb_frame.f_code.co_filename if tb else "?"
+            ln = tb.tb_lineno if tb else "?"
+            with contextlib.suppress(Exception):
+                self.logger.error(f"{exc.__class__.__name__}: {exc} at {f}:{ln}")
 
     def registers(self, mod: "Module") -> None:
         for event, func in self._funcs(mod, "on_"):
