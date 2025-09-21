@@ -23,10 +23,10 @@ from selfbot.utils import fmtsec, fmtstr, ids, ikm
 PyTgCallsSession.notice_displayed = True
 
 pattern = re.compile(
-    r"^(?P<action>(?:create|discard|join|leave))call"
+    r"^(?P<action>(?:create|discard|join|leave)call)"
     r"(?:\s+as@(?P<as>@?[a-z][a-zA-Z0-9_]{4,32}|-100\d{10}))?"
     r"(?:\s+(?P<mute>-mute))?"
-    r"(?:\s+(?P<title>.+))?"
+    r"(?:\s+-t\s(?P<title>.+))?"
 )
 
 
@@ -58,10 +58,10 @@ class Call(Module):
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
+        data = pattern.match(event.content).groupdict()
         data["chat_id"] = event.chat.id
-
         async with self.lock:
-            await self.data.put(pattern.match(event.content).groupdict())
+            await self.data.put(data)
 
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
