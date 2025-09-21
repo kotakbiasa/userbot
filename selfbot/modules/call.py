@@ -23,7 +23,7 @@ from selfbot.utils import fmtsec, fmtstr, ids, ikm
 PyTgCallsSession.notice_displayed = True
 
 pattern = re.compile(
-    r"^(?P<action>(?:create|discard|join|leave)call)"
+    r"^(?P<action>(?:create|discard|join|leave))call"
     r"(?:\s+as@(?P<as>@?[a-z][a-zA-Z0-9_]{4,32}|-100\d{10}))?"
     r"(?:\s+(?P<mute>-mute))?"
     r"(?:\s+-t\s(?P<title>.+))?"
