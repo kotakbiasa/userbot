@@ -29,7 +29,7 @@ repos:
       - id: blank-line-after-blocks
 
   - repo: https://github.com/psf/black
-    rev: 25.1.0
+    rev: 25.9.0
     hooks:
       - id: black
         args:
@@ -38,26 +38,9 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      - id: check-toml
       - id: check-yaml
       - id: end-of-file-fixer
       - id: mixed-line-ending
-      - id: requirements-txt-fixer
+      - id: sort-simple-yaml
       - id: trailing-whitespace
-
-  - repo: local
-    hooks:
-      - id: poetry-export-requirements
-        name: poetry export requirements.txt
-        language: system
-        pass_filenames: false
-        files: ^(pyproject\.toml|poetry\.lock)$
-        entry: |
-          bash -c '
-            if command -v poetry >/dev/null 2>&1 && poetry export --help | grep -q requirements.txt; then
-              poetry export --without-hashes --format=requirements.txt -o requirements.txt || exit 0u
-              # git add requirements.txt || true
-            else
-              echo "[pre-commit] poetry export not available, skipping"
-              exit 0
-            fi
-          '

@@ -108,15 +108,13 @@ class System(Module):
                     repo=self.client.config.get(
                         "repo", "https://github.com/DeltaUniverse/selfbot"
                     ),
-                    branch=self.client.config.get("branch", "heroku"),
+                    branch=self.client.config.get("branch", "staging"),
                 )
             ),
         )
         await asyncio.gather(
             event.edit_message_text("<code>Updating...</code>"),
-            shell(
-                "pip install --upgrade pip; pip install --upgrade -r requirements.txt"
-            ),
+            shell("pip install --upgrade pip; pip install ."),
             asyncio.to_thread(
                 put_id,
                 "r.txt",
