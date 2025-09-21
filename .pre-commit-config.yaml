@@ -44,9 +44,10 @@ repos:
       - id: mixed-line-ending
       - id: sort-simple-yaml
       - id: trailing-whitespace
-  - repo: https://github.com/python-poetry/poetry
-    rev: 2.2.1
-    hooks:
-      - id: poetry-check
-      - id: poetry-lock
-      - id: poetry-install
+
+#   - repo: https://github.com/python-poetry/poetry
+#     rev: 2.2.1
+#     hooks:
+#       - id: poetry-check
+#       - id: poetry-lock
+#       - id: poetry-install

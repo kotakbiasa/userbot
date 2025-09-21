@@ -142,9 +142,9 @@ class Telegram(abc.ABC):
     def safe(self) -> None:
         self.config.clear()
         for key in list(os.environ):
-            if key.endswith("_SESSION_STRING") or key == "DATABASE_URL":
+            if key.endswith("_SESSION_STRING"):
                 os.environ.pop(key)
-            elif key in ["STICKER_FILE_ID", "BRANCH"]:
+            elif key in ["BRANCH", "DATABASE_URL", "STICKER_FILE_ID"]:
                 self.config[key.lower()] = os.environ[key]
 
     @property

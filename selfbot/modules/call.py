@@ -51,7 +51,7 @@ class Call(Module):
         self.client.tgc = PyTgCalls(self.client.app, 1, 900)
         await self.client.tgc.start()
 
-        for group in self.client.app.dispatcher.groups:
+        for group in self.client.app.dispatcher.groups.keys():
             if group == -1:
                 continue
 

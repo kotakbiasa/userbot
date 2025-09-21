@@ -25,49 +25,28 @@ class Dispatcher(abc.ABC):
 
                 await listener.func(*args, **kwargs)
 
-            except MessageNotModified:
+            except (MessageNotModified, QueryIdInvalid):
                 continue
 
             except (FloodWait, SlowmodeWait) as e:
-                d = max(int(getattr(e, "value", 0) or 0), 0)
-                asyncio.create_task(self._retry(listener, args, kwargs, d, 1))
+                if e.value <= 30:
+                    await asyncio.sleep(e.value)
+                    try:
+                        await listener.func(*args, **kwargs)
+                    except Exception as r:
+                        self.logger.warning(f"Retry Failed: {r}")
+                else:
+                    raise
 
-            except Exception as exc:
-                tb = exc.__traceback__
+            except Exception as e:
+                tb = e.__traceback__
                 while tb and tb.tb_next:
                     tb = tb.tb_next
 
-                f = tb.tb_frame.f_code.co_filename if tb else "?"
-                ln = tb.tb_lineno if tb else "?"
+                fn = tb.tb_frame.f_code.co_filename if tb else "N/A"
+                ln = tb.tb_lineno if tb else "N/A"
                 with contextlib.suppress(Exception):
-                    self.logger.error(f"{exc.__class__.__name__}: {exc} at {f}:{ln}")
-
-    async def _retry(self, listener, args, kwargs, delay, attempt):
-        if delay > 0:
-            await asyncio.sleep(delay + min(1.0, 0.1 * attempt))
-
-        try:
-            await listener.func(*args, **kwargs)
-        except (MessageNotModified, QueryIdInvalid):
-            return
-        except (FloodWait, SlowmodeWait) as e:
-            if attempt >= 3:
-                return
-
-            nd = max(int(getattr(e, "value", 0) or 0), 0)
-            if nd <= 30:
-                asyncio.create_task(
-                    self._retry(listener, args, kwargs, nd, attempt + 1)
-                )
-        except Exception as exc:
-            tb = exc.__traceback__
-            while tb and tb.tb_next:
-                tb = tb.tb_next
-
-            f = tb.tb_frame.f_code.co_filename if tb else "?"
-            ln = tb.tb_lineno if tb else "?"
-            with contextlib.suppress(Exception):
-                self.logger.error(f"{exc.__class__.__name__}: {exc} at {f}:{ln}")
+                    self.logger.error(f"{exc.__class__.__name__}: {e} at {fn}:{ln}")
 
     def registers(self, mod: "Module") -> None:
         for event, func in self._funcs(mod, "on_"):
