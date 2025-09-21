@@ -25,7 +25,6 @@ requires-python = ">=3.11"
 
 [tool.poetry.scripts]
 selfbot = "selfbot.main:run"
-gensesi = "tools.string_generator:main"
 
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
