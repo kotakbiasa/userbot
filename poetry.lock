@@ -844,8 +844,9 @@ description = "Async client API for the Telegram Calls."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
-files = []
-develop = false
+files = [
+    {file = "py_tgcalls-2.2.8-py3-none-any.whl", hash = "sha256:9aef2987c059276a34c1af628192af362d4980627d0206d7500a3799a18aaf89"},
+]
 
 [package.dependencies]
 aiohttp = ">=3.9.3"
@@ -856,12 +857,6 @@ ntgcalls = ">=2.0.6,<3.0.0"
 hydrogram = ["hydrogram (>=0.1.4)"]
 pyrogram = ["pyrogram (>=1.2.20)"]
 telethon = ["telethon (>=1.24.0)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/pytgcalls/pytgcalls"
-reference = "master"
-resolved_reference = "83b995623b2af7f2ff6f497ab63086a9ab8e3da5"
 
 [[package]]
 name = "pyaes"
@@ -1201,4 +1196,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<4.0"
-content-hash = "cd4327b82f2acf471d22fd960245fc51b394cfda13584866254a0f20b63eb981"
+content-hash = "495712444a5095c2ba9d7a9d3aa473d45bf0a03a8f740bfb91db38f03088980c"
