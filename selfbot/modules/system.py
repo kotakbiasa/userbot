@@ -103,18 +103,16 @@ class System(Module):
         await asyncio.gather(
             event.edit_message_text("<code>Fetching...</code>"),
             shell(
-                "git init; git remote add origin {repo}"
-                "; git fetch; git reset --hard origin/{branch}".format(
-                    repo=self.client.config.get(
-                        "repo", "https://github.com/DeltaUniverse/selfbot"
-                    ),
-                    branch=self.client.config.get("branch", "staging"),
+                "git init"
+                "&& git remote add origin https://github.com/DeltaUniverse/selfbot"
+                "&& git fetch"
+                "&& git reset --hard origin/{}".format(
+                    self.client.config.get("branch", "staging")
                 )
             ),
         )
         await asyncio.gather(
-            event.edit_message_text("<code>Updating...</code>"),
-            shell("pip install --upgrade pip; pip install ."),
+            event.edit_message_text("<code>Restarting...</code>"),
             asyncio.to_thread(
                 put_id,
                 "r.txt",
@@ -122,7 +120,6 @@ class System(Module):
             ),
         )
 
-        await event.edit_message_text("<code>Restarting...</code>")
         try:
             self.client.__idle__.set()
         finally:
