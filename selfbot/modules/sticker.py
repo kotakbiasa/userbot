@@ -34,7 +34,7 @@ class Sticker(Module):
     cmds = "{mode(sticker)} {name} {emoji}"
     desc = {"mode": "[add, get, set]", "name": "String", "emoji": "String"}
 
-    async def on_startup(self) -> None:
+    async def on_starting(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
@@ -47,7 +47,7 @@ class Sticker(Module):
                 self.sets[i.set.short_name] = i.set.count
 
     @listener.handler(filters.regex(pattern), 1)
-    async def on_message(self, event: Message) -> None:
+    async def on_message_out(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
         if data["mode"] != "get":
             if not event.reply_to_message or (
@@ -102,7 +102,7 @@ class Sticker(Module):
         )
 
     @listener.handler(filters.regex(pattern), 3)
-    async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
         if self.data.empty():
             return await self.client.app.delete_messages(
                 *ids(event.inline_message_id), True

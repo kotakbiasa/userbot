@@ -23,20 +23,19 @@ class Help(Module):
     name = "Help"
     hide = True
 
-    async def on_startup(self) -> None:
+    async def on_starting(self) -> None:
         self.mod = {}
         self.map = {}
         self.ikb = []
 
         mods = [mod for mod in self.client.modules.values() if not mod.hide]
-        mods.sort(key=lambda mod: mod.name.lower())
-
         page = []
         for i, mod in enumerate(mods):
             name = mod.name.lower()
             self.map[name] = len(self.ikb)
             self.mod[name] = (
-                f"<b>{mod.name}</b>\n\n  <b>Pattern</b>\n    <code>{mod.cmds}</code>"
+                f"<b>{mod.name}</b>"
+                f"\n\n{' ' * 2}<b>Pattern</b>\n{' ' * 4}<code>{mod.cmds}</code>"
                 f"\n\n{self._fmthelp(mod.desc)}"
             )
             page.append((mod.name, f"help/mod/{name}"))
@@ -48,7 +47,7 @@ class Help(Module):
             self.ikb.append([page[i : i + 2] for i in range(0, len(page), 2)])
 
     @listener.handler(filters.regex(pattern), 1)
-    async def on_message(self, event: Message) -> None:
+    async def on_message_out(self, event: Message) -> None:
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
         )
@@ -77,13 +76,13 @@ class Help(Module):
         )
 
     @listener.handler(filters.regex(pattern), 3)
-    async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
         await event.edit_message_text(
             "<b>Selfbot Modules</b>", reply_markup=ikm(self.build())
         )
 
     @listener.handler(filters.regex(pattern), 4)
-    async def on_callback_query(self, event: CallbackQuery) -> None:
+    async def on_inline_callback(self, event: CallbackQuery) -> None:
         act, val = pattern.match(event.data).groups()
         if act == "info":
             return await event.answer(
@@ -107,7 +106,7 @@ class Help(Module):
     def build(self, page: int = 0) -> list:
         idx = max(0, min(page, len(self.ikb) - 1))
         ikb = self.ikb[idx][:]
-        ikb.append([("Page Info", f"help/info/{idx}")])
+        ikb.append([("Current Page", f"help/info/{idx}")])
 
         nav = []
         if idx > 0:
@@ -124,10 +123,10 @@ class Help(Module):
     def _fmthelp(data: any) -> str:
         if isinstance(data, dict):
             res = [
-                f"{' ' * 4}• <b>{k}</b>\n{' ' * 8}<code>{v}</code>"
+                f"{' ' * 4}• <b>{k}</b>\n{' ' * 6}<code>{v}</code>"
                 for k, v in data.items()
             ]
-            return "\n\n".join(res)
+            return "\n".join(res)
         elif isinstance(data, list):
             return "\n".join([f"{' ' * 4}• <b>{i}</b>" for i in data])
 

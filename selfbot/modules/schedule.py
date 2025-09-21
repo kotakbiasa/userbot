@@ -29,22 +29,22 @@ pattern = re.compile(
 
 class Schedule(Module):
     name = "Schedule"
-    cmds = "{action} {n}{unit}*{(*)repeat} {text}"
+    cmds = "{action} {{n}{unit}}*{(*)repeat} {text}"
     desc = {
         "action": "[sch, schme]",
-        "n": "1 - 99",
+        "n": "[1-99]",
         "unit": "{m: minute, h: hour, d: day, w: week}",
         "*": "Optional",
-        "repeat": "1 - 99",
+        "repeat": "[1-99]",
         "text": "String",
     }
 
-    async def on_startup(self) -> None:
+    async def on_starting(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
     @listener.handler(filters.regex(pattern), 1)
-    async def on_message(self, event: Message) -> None:
+    async def on_message_out(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
         data["reply"] = {}
         if event.external_reply and event.external_reply.message_id:
@@ -69,6 +69,7 @@ class Schedule(Module):
 
         async with self.lock:
             await self.data.put(data)
+
         res = await event._client.get_inline_bot_results(
             self.client.bot.me.id, event.content
         )
@@ -97,7 +98,7 @@ class Schedule(Module):
         )
 
     @listener.handler(filters.regex(pattern), 3)
-    async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
         if self.data.empty():
             return await self.client.app.delete_messages(
                 *ids(event.inline_message_id), True
@@ -110,6 +111,10 @@ class Schedule(Module):
             "chat_id": data["self"] or ids(event.inline_message_id)[0],
             "text": data["text"].strip(),
         }
+
+        unit = self.period.get(data["unit"])
+        unit = unit.removesuffix("s").title() if data["time"] == "1" else unit.title()
+
         res, now = 0, datetime.datetime.now()
         if data["loop"]:
             for i in range(1, int(data["loop"]) + 1):
@@ -134,7 +139,7 @@ class Schedule(Module):
                     {
                         "Self": bool(data["self"]),
                         "Repeat": data["loop"],
-                        "Period": f"{data['time']} {data['unit']}",
+                        "Period": f"{data['time']} {unit}",
                         "Failed": int(data["loop"]) - res,
                         "Content": data["text"],
                     },
@@ -161,7 +166,7 @@ class Schedule(Module):
                         "Scheduled Message",
                         {
                             "Self": bool(data["self"]),
-                            "Period": f"{data['time']} {data['unit']}",
+                            "Period": f"{data['time']} {unit}",
                             "Content": data["text"],
                         },
                         fmtsec(now),

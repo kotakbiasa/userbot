@@ -11,6 +11,7 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
+    ReplyParameters,
     Update,
 )
 
@@ -27,10 +28,16 @@ class Network(Module):
     desc = "Selfbot Latency"
 
     @listener.handler(filters.regex(pattern), 1)
-    async def on_message(self, event: Message) -> None:
+    async def on_message_out(self, event: Message) -> None:
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "ping")
         await asyncio.gather(
-            event.reply_inline_bot_result(res.query_id, res.results[0].id),
+            event.reply_inline_bot_result(
+                res.query_id,
+                res.results[0].id,
+                reply_parameters=ReplyParameters(
+                    message_id=event.reply_to_message_id or event.id
+                ),
+            ),
             event.delete(True),
         )
 
@@ -48,11 +55,11 @@ class Network(Module):
         )
 
     @listener.handler(filters.regex(pattern), 3)
-    async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
         await self.edit(event)
 
     @listener.handler(filters.regex(pattern), 4)
-    async def on_callback_query(self, event: CallbackQuery) -> None:
+    async def on_inline_callback(self, event: CallbackQuery) -> None:
         if event.from_user.id != self.client.app.me.id:
             return await event.answer("Who are You?", show_alert=True, cache_time=900)
 

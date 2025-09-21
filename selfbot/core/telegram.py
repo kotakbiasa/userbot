@@ -73,12 +73,14 @@ class Telegram(abc.ABC):
             migrate(self.app.name, "app_session_string"),
             migrate(self.bot.name, "bot_session_string"),
         )
-        await asyncio.gather(self.app.start(), self.bot.start())
+        _, __, self.db = await asyncio.gather(
+            self.app.start(), self.bot.start(), self.database()
+        )
         await self.app.resolve_peer(self.bot.me.username)
         await asyncio.gather(
             asyncio.to_thread(self.loads), asyncio.to_thread(self.safe)
         )
-        self.loop.create_task(self.dispatch("startup"))
+        self.loop.create_task(self.dispatch("starting"))
 
     async def idle(self) -> None:
         if self.__idle__ and not self.__idle__.is_set():
@@ -106,10 +108,21 @@ class Telegram(abc.ABC):
     def updates(self) -> None:
         fltapp = flt.user(self.app.me.id)
         events = {
-            "message": (self.app, MessageHandler, flt.me & flt.text & ~flt.via_bot, -1),
+            "message_in": (
+                self.app,
+                MessageHandler,
+                flt.incoming & (~flt.me & ~flt.bot & ~flt.via_bot),
+                -1,
+            ),
+            "message_out": (
+                self.app,
+                MessageHandler,
+                (flt.me & (flt.text | flt.caption)) & ~flt.via_bot,
+                -1,
+            ),
             "inline_query": (self.bot, InlineQueryHandler, fltapp, -1),
-            "chosen_inline_result": (self.bot, ChosenInlineResultHandler, fltapp, -1),
-            "callback_query": (self.bot, CallbackQueryHandler, flt.all, -1),
+            "inline_result": (self.bot, ChosenInlineResultHandler, fltapp, -1),
+            "inline_callback": (self.bot, CallbackQueryHandler, flt.all, -1),
         }
         for name, (client, handler, filters, group) in events.items():
             if name in self.handlers:
@@ -127,14 +140,12 @@ class Telegram(abc.ABC):
                     self.handlers[name] = dispatcher
 
     def safe(self) -> None:
-        s = self.config.get("sticker_file_id") or os.environ.get("STICKER_FILE_ID")
-        for k in list(os.environ):
-            if k.upper().endswith("_SESSION_STRING"):
-                os.environ.pop(k, None)
-
-            self.config.clear()
-            if s:
-                self.config["sticker_file_id"] = s
+        self.config.clear()
+        for key in list(os.environ):
+            if key.endswith("_SESSION_STRING") or key == "DATABASE_URL":
+                os.environ.pop(key)
+            elif key in ["STICKER_FILE_ID", "BRANCH"]:
+                self.config[key.lower()] = os.environ[key]
 
     @property
     def _app(self) -> Client:

@@ -32,22 +32,22 @@ pattern = re.compile(
 
 class Moderator(Module):
     name = "Moderator"
-    cmds = "{action} {target} *{n}{unit} *{(-r) reason}"
+    cmds = "{action} {target} *{{n}{unit}} *{(-r) reason}"
     desc = {
         "action": "[ban, kick, mute, unban, unmute]",
-        "target": "User ID or Username or Reply to User",
+        "target": "[user_id, username, reply_user]",
         "*": "Optional",
-        "n": "1 - 99",
+        "n": "[1-99]",
         "unit": "{m: minute, h: hour, d: day, w: week}",
         "reason": "String",
     }
 
-    async def on_startup(self) -> None:
+    async def on_starting(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
     @listener.handler(filters.regex(pattern), 1)
-    async def on_message(self, event: Message) -> None:
+    async def on_message_out(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
         user = data["target"]
         if user:
@@ -103,7 +103,7 @@ class Moderator(Module):
         )
 
     @listener.handler(filters.regex(pattern), 3)
-    async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
         if self.data.empty():
             return await self.client.app.delete_messages(
                 *ids(event.inline_message_id), True
@@ -133,7 +133,7 @@ class Moderator(Module):
             if "until_date" in inspect.signature(coro).parameters and data["duration"]:
                 args = {self.period[data["unit"]]: int(data["duration"])}
                 unit = "".join(
-                    f"{v} {k.title() if v > 1 else k.removesuffix('s').title()}"
+                    f"{v} {k.removesuffix('s').title() if v == 1 else k.title()}"
                     for k, v in args.items()
                 )
                 kwargs["until_date"] = datetime.datetime.now() + datetime.timedelta(

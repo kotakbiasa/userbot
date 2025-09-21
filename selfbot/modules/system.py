@@ -11,6 +11,7 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
+    ReplyParameters,
 )
 
 from selfbot import listener
@@ -25,7 +26,7 @@ class System(Module):
     cmds = "r"
     desc = "Restart Selfbot"
 
-    async def on_startup(self) -> None:
+    async def on_starting(self) -> None:
         def get_id(file: str) -> tuple | None:
             if os.path.exists(file):
                 with open(file) as f:
@@ -55,10 +56,16 @@ class System(Module):
             )
 
     @listener.handler(filters.regex(pattern), 1)
-    async def on_message(self, event: Message) -> None:
+    async def on_message_out(self, event: Message) -> None:
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "r")
         await asyncio.gather(
-            event.reply_inline_bot_result(res.query_id, res.results[0].id),
+            event.reply_inline_bot_result(
+                res.query_id,
+                res.results[0].id,
+                reply_parameters=ReplyParameters(
+                    message_id=event.reply_to_message_id or event.id
+                ),
+            ),
             event.delete(True),
         )
 
@@ -78,7 +85,7 @@ class System(Module):
         )
 
     @listener.handler(filters.regex(pattern), 3)
-    async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
         def put_id(file: str, text: str) -> None:
             with open(file, "w") as f:
                 f.write(text)
@@ -101,7 +108,7 @@ class System(Module):
                     repo=self.client.config.get(
                         "repo", "https://github.com/DeltaUniverse/selfbot"
                     ),
-                    branch=self.client.config.get("branch", "staging"),
+                    branch=self.client.config.get("branch", "heroku"),
                 )
             ),
         )

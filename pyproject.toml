@@ -30,6 +30,7 @@ selfbot = "selfbot.main:run"
 python = ">=3.11,<4.0"
 
 aiorun = ">=2025.1.1,<2026.0.0"
+asyncpg = ">=0.30.0,<1.0.0"
 python-dotenv = ">=1.1.1,<2.0.0"
 uvloop = ">=0.21.0,<0.22.0"
 httpx = ">=0.28.1,<0.29.0"

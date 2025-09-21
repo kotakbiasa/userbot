@@ -23,15 +23,19 @@ pattern = re.compile(
 
 class Translate(Module):
     name = "Translate"
-    cmds = "(tr) {(-to) lang} {content}"
-    desc = {"lang": "Language Code", "content": "String or Reply to Content"}
+    cmds = "(tr) *{(-to) lang} {content}"
+    desc = {
+        "*": "Optional",
+        "lang": "Language Code",
+        "content": "[string, reply_content, quote_content]",
+    }
 
-    async def on_startup(self) -> None:
+    async def on_starting(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
     @listener.handler(filters.regex(pattern), 1)
-    async def on_message(self, event: Message) -> None:
+    async def on_message_out(self, event: Message) -> None:
         data, args = pattern.match(event.content).groupdict(), {}
         if not data["text"]:
             if event.quote and event.quote.text:
@@ -89,7 +93,7 @@ class Translate(Module):
         )
 
     @listener.handler(filters.regex(pattern), 3)
-    async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
         if self.data.empty():
             return await self.client.app.delete_messages(
                 *ids(event.inline_message_id), True

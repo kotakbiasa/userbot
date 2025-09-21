@@ -28,10 +28,10 @@ pattern = re.compile(r"^.*#$", flags=re.DOTALL)
 
 class Debug(Module):
     name = "Debug"
-    cmds = "{code} #"
-    desc = {"code": "Python Code"}
+    cmds = "{code(#)}"
+    desc = {"code": "String as Python Code"}
 
-    async def on_startup(self) -> None:
+    async def on_starting(self) -> None:
         self.args = {
             "asyncio": asyncio,
             "dt": datetime,
@@ -58,7 +58,7 @@ class Debug(Module):
         }
 
     @listener.handler(filters.regex(pattern), 1)
-    async def on_message(self, event: Message) -> None:
+    async def on_message_out(self, event: Message) -> None:
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "#")
         await asyncio.gather(
             event.edit(html.escape(event.content.markdown).removesuffix("#").rstrip()),
@@ -84,7 +84,7 @@ class Debug(Module):
         )
 
     @listener.handler(filters.regex(pattern), 3)
-    async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
         btn, (msg, cmd) = False, await self.msgs(event)
         if not msg:
             if len(event.query) <= 1:
@@ -95,7 +95,7 @@ class Debug(Module):
         await self.execute(msg, event, btn)
 
     @listener.handler(filters.regex(r"^[01]$"), 4)
-    async def on_callback_query(self, event: CallbackQuery) -> None:
+    async def on_inline_callback(self, event: CallbackQuery) -> None:
         if event.from_user.id != self.client.app.me.id:
             return await event.answer("Who are You?", show_alert=True, cache_time=900)
 

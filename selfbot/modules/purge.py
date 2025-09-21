@@ -10,13 +10,12 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
+    ReplyParameters,
 )
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec
-from selfbot.utils import ids as inline_ids
-from selfbot.utils import ikm
+from selfbot.utils import fmtsec, ids, ikm
 
 pattern = re.compile(r"^purge(me)?(\s(\d{1,3}))?$")
 
@@ -24,21 +23,21 @@ pattern = re.compile(r"^purge(me)?(\s(\d{1,3}))?$")
 class Purge(Module):
     name = "Purge"
     cmds = "{action} {limit}"
-    desc = {"action": "[purge, purgeme]", "limit": "1 - 999"}
+    desc = {"action": "[purge, purgeme]", "limit": "[1-999]"}
 
-    async def on_startup(self) -> None:
+    async def on_starting(self) -> None:
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
     @listener.handler(filters.regex(pattern), 1)
-    async def on_message(self, event: Message) -> None:
+    async def on_message_out(self, event: Message) -> None:
         match, limit = pattern.match(event.content), 0
         if match.group(2):
             limit = int(match.group(3))
 
-        msg_ids = []
+        mid = []
         if match.group(1):
-            msg_ids = [
+            mid = [
                 m.id
                 async for m in event._client.search_messages(
                     event.chat.id,
@@ -53,21 +52,27 @@ class Purge(Module):
                 return await event.edit(f"<code>Unsupported {event.chat.type}</code>")
             elif event.reply_to_message_id:
                 if limit:
-                    msg_ids = range(
+                    mid = range(
                         event.reply_to_message_id, event.reply_to_message_id + limit
                     )
                 else:
-                    msg_ids = range(event.reply_to_message_id, event.id)
+                    mid = range(event.reply_to_message_id, event.id)
             else:
                 end = limit or 100
-                msg_ids = range(event.id - 1, event.id - (end + 1), -1)
+                mid = range(event.id - 1, event.id - (end + 1), -1)
 
         async with self.lock:
-            await self.data.put((event.chat.id, list(msg_ids)))
+            await self.data.put((event.chat.id, mid))
 
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "purge")
         await asyncio.gather(
-            event.reply_inline_bot_result(res.query_id, res.results[0].id),
+            event.reply_inline_bot_result(
+                res.query_id,
+                res.results[0].id,
+                reply_parameters=ReplyParameters(
+                    message_id=event.reply_to_message_id or event.id
+                ),
+            ),
             event.delete(True),
         )
 
@@ -87,18 +92,17 @@ class Purge(Module):
         )
 
     @listener.handler(filters.regex(pattern), 3)
-    async def on_chosen_inline_result(self, event: ChosenInlineResult) -> None:
+    async def on_inline_result(self, event: ChosenInlineResult) -> None:
         if self.data.empty():
             return await self.client.app.delete_messages(
-                *inline_ids(event.inline_message_id), True
+                *ids(event.inline_message_id), True
             )
 
         async with self.lock:
-            cid, msg_ids = await self.data.get()
+            cid, mid = await self.data.get()
 
         res, now = 0, datetime.datetime.now()
-        for chunk_start in range(0, len(msg_ids), 100):
-            chunk = msg_ids[chunk_start : chunk_start + 100]
+        for chunk in [mid[i : i + 100] for i in range(0, len(mid), 100)]:
             res += await self.client.app.delete_messages(cid, chunk)
             if res % 100 == 0:
                 await asyncio.sleep(5)
