@@ -73,7 +73,7 @@ class Telegram(abc.ABC):
             migrate(self.app.name, "app_session_string"),
             migrate(self.bot.name, "bot_session_string"),
         )
-        await asyncio.gather(self.app.start(), self.bot.start())
+        await asyncio.gather(self.app.start(), self.bot.start(), self.connect())
         await self.app.resolve_peer(self.bot.me.username)
         await asyncio.gather(
             asyncio.to_thread(self.loads), asyncio.to_thread(self.safe)
@@ -140,7 +140,7 @@ class Telegram(abc.ABC):
     def safe(self) -> None:
         self.config.clear()
         for key in list(os.environ):
-            if key.endswith("_SESSION_STRING"):
+            if key.endswith("_SESSION_STRING") or key == "DATABASE_URL":
                 os.environ.pop(key)
             elif key in ["STICKER_FILE_ID", "BRANCH"]:
                 self.config[key.lower()] = os.environ[key]
