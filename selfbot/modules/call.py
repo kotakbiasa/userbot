@@ -55,7 +55,7 @@ class Call(Module):
 
             self.client.app.dispatcher.groups.pop(group, None)
 
-    @listener.handler(filters.regex(pattern, 1))
+    @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         data["chat_id"] = event.chat.id
 
