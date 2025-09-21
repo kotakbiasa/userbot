@@ -23,7 +23,7 @@ from selfbot.utils import fmtsec, fmtstr, ids, ikm
 PyTgCallsSession.notice_displayed = True
 
 pattern = re.compile(
-    r"^(?P<action>(?:create|discard|join|leave)call)"
+    r"^(?P<action>(?:create|discard|join|leave))call"
     r"(?:\s+as@(?P<as>@?[a-z][a-zA-Z0-9_]{4,32}|-100\d{10}))?"
     r"(?:\s+(?P<mute>-mute))?"
     r"(?:\s+(?P<title>.+))?"
@@ -32,10 +32,11 @@ pattern = re.compile(
 
 class Call(Module):
     name = "Call"
-    cmds = "{action} *{(-as) entity} *(-mute) *{(-t) title}"
+    cmds = "{action(call)} *{(as@) entity} *(-mute) *{(-t) title}"
     desc = {
         "action": "[create, discard, join, leave]",
         "*": "Optional",
+        "entity": "[username, chat_id]",
         "title": "String",
     }
 
