@@ -127,7 +127,7 @@ class Call(Module):
                     text["data"]["Peer"] = data["as"]
                     args["config"] = GroupCallConfig(join_as=peer)
 
-            text["data"]["Mute"] = True if data["mute"] else False
+            text["data"]["Mute"] = "True" if data["mute"] else "False"
             coro = self.client.tgc.play
 
         elif data["action"] == "leave":
