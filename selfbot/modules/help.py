@@ -108,7 +108,7 @@ class Help(Module):
     def build(self, page: int = 0) -> list:
         idx = max(0, min(page, len(self.ikb) - 1))
         ikb = self.ikb[idx][:]
-        ikb.append([("Page Info", f"help/info/{idx}")])
+        ikb.append([("Current Page", f"help/info/{idx}")])
 
         nav = []
         if idx > 0:
