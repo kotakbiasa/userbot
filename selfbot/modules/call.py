@@ -127,7 +127,7 @@ class Call(Module):
                     text["data"]["Peer"] = data["as"]
                     args["config"] = GroupCallConfig(join_as=peer)
 
-            text["data"]["Mute"] = "True" if data["mute"] else "False"
+            text["data"]["Mute"] = True if data["mute"] else False
             coro = self.client.tgc.play
 
         elif data["action"] == "leave":
@@ -156,7 +156,7 @@ class Call(Module):
             )
         else:
             if data["action"] == "join" and data["mute"]:
-                self.loop.create_task(self.client.tgc.mute(data["chat_id"]))
+                self.client.loop.create_task(self.client.tgc.mute(data["chat_id"]))
 
             await event.edit_message_text(
                 fmtstr(**text, foot=fmtsec(now)), reply_markup=ikm(("Close", b"0"))
