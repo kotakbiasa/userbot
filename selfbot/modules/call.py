@@ -83,7 +83,7 @@ class Call(Module):
 
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:
-        action = pattern.match(event.content).groupdict()["action"].title()
+        action = pattern.match(event.query).groupdict()["action"].title()
         await event.answer(
             [
                 InlineQueryResultCachedSticker(
