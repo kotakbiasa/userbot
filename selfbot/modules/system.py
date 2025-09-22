@@ -99,7 +99,7 @@ class System(Module):
         )
         await asyncio.gather(
             event.edit_message_text("<code>Update Dependencies...</code>"),
-            shell("pip install -U pip; pip install -U requirements.txt"),
+            shell("pip install -U pip; pip install -r requirements.txt"),
         )
         await asyncio.gather(
             event.edit_message_text("<code>Restart System...</code>"),
