@@ -44,6 +44,11 @@ class System(Module):
                 reply_markup=ikm(("Close", b"0")),
             )
 
+        self.remote = self.client.config.get(
+            "remote", "https://github.com/DeltaUniverse/selfbot"
+        )
+        self.branch = self.client.config.get("branch", "staging")
+
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "r")
@@ -88,13 +93,13 @@ class System(Module):
         await asyncio.gather(
             event.edit_message_text("<code>Fetch Upstream...</code>"),
             shell(
-                "git init"
-                "&& git remote add origin https://github.com/DeltaUniverse/selfbot"
-                "&& git fetch"
-                "&& git reset --hard origin/{}".format(
-                    self.client.config.get("branch", "staging")
-                )
+                f"git init; git remote add origin {self.remote}; git fetch"
+                f"; git reset --hard origin/{self.branch}"
             ),
+        )
+        await asyncio.gather(
+            event.edit_message_text("<code>Update Dependencies...</code>"),
+            shell("pip install -U pip; pip install -U requirements.txt"),
         )
         await asyncio.gather(
             event.edit_message_text("<code>Restart System...</code>"),
