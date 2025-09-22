@@ -144,7 +144,7 @@ class Telegram(abc.ABC):
         for key in list(os.environ):
             if key.endswith("_SESSION_STRING"):
                 os.environ.pop(key)
-            elif key in ["BRANCH", "DATABASE_URL", "REMOTE", "STICKER_FILE_ID"]:
+            elif key in ["BRANCH", "DATABASE_URL", "STICKER_FILE_ID"]:
                 self.config[key.lower()] = os.environ[key]
 
     @property
