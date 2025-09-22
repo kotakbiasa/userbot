@@ -84,7 +84,7 @@ class Purge(Module):
                     sticker_file_id=self.client.config["sticker_file_id"],
                     reply_markup=ikm((">_", "user_id", event._client.me.id)),
                     input_message_content=InputTextMessageContent(
-                        "<code>Purging...</code>"
+                        "<code>Purge Message...</code>"
                     ),
                 )
             ],

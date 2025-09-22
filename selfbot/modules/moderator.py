@@ -88,14 +88,14 @@ class Moderator(Module):
 
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:
-        action = self._verb(pattern.match(event.query).groupdict()["action"], "present")
+        action = pattern.match(event.query).groupdict()["action"].title()
         await event.answer(
             [
                 InlineQueryResultCachedSticker(
                     sticker_file_id=self.client.config["sticker_file_id"],
                     reply_markup=ikm((">_", "user_id", event._client.me.id)),
                     input_message_content=InputTextMessageContent(
-                        f"<code>{action}...</code>"
+                        f"<code>{action} User...</code>"
                     ),
                 )
             ],
@@ -155,7 +155,7 @@ class Moderator(Module):
         else:
             await event.edit_message_text(
                 fmtstr(
-                    f"<a href='tg://user?id={target}'>User</a> {self._verb(action, 'past')}",
+                    f"<a href='tg://user?id={target}'>User</a> {self._past(action)}",
                     {"ID": target, "Reason": data["reason"] or "N/A", "Duration": unit},
                     fmtsec(now),
                 ),
@@ -163,10 +163,9 @@ class Moderator(Module):
             )
 
     @staticmethod
-    def _verb(text: str, tense: str) -> str:
+    def _past(text: str) -> str:
         result = text.removesuffix("e")
-        suffix = "ing" if tense == "present" else "ed"
         if result.endswith("n"):
             result += "n"
 
-        return f"{result}{suffix}".title()
+        return f"{result}ed".title()

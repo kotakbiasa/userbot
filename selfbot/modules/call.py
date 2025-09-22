@@ -83,13 +83,14 @@ class Call(Module):
 
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:
+        action = pattern.match(event.content).groupdict()["action"].title()
         await event.answer(
             [
                 InlineQueryResultCachedSticker(
                     sticker_file_id=self.client.config["sticker_file_id"],
                     reply_markup=ikm((">_", "user_id", event._client.me.id)),
                     input_message_content=InputTextMessageContent(
-                        f"<code>Processing...</code>"
+                        f"<code>{action} Call...</code>"
                     ),
                 )
             ],

@@ -76,7 +76,7 @@ class Debug(Module):
                     input_message_content=InputTextMessageContent(
                         event.query.removesuffix("#").rstrip()
                         if len(event.query) > 1
-                        else "<code>Executing...</code>"
+                        else "<code>Exec Code...</code>"
                     ),
                 )
             ],

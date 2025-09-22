@@ -86,7 +86,7 @@ class System(Module):
             await shell("rm -fr .git")
 
         await asyncio.gather(
-            event.edit_message_text("<code>Fetching...</code>"),
+            event.edit_message_text("<code>Fetch Upstream...</code>"),
             shell(
                 "git init"
                 "&& git remote add origin https://github.com/DeltaUniverse/selfbot"
@@ -97,7 +97,7 @@ class System(Module):
             ),
         )
         await asyncio.gather(
-            event.edit_message_text("<code>Restarting...</code>"),
+            event.edit_message_text("<code>Restart System...</code>"),
             asyncio.to_thread(
                 self._put,
                 "r.txt",
