@@ -1,29 +1,29 @@
-FROM python:3.13-alpine AS build
+FROM python:3.13-alpine AS builder
 
-ENV VENV="/opt/venv"
-ENV PATH="$VENV/bin:$PATH"
+RUN apk add --no-cache gcc musl-dev libffi-dev curl git
+
+ENV POETRY_HOME="/opt/poetry"
+RUN curl -sSL https://install.python-poetry.org | python3 - && \
+    ln -s $POETRY_HOME/bin/poetry /usr/local/bin/poetry
+
+RUN poetry config virtualenvs.create false
 
 WORKDIR /app
 
-RUN apk add --no-cache build-base git \
-    && python -m venv $VENV \
-    && pip install --upgrade pip
+COPY pyproject.toml poetry.lock ./
 
-COPY . .
-RUN pip install .
+RUN poetry install --no-interaction --no-ansi --only main
 
 
 FROM python:3.13-alpine
 
-ENV VENV="/opt/venv"
-ENV PATH="$VENV/bin:$PATH" \
-    TZ="Asia/Jakarta"
+RUN apk add --no-cache libffi git
 
 WORKDIR /app
 
-RUN apk add --no-cache git
+COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
-COPY --from=build $VENV $VENV
-COPY --from=build /app /app
+COPY . .
 
-CMD ["selfbot"]
+CMD ["poetry", "run", "selfbot"]

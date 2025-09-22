@@ -1,9 +1,9 @@
 [project]
 name = "selfbot"
-version = "2025.9.19"
-description = "Ultimate self userbot, uses pyrogram [pyrotgfork] With advance low-high level API."
+version = "2025.9.22"
+description = "Telegram Selfbot with PyroTgFork [Pyrogram Fork]"
 readme = "README.md"
-keywords = [ "chat", "telegram", "selfbot", "telegram-bot", "pyrogram",]
+keywords = [ "selfbot", "telegram", "mtproto", "pyrogram",]
 classifiers = [ "Environment :: Console", "Framework :: AsyncIO", "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)", "Programming Language :: Python", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3 :: Only", "Topic :: Communications", "Topic :: Communications :: Chat",]
 [[project.authors]]
 name = "DeltaUniverse <deltauniverse@github.org>"
@@ -24,8 +24,11 @@ aiorun = ">=2025.1.1,<2026.0.0"
 asyncpg = ">=0.30.0,<1.0.0"
 httpx = ">=0.28.1,<1.0.0"
 python-dotenv = ">=1.1.1,<2.0.0"
-py-tgcalls = ">=2.2.8,<3.0.0"
 uvloop = ">=0.21.0,<1.0.0"
+
+[tool.poetry.dependencies.py-tgcalls]
+git = "https://github.com/pytgcalls/pytgcalls"
+branch = "master"
 
 [tool.poetry.dependencies.pyrotgfork]
 git = "https://github.com/TelegramPlayground/pyrogram"
