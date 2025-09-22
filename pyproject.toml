@@ -53,6 +53,7 @@ extras = ["aio"]
 [tool.poetry.dependencies.py-tgcalls]
 git = "https://github.com/pytgcalls/pytgcalls"
 branch = "master"
+optional = true
 
 [tool.poetry.dependencies.pyrotgfork]
 git = "https://github.com/TelegramPlayground/pyrogram"
@@ -61,3 +62,6 @@ branch = "dev"
 [tool.poetry.dependencies.pytgcrypto]
 git = "https://github.com/TelegramPlayground/pyrogram-tgcrypto"
 branch = "master"
+
+[tool.poetry.extras]
+pytgcalls = ["py-tgcalls"]

@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import re
+from typing import ClassVar
 
 from pyrogram import filters
 from pyrogram.errors import RPCError
@@ -12,15 +13,23 @@ from pyrogram.types import (
     Message,
     ReplyParameters,
 )
-from pytgcalls import PyTgCalls
-from pytgcalls.pytgcalls_session import PyTgCallsSession
-from pytgcalls.types import GroupCallConfig
+
+try:
+    from pytgcalls import PyTgCalls
+    from pytgcalls.pytgcalls_session import PyTgCallsSession
+    from pytgcalls.types import GroupCallConfig
+
+    _HAS_PYTGCALLS = True
+    PyTgCallsSession.notice_displayed = True
+except Exception:  # ImportError
+    PyTgCalls = None  # type: ignore[assignment]
+    PyTgCallsSession = None  # type: ignore[assignment]
+    GroupCallConfig = None  # type: ignore[assignment]
+    _HAS_PYTGCALLS = False
 
 from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import fmtsec, fmtstr, ids, ikm
-
-PyTgCallsSession.notice_displayed = True
 
 pattern = re.compile(
     r"^"
@@ -34,7 +43,9 @@ pattern = re.compile(
 
 
 class Call(Module):
-    name = "Call"
+    name: ClassVar[str] = "Call"
+    disabled: ClassVar[bool] = _HAS_PYTGCALLS
+
     cmds = "{action(call)} *{(chat@) chat} *{(as@) as} *(-mute) *{(-t) title}"
     desc = {
         "action": "[join, leave, start, end]",
@@ -45,6 +56,9 @@ class Call(Module):
     }
 
     async def on_starting(self) -> None:
+        if not _HAS_PYTGCALLS:
+            return
+
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
