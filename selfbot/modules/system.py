@@ -27,18 +27,7 @@ class System(Module):
     desc = "Restart Selfbot"
 
     async def on_starting(self) -> None:
-        def get_id(file: str) -> tuple | None:
-            if os.path.exists(file):
-                with open(file) as f:
-                    try:
-                        data = f.readlines()
-                        return data[0], float(data[1])
-                    finally:
-                        os.remove(file)
-
-            return None
-
-        data = await asyncio.to_thread(get_id, "r.txt")
+        data = await asyncio.to_thread(self._get, "r.txt")
         if data:
             await self.client.bot.edit_inline_text(
                 data[0],
@@ -86,10 +75,6 @@ class System(Module):
 
     @listener.handler(filters.regex(pattern), 3)
     async def on_inline_result(self, event: ChosenInlineResult) -> None:
-        def put_id(file: str, text: str) -> None:
-            with open(file, "w") as f:
-                f.write(text)
-
         if getattr(self.client, "restart", None):
             return await event.edit_message_text(
                 "<code>Restart is Called</code>", reply_markup=ikm(("Close", b"0"))
@@ -114,7 +99,7 @@ class System(Module):
         await asyncio.gather(
             event.edit_message_text("<code>Restarting...</code>"),
             asyncio.to_thread(
-                put_id,
+                self._put,
                 "r.txt",
                 f"{event.inline_message_id}\n{datetime.datetime.now().timestamp()}",
             ),
@@ -124,3 +109,20 @@ class System(Module):
             self.client.__idle__.set()
         finally:
             os.execv(sys.executable, (sys.executable, "-m", "selfbot"))
+
+    @staticmethod
+    def _get(file: str) -> tuple | None:
+        if os.path.exists(file):
+            with open(file) as f:
+                try:
+                    data = f.readlines()
+                    return data[0], float(data[1])
+                finally:
+                    os.remove(file)
+
+        return None
+
+    @staticmethod
+    def _put(file: str, text: str) -> None:
+        with open(file, "w") as f:
+            f.write(text)
