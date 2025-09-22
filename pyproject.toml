@@ -3,17 +3,34 @@ name = "selfbot"
 version = "2025.9.22"
 description = "Telegram Selfbot with PyroTgFork [Pyrogram Fork]"
 readme = "README.md"
-keywords = [ "selfbot", "telegram", "mtproto", "pyrogram",]
-classifiers = [ "Environment :: Console", "Framework :: AsyncIO", "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)", "Programming Language :: Python", "Programming Language :: Python :: 3.11", "Programming Language :: Python :: 3.12", "Programming Language :: Python :: 3.13", "Programming Language :: Python :: 3 :: Only", "Topic :: Communications", "Topic :: Communications :: Chat",]
+keywords = [
+    "selfbot",
+    "telegram",
+    "mtproto",
+    "pyrogram"
+]
+classifiers = [
+    "Environment :: Console",
+    "Framework :: AsyncIO",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Communications",
+    "Topic :: Communications :: Chat"
+]
+
 [[project.authors]]
 name = "DeltaUniverse <deltauniverse@github.org>"
 
-[build-system]
-requires = [ "poetry-core>=2.2.1,<3.0.0",]
-build-backend = "poetry.core.masonry.api"
-
 [project.license]
 text = "MIT"
+
+[build-system]
+requires = ["poetry-core>=2.2.1,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 selfbot = "selfbot.main:run"
@@ -26,6 +43,10 @@ httpx = ">=0.28.1,<1.0.0"
 python-dotenv = ">=1.1.1,<2.0.0"
 uvloop = ">=0.21.0,<1.0.0"
 
+[tool.poetry.dependencies.telegraph]
+version = ">=2.2.0,<3.0.0"
+extras = ["aio"]
+
 [tool.poetry.dependencies.py-tgcalls]
 git = "https://github.com/pytgcalls/pytgcalls"
 branch = "master"
@@ -37,7 +58,3 @@ branch = "dev"
 [tool.poetry.dependencies.pytgcrypto]
 git = "https://github.com/TelegramPlayground/pyrogram-tgcrypto"
 branch = "master"
-
-[tool.poetry.dependencies.telegraph]
-version = ">=2.2.0,<3.0.0"
-extras = [ "aio",]
