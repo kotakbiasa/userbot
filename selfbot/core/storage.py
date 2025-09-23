@@ -161,7 +161,7 @@ class PostgresStorage(Storage):
                             columns=("session", "id", "username"),
                         )
 
-    async def update_state(self, value: any | object = object) -> list | None:
+    async def update_state(self, value: tuple = object) -> list | None:
         async with self.pool.acquire() as conn:
             if value is object:
                 rows = await conn.fetch(
