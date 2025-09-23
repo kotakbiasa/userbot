@@ -7,7 +7,7 @@ from selfbot.modules import submods
 
 class Extender(abc.ABC):
     def __init__(self, **kwargs) -> None:
-        self.modules = {}
+        self.modules: dict[str, Module] = {}
 
         super().__init__(**kwargs)
 

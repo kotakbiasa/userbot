@@ -111,7 +111,7 @@ class System(Module):
         )
 
         try:
-            self.client.__idle__.set()
+            self.client.__event__.set()
         finally:
             os.execv(sys.executable, (sys.executable, "-m", "selfbot"))
 

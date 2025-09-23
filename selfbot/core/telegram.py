@@ -14,6 +14,7 @@ from pyrogram.handlers import (
     InlineQueryHandler,
     MessageHandler,
 )
+from pyrogram.handlers.handler import Handler
 from pyrogram.raw.types import (
     UpdateBotInlineQuery,
     UpdateBotInlineSend,
@@ -23,7 +24,7 @@ from pyrogram.raw.types import (
 )
 from pyrogram.types import LinkPreviewOptions, Update
 
-from selfbot.storage import PostgresStorage
+from .storage import PostgresStorage
 
 commons = {
     "parse_mode": ParseMode.HTML,
@@ -36,16 +37,16 @@ commons = {
 
 class Telegram(abc.ABC):
     def __init__(self, **kwargs) -> None:
-        self.app = None
-        self.bot = None
+        self.app: Client = None
+        self.bot: Client = None
 
-        self.__idle__ = None
-        self.handlers = {}
+        self.__event__: asyncio.Event = None
+        self.handlers: dict[str, Handler] = {}
 
         super().__init__(**kwargs)
 
     async def run(self) -> None:
-        if self.__idle__ and not self.__idle__.is_set():
+        if self.__event__ and not self.__event__.is_set():
             raise RuntimeError("Selfbot Running")
 
         self.logger.info(
@@ -87,23 +88,23 @@ class Telegram(abc.ABC):
         self.loop.create_task(self.dispatch("starting"))
 
     async def idle(self) -> None:
-        if self.__idle__ and not self.__idle__.is_set():
+        if self.__event__ and not self.__event__.is_set():
             raise RuntimeError("Selfbot Idling")
 
         signames = (signal.SIGINT, signal.SIGTERM, signal.SIGABRT)
 
         def sighandler(signum: int) -> None:
-            if self.__idle__:
-                self.__idle__.set()
+            if self.__event__:
+                self.__event__.set()
 
         for signame in signames:
             self.loop.add_signal_handler(
                 signame, functools.partial(sighandler, signame)
             )
 
-        self.__idle__ = asyncio.Event()
+        self.__event__ = asyncio.Event()
         try:
-            await self.__idle__.wait()
+            await self.__event__.wait()
         finally:
             for signame in signames:
                 with contextlib.suppress(Exception):

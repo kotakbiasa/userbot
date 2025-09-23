@@ -16,8 +16,8 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
         self.logger = logging.getLogger("Selfbot")
         self.config = config
 
-        self.loop = None
-        self.http = None
+        self.loop: asyncio.AbstractEventLoop = None
+        self.http: AsyncClient = None
 
         self.version = __version__
 

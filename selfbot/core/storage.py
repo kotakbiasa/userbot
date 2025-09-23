@@ -81,8 +81,8 @@ class PostgresStorage(Storage):
     def __init__(self, session: str, pool: asyncpg.Pool) -> None:
         super().__init__(session)
 
-        self.pool: asyncpg.Pool = pool
         self.session: str = self.name
+        self.pool: asyncpg.Pool = pool
 
     @staticmethod
     async def create_schema(pool: asyncpg.Pool) -> None:
