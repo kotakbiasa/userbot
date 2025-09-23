@@ -57,7 +57,6 @@ class Telegram(abc.ABC):
 
     async def start(self) -> None:
         await self.database()
-        await PostgresStorage.create_schema(self.db)
 
         self.app = self._app
         self.bot = self._bot
@@ -131,7 +130,7 @@ class Telegram(abc.ABC):
         for key in list(os.environ):
             if key == "STICKER_FILE_ID":
                 self.config[key.lower()] = os.environ[key]
-            elif key in ["API_HASH", "API_ID", "DATABASE_URL"]:
+            elif key == "DATABASE_URL":
                 os.environ.pop(key)
 
     def build(self, name: str, updates: tuple = ()) -> Client:

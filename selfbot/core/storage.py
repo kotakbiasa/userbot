@@ -7,45 +7,45 @@ from pyrogram.storage import Storage
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS version (
-    number INTEGER PRIMARY KEY
+    number  INTEGER PRIMARY KEY
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
-    session TEXT PRIMARY KEY,
-    dc_id        INTEGER NOT NULL,
-    api_id       INTEGER,
-    test_mode    BOOLEAN,
-    auth_key     BYTEA,
-    date         BIGINT  NOT NULL,
-    user_id      BIGINT,
-    is_bot       BOOLEAN
+    session     TEXT    PRIMARY KEY,
+    dc_id       INTEGER NOT NULL,
+    api_id      INTEGER,
+    test_mode   BOOLEAN,
+    auth_key    BYTEA,
+    date        BIGINT  NOT NULL,
+    user_id     BIGINT,
+    is_bot      BOOLEAN
 );
 
 CREATE TABLE IF NOT EXISTS peers (
-    session        TEXT    NOT NULL,
-    id             BIGINT  NOT NULL,
-    access_hash    BIGINT,
-    type           TEXT    NOT NULL,
-    phone_number   TEXT,
-    last_update_on BIGINT  NOT NULL DEFAULT (EXTRACT(epoch FROM now())),
+    session         TEXT    NOT NULL,
+    id              BIGINT  NOT NULL,
+    access_hash     BIGINT,
+    type            TEXT    NOT NULL,
+    phone_number    TEXT,
+    last_update_on  BIGINT  NOT NULL DEFAULT (EXTRACT(epoch FROM now())),
     PRIMARY KEY (session, id)
 );
 
 CREATE TABLE IF NOT EXISTS usernames (
-    session      TEXT   NOT NULL,
-    id           BIGINT NOT NULL,
-    username     TEXT   NOT NULL,
+    session     TEXT    NOT NULL,
+    id          BIGINT  NOT NULL,
+    username    TEXT    NOT NULL,
     PRIMARY KEY (session, username),
     FOREIGN KEY (session, id) REFERENCES peers (session, id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS update_state (
-    session      TEXT    NOT NULL,
-    id           INTEGER NOT NULL,
-    pts          BIGINT,
-    qts          BIGINT,
-    date         BIGINT,
-    seq          BIGINT,
+    session TEXT    NOT NULL,
+    id      INTEGER NOT NULL,
+    pts     BIGINT,
+    qts     BIGINT,
+    date    BIGINT,
+    seq     BIGINT,
     PRIMARY KEY (session, id)
 );
 
@@ -71,7 +71,7 @@ def get_input_peer(peer_id: int, access_hash: int, peer_type: str) -> InputPeer:
             channel_id=utils.get_channel_id(peer_id), access_hash=access_hash
         )
 
-    raise ValueError(f"Invalid peer type: {peer_type}")
+    raise ValueError
 
 
 class PostgresStorage(Storage):
@@ -126,9 +126,7 @@ class PostgresStorage(Storage):
                     "DELETE FROM sessions WHERE session = $1", self.session
                 )
 
-    async def update_peers(
-        self, peers: list[tuple[int, int, str, list[str], str]]
-    ) -> None:
+    async def update_peers(self, peers: list) -> None:
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 for p_id, p_access_hash, p_type, p_usernames, p_phone_number in peers:
@@ -163,9 +161,7 @@ class PostgresStorage(Storage):
                             columns=("session", "id", "username"),
                         )
 
-    async def update_state(
-        self, value: object | None | tuple = object
-    ) -> list[tuple] | None:
+    async def update_state(self, value: any | object = object) -> list | None:
         async with self.pool.acquire() as conn:
             if value is object:
                 rows = await conn.fetch(
@@ -174,7 +170,7 @@ class PostgresStorage(Storage):
                 )
                 return [tuple(r) for r in rows]
 
-            if value is None:
+            if not value:
                 await conn.execute(
                     "DELETE FROM update_state WHERE session = $1", self.session
                 )
@@ -207,8 +203,9 @@ class PostgresStorage(Storage):
                 self.session,
                 peer_id,
             )
-        if r is None:
-            raise KeyError(f"ID not found: {peer_id}")
+
+        if not r:
+            raise KeyError
 
         return get_input_peer(r["id"], r["access_hash"], r["type"])
 
@@ -224,11 +221,12 @@ class PostgresStorage(Storage):
                 self.session,
                 username,
             )
-        if r is None:
-            raise KeyError(f"Username not found: {username}")
+
+        if not r:
+            raise KeyError
 
         if abs(time.time() - r["last_update_on"]) > self.USERNAME_TTL:
-            raise KeyError(f"Username expired: {username}")
+            raise KeyError
 
         return get_input_peer(r["id"], r["access_hash"], r["type"])
 
@@ -239,8 +237,9 @@ class PostgresStorage(Storage):
                 self.session,
                 phone_number,
             )
-        if r is None:
-            raise KeyError(f"Phone number not found: {phone_number}")
+
+        if not r:
+            raise KeyError
 
         return get_input_peer(r["id"], r["access_hash"], r["type"])
 
@@ -296,9 +295,6 @@ class PostgresStorage(Storage):
             return value
 
     async def update(self) -> None:
-        current_version = await self.version()
-        if current_version < self.VERSION:
-            raise RuntimeError(
-                f"Database schema is out of date (v{current_version}). "
-                f"Required version is v{self.VERSION}."
-            )
+        version = await self.version()
+        if version < self.VERSION:
+            raise RuntimeError
