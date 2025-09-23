@@ -262,31 +262,31 @@ class PostgresStorage(Storage):
                 self.session,
             )
 
-    async def _accessor(self, value: object = object) -> object:
+    async def _accessor(self, value: any = object) -> object:
         return await self._get() if value is object else await self._set(value)
 
-    async def dc_id(self, value: int | object = object) -> int | None:
+    async def dc_id(self, value: int = object) -> int | None:
         return await self._accessor(value)
 
-    async def api_id(self, value: int | object = object) -> int | None:
+    async def api_id(self, value: int = object) -> int | None:
         return await self._accessor(value)
 
-    async def test_mode(self, value: bool | object = object) -> bool | None:
+    async def test_mode(self, value: bool = object) -> bool | None:
         return await self._accessor(value)
 
-    async def auth_key(self, value: bytes | object = object) -> bytes | None:
+    async def auth_key(self, value: bytes = object) -> bytes | None:
         return await self._accessor(value)
 
-    async def date(self, value: int | object = object) -> int | None:
+    async def date(self, value: int = object) -> int | None:
         return await self._accessor(value)
 
-    async def user_id(self, value: int | object = object) -> int | None:
+    async def user_id(self, value: int = object) -> int | None:
         return await self._accessor(value)
 
-    async def is_bot(self, value: bool | object = object) -> bool | None:
+    async def is_bot(self, value: bool = object) -> bool | None:
         return await self._accessor(value)
 
-    async def version(self, value: int | object = object) -> int | None:
+    async def version(self, value: int = object) -> int | None:
         async with self.pool.acquire() as conn:
             if value is object:
                 return await conn.fetchval("SELECT number FROM version")
