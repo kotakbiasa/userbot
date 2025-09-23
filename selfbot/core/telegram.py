@@ -26,14 +26,6 @@ from pyrogram.types import LinkPreviewOptions, Update
 
 from .storage import PostgresStorage
 
-commons = {
-    "parse_mode": ParseMode.HTML,
-    "sleep_threshold": 900,
-    "max_message_cache_size": 0,
-    "link_preview_options": LinkPreviewOptions(is_disabled=True),
-    "no_joined_notifications": True,
-}
-
 
 class Telegram(abc.ABC):
     def __init__(self, **kwargs) -> None:
@@ -64,22 +56,12 @@ class Telegram(abc.ABC):
             self.logger.info("Client Stopped")
 
     async def start(self) -> None:
-        async def _migrate(name: str, key: str) -> None:
-
-            if self.config.get(key):
-                async with Client(name, session_string=self.config[key]) as client:
-                    await self.migrate(client)
-
         await self.database()
         await PostgresStorage.create_schema(self.db)
 
         self.app = self._app
         self.bot = self._bot
 
-        await asyncio.gather(
-            _migrate(self.app.name, "app_session_string"),
-            _migrate(self.bot.name, "bot_session_string"),
-        )
         await asyncio.gather(self.app.start(), self.bot.start())
         await self.app.resolve_peer(self.bot.me.username)
         await asyncio.gather(
@@ -147,13 +129,21 @@ class Telegram(abc.ABC):
     def safe(self) -> None:
         self.config.clear()
         for key in list(os.environ):
-            if key.endswith("_SESSION_STRING"):
-                os.environ.pop(key)
-            elif key in ["BRANCH", "DATABASE_URL", "REMOTE", "STICKER_FILE_ID"]:
+            if key == "STICKER_FILE_ID":
                 self.config[key.lower()] = os.environ[key]
+            elif key in ["API_HASH", "API_ID", "DATABASE_URL"]:
+                os.environ.pop(key)
 
     def build(self, name: str, updates: tuple = ()) -> Client:
-        client = Client(name, **commons, storage_engine=PostgresStorage(name, self.db))
+        client = Client(
+            name=name,
+            parse_mode=ParseMode.HTML,
+            sleep_threshold=900,
+            max_message_cache_size=0,
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
+            no_joined_notifications=True,
+            storage_engine=PostgresStorage(name, self.db),
+        )
         if updates:
             client.dispatcher.update_parsers = {
                 k: v
@@ -177,23 +167,4 @@ class Telegram(abc.ABC):
                 UpdateBotInlineSend,
                 UpdateInlineBotCallbackQuery,
             ),
-        )
-
-    async def migrate(self, client: Client) -> None:
-        attrs = [
-            "dc_id",
-            "api_id",
-            "test_mode",
-            "auth_key",
-            "date",
-            "user_id",
-            "is_bot",
-        ]
-        creds = await asyncio.gather(
-            *[getattr(client.storage, attr)() for attr in attrs]
-        )
-        psqls = PostgresStorage(client.name, self.db)
-        await psqls.open()
-        await asyncio.gather(
-            *[getattr(psqls, attr)(cred) for attr, cred in zip(attrs, creds)]
         )
