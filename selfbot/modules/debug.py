@@ -50,11 +50,12 @@ class Debug(Module):
             "ids": ids,
             "ikm": ikm,
             "shell": shell,
+            "cls": self,
             "self": self.client,
+            "db": self.client.db,
             "app": self.client.app,
             "bot": self.client.bot,
             "loop": self.client.loop,
-            "cls": self,
         }
 
     @listener.handler(filters.regex(pattern), 1)
