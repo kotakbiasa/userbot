@@ -872,7 +872,7 @@ telethon = ["telethon (>=1.24.0)"]
 type = "git"
 url = "https://github.com/pytgcalls/pytgcalls"
 reference = "master"
-resolved_reference = "83b995623b2af7f2ff6f497ab63086a9ab8e3da5"
+resolved_reference = "1f1620b0c2c806ae745e34cbe091b4cdbce032d5"
 
 [[package]]
 name = "pyaes"
