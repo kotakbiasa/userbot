@@ -30,7 +30,7 @@ from selfbot.utils import fmtsec, fmtstr, ids, ikm
 pattern = re.compile(
     r"^"
     r"(?P<action>(?:start|end|join|leave))call"
-    r"(?:\s+chat@(?P<chat>@?[a-z][a-zA-Z0-9_]{5,32}|-100\d{10}))?"
+    r"(?:\s+chat@(?P<chat>@?[a-zA-Z][a-zA-Z0-9_]{5,32}|-100\d{10}))?"
     r"(?:\s+as@(?P<as>@?[a-z][a-zA-Z0-9_]{5,32}|-100\d{10}))?"
     r"(?:\s+(?P<mute>-mute))?"
     r"(?:\s+-t\s(?P<title>.+))?"
@@ -57,7 +57,7 @@ class Call(Module):
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
-        self.client.tgc = PyTgCalls(self.client.app, 1, 1)
+        self.client.tgc = PyTgCalls(self.client.app, 1, 900)
         await self.client.tgc.start()
 
         for group in self.client.app.dispatcher.groups.keys():

@@ -195,7 +195,11 @@ class PostgresStorage(Storage):
 
     async def get_peer_by_id(self, peer_id: int) -> InputPeer:
         if not isinstance(peer_id, int):
-            raise KeyError
+            string = peer_id.lstrip("-")
+            if string.isdigit():
+                peer_id = int(peer_id)
+            else:
+                raise KeyError
 
         async with self.pool.acquire() as conn:
             r = await conn.fetchrow(
