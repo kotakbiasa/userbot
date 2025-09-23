@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 import re
-from typing import ClassVar
 
 from pyrogram import filters
 from pyrogram.errors import RPCError
@@ -14,18 +13,15 @@ from pyrogram.types import (
     ReplyParameters,
 )
 
+hide = False
 try:
     from pytgcalls import PyTgCalls
     from pytgcalls.pytgcalls_session import PyTgCallsSession
     from pytgcalls.types import GroupCallConfig
-
-    _HAS_PYTGCALLS = True
+except Exception:
+    hide = True
+else:
     PyTgCallsSession.notice_displayed = True
-except Exception:  # ImportError
-    PyTgCalls = None  # type: ignore[assignment]
-    PyTgCallsSession = None  # type: ignore[assignment]
-    GroupCallConfig = None  # type: ignore[assignment]
-    _HAS_PYTGCALLS = False
 
 from selfbot import listener
 from selfbot.module import Module
@@ -43,9 +39,7 @@ pattern = re.compile(
 
 
 class Call(Module):
-    name: ClassVar[str] = "Call"
-    disabled: ClassVar[bool] = _HAS_PYTGCALLS
-
+    name = "Call"
     cmds = "{action(call)} *{(chat@) chat} *{(as@) as} *(-mute) *{(-t) title}"
     desc = {
         "action": "[join, leave, start, end]",
@@ -56,13 +50,14 @@ class Call(Module):
     }
 
     async def on_starting(self) -> None:
-        if not _HAS_PYTGCALLS:
-            return
+        if hide:
+            self.hide = True
+            return self.client.unload(self)
 
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
-        self.client.tgc = PyTgCalls(self.client.app, 1, 900)
+        self.client.tgc = PyTgCalls(self.client.app, 1, 1)
         await self.client.tgc.start()
 
         for group in self.client.app.dispatcher.groups.keys():
