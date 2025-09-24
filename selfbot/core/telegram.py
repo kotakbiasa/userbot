@@ -134,6 +134,8 @@ class Telegram(abc.ABC):
     def build(self, name: str, updates: tuple = ()) -> Client:
         client = Client(
             name=name,
+            api_id=self.config.get("api_id"),
+            api_hash=self.config.get("api_hash"),
             parse_mode=ParseMode.HTML,
             sleep_threshold=900,
             max_message_cache_size=0,
