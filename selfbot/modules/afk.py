@@ -188,6 +188,6 @@ class Afk(Module):
     async def on_inline_callback(self, event: CallbackQuery) -> None:
         since = await self.client.db.fetchval("SELECT since FROM afk;")
         if since:
-            await event.answer(str(since), show_alert=True, cache_time=15)
-        else:
-            await event.answer("Not AFK!", show_alert=True, cache_time=900)
+            return await event.answer(str(since), show_alert=True, cache_time=15)
+
+        await event.answer("Not AFK!", cache_time=15)
