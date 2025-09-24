@@ -39,12 +39,12 @@ pattern = re.compile(
 
 class Call(Module):
     name = "Call"
-    cmds = "{action(call)} *{chat} *{(as@)as} *{(-t) title}"
+    cmds = "{action(call)} *{chat} *{(as@)peer} *{(-t) title}"
     desc = {
         "action": "[join, leave, start, end]",
         "*": "Optional",
         "chat": "[username, chat_id]",
-        "as": "[username, chat_id]",
+        "peer": "[username, chat_id]",
         "title": "String",
     }
 
