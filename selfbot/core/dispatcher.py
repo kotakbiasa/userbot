@@ -34,8 +34,8 @@ class Dispatcher(abc.ABC):
                     await asyncio.sleep(e.value)
                     try:
                         await listener.func(*args, **kwargs)
-                    except Exception as r:
-                        self.logger.warning(f"Retry Failed: {r}")
+                    except Exception as e:
+                        self.logger.warning(f"Retry Failed: {e}")
                 else:
                     raise
 
@@ -47,7 +47,15 @@ class Dispatcher(abc.ABC):
                 fn = tb.tb_frame.f_code.co_filename if tb else "N/A"
                 ln = tb.tb_lineno if tb else "N/A"
                 with contextlib.suppress(Exception):
-                    self.logger.error(f"{exc.__class__.__name__}: {e} at {fn}:{ln}")
+                    self.logger.error(f"{e.__class__.__name__}: {e} at {fn}:{ln}")
+                    await self.bot.send_message(
+                        self.app.me.id,
+                        (
+                            f"<pre language={e.__class__.__name__}>{e}</pre>"
+                            f"\n<code>File</code> : <code>{fn}</code>"
+                            f"\n<code>Line</code> : <code>{ln}</code>"
+                        ),
+                    )
 
     def registers(self, mod: "Module") -> None:
         for event, func in self._funcs(mod, "on_"):

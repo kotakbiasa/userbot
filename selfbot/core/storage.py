@@ -154,20 +154,14 @@ class PostgresStorage(Storage):
                     peer_records,
                 )
                 if username_records:
-                    usernames_to_update = [rec[2] for rec in username_records]
-                    await conn.execute(
+                    await conn.executemany(
                         """
-                        DELETE FROM usernames
-                        WHERE session = $1 AND username = ANY($2::text[])
+                        INSERT INTO usernames (session, id, username)
+                        VALUES ($1, $2, $3)
+                        ON CONFLICT (session, username) DO UPDATE SET
+                            id = EXCLUDED.id
                         """,
-                        self.session,
-                        usernames_to_update,
-                    )
-
-                    await conn.copy_records_to_table(
-                        "usernames",
-                        records=username_records,
-                        columns=("session", "id", "username"),
+                        username_records,
                     )
 
     @overload
