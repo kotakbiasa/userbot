@@ -51,7 +51,7 @@ class Afk(Module):
 
         if off:
             if not self.afk:
-                return
+                return await event.edit("<code>Already Online!</code>")
 
             data = (False, reason)
         else:
