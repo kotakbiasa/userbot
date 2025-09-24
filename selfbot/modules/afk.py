@@ -121,57 +121,53 @@ class Afk(Module):
     @listener.handler(filters.regex(pattern), 4)
     async def on_inline_result(self, event: ChosenInlineResult) -> None:
         if event.query.startswith("#"):
-            if self.data.empty():
-                return await self.client.app.delete_messages(
-                    *ids(event.inline_message_id), True
-                )
-
-            async with self.lock:
-                data = await self.data.get()
-
-            now = datetime.datetime.now()
-            action, reason = data
-            if action:
-                await self.client.db.execute(
-                    """
-                    UPDATE afk
-                    SET status = $1,
-                        reason = $2,
-                        since = $3;
-                    """,
-                    action,
-                    reason,
-                    datetime.datetime.now(),
-                )
-                self.afk = True
-            else:
-                rows = await self.client.db.fetch(
-                    "SELECT chat_id, msg_id FROM afk_ids;"
-                )
-                for row in rows:
-                    try:
-                        await self.client.app.delete_messages(
-                            row["chat_id"], row["msg_id"]
-                        )
-                    except RPCError:
-                        continue
-
-                await self.client.db.execute("TRUNCATE afk, afk_ids;")
-                self.afk = False
-
+            reason = await self.client.db.fetchval("SELECT reason FROM afk;")
             return await event.edit_message_text(
-                fmtstr(
-                    "Away from Keyboard",
-                    {"Status": action, "Reason": reason if reason else "N/A"},
-                    fmtsec(now),
-                ),
-                reply_markup=ikm(("Close", "0")),
+                fmtstr("Away from Keyboard", {"Reason": reason or "N/A"}),
+                reply_markup=ikm(("Since", "afk/since")),
             )
 
-        reason = await self.client.db.fetchval("SELECT reason FROM afk;")
+        if self.data.empty():
+            return await self.client.app.delete_messages(
+                *ids(event.inline_message_id), True
+            )
+
+        async with self.lock:
+            data = await self.data.get()
+
+        now = datetime.datetime.now()
+        action, reason = data
+        if action:
+            await self.client.db.execute(
+                """
+                UPDATE afk
+                SET status = $1,
+                    reason = $2,
+                    since = $3;
+                """,
+                action,
+                reason,
+                datetime.datetime.now(),
+            )
+            self.afk = True
+        else:
+            rows = await self.client.db.fetch("SELECT chat_id, msg_id FROM afk_ids;")
+            for row in rows:
+                try:
+                    await self.client.app.delete_messages(row["chat_id"], row["msg_id"])
+                except RPCError:
+                    continue
+
+            await self.client.db.execute("TRUNCATE afk, afk_ids;")
+            self.afk = False
+
         await event.edit_message_text(
-            fmtstr("Away from Keyboard", {"Reason": reason or "N/A"}),
-            reply_markup=ikm(("Since", "afk/since")),
+            fmtstr(
+                "Away from Keyboard",
+                {"Status": action, "Reason": reason if reason else "N/A"},
+                fmtsec(now),
+            ),
+            reply_markup=ikm(("Close", "0")),
         )
 
     @listener.handler(filters.regex(pattern), 5)
