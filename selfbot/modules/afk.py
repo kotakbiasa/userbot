@@ -53,12 +53,12 @@ class Afk(Module):
             if not self.afk:
                 return
 
-            data = {"action": False, "reason": None}
+            data = (False, None)
         else:
             if self.afk:
                 return await event.edit("<code>Already AFK!</code>")
 
-            data = {"action": True, "reason": reason}
+            data = (True, reason)
 
         async with self.lock:
             await self.data.put(data)
@@ -120,7 +120,7 @@ class Afk(Module):
 
     @listener.handler(filters.regex(pattern), 4)
     async def on_inline_result(self, event: ChosenInlineResult) -> None:
-        if not event.query.startswith("#"):
+        if event.query.startswith("#"):
             if self.data.empty():
                 return await self.client.app.delete_messages(
                     *ids(event.inline_message_id), True
