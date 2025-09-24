@@ -53,7 +53,7 @@ class Afk(Module):
             if not self.afk:
                 return
 
-            data = (False, None)
+            data = (False, reason)
         else:
             if self.afk:
                 return await event.edit("<code>Already AFK!</code>")
@@ -172,6 +172,10 @@ class Afk(Module):
     async def on_inline_callback(self, event: CallbackQuery) -> None:
         since = await self.client.db.fetchval("SELECT since FROM afk;")
         if since:
-            return await event.answer(str(since), show_alert=True, cache_time=15)
+            return await event.answer(
+                since.strftime("%b %-d, %-H:%M %p (UTC+7)"),
+                show_alert=True,
+                cache_time=45,
+            )
 
-        await event.answer("Not AFK!", cache_time=15)
+        await event.answer("Not AFK!", cache_time=900)
