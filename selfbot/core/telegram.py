@@ -101,7 +101,7 @@ class Telegram(abc.ABC):
             "message_in": (
                 self.app,
                 MessageHandler,
-                (filters.mentioned | (filters.incoming & filters.private))
+                (flt.mentioned | (flt.incoming & flt.private))
                 & (~flt.me & ~flt.bot & ~flt.via_bot),
                 -1,
             ),
