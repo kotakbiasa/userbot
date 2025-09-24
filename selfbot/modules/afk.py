@@ -138,9 +138,9 @@ class Afk(Module):
         now = datetime.datetime.now()
         action, reason = data
         if action:
+            await self.client.db.execute("DELETE FROM afk;")
             await self.client.db.execute(
                 """
-                DELETE FROM afk;
                 INSERT INTO afk (status, reason, since)
                 VALUES (TRUE, $1, $2);
                 """,
