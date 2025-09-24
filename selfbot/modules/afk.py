@@ -43,13 +43,6 @@ class Afk(Module):
         self.lock = asyncio.Lock()
 
         await self.client.db.execute(QUERY)
-        await self.client.db.execute(
-            """
-            INSERT INTO afk (status, reason, since)
-            SELECT FALSE, NULL, CURRENT_TIMESTAMP
-            WHERE NOT EXISTS (SELECT COUNT(*) FROM afk);
-            """
-        )
         self.afk = await self.client.db.fetchval("SELECT status FROM afk;")
 
     @listener.handler(filters.regex(pattern), 1)
@@ -147,14 +140,12 @@ class Afk(Module):
         if action:
             await self.client.db.execute(
                 """
-                UPDATE afk
-                SET status = $1,
-                    reason = $2,
-                    since = $3;
+                DELETE FROM afk;
+                INSERT INTO afk (status, reason, since)
+                VALUES (TRUE, $1, $2);
                 """,
-                action,
                 reason,
-                datetime.datetime.now(),
+                now,
             )
             self.afk = True
         else:
@@ -165,14 +156,7 @@ class Afk(Module):
                 except RPCError:
                     continue
 
-            await self.client.db.execute(
-                """
-                UPDATE afk
-                SET status = FALSE,
-                    reason = NULL,
-                    since = NULL;
-                """
-            )
+            await self.client.db.execute("DELETE FROM afk_ids; DELETE FROM afk;")
             self.afk = False
 
         await event.edit_message_text(
