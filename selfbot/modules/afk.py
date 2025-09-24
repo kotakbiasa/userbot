@@ -92,7 +92,7 @@ class Afk(Module):
                 "SELECT msg_id FROM afk_ids WHERE chat_id = $1", msg.chat.id
             )
             if old:
-                await self.client.delete_messages(msg.chat.id, old)
+                await self.client.app.delete_messages(msg.chat.id, old)
 
             await self.client.db.execute(
                 """
