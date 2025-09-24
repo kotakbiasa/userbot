@@ -61,10 +61,14 @@ class Telegram(abc.ABC):
         self.app = self._app
         self.bot = self._bot
 
-        await asyncio.gather(self.app.start(), self.bot.start())
-        await self.app.resolve_peer(self.bot.me.username)
+        self.logger.info("Starting App...")
+        await self.app.start()
+        self.logger.info("Starting Bot...")
+        await self.bot.start()
         await asyncio.gather(
-            asyncio.to_thread(self.loads), asyncio.to_thread(self.conf)
+            self.app.resolve_peer(self.bot.me.username),
+            asyncio.to_thread(self.loads),
+            asyncio.to_thread(self.conf),
         )
         self.loop.create_task(self.dispatch("starting"))
 
