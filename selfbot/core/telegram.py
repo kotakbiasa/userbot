@@ -64,7 +64,7 @@ class Telegram(abc.ABC):
         await asyncio.gather(self.app.start(), self.bot.start())
         await self.app.resolve_peer(self.bot.me.username)
         await asyncio.gather(
-            asyncio.to_thread(self.loads), asyncio.to_thread(self.safe)
+            asyncio.to_thread(self.loads), asyncio.to_thread(self.conf)
         )
         self.loop.create_task(self.dispatch("starting"))
 
@@ -125,13 +125,11 @@ class Telegram(abc.ABC):
                 finally:
                     self.handlers[name] = dispatcher
 
-    def safe(self) -> None:
+    def conf(self) -> None:
         self.config.clear()
         for key in list(os.environ):
-            if key == "STICKER_FILE_ID":
+            if key in ["DATABASE_URL", "STICKER_FILE_ID"]:
                 self.config[key.lower()] = os.environ[key]
-            elif key == "DATABASE_URL":
-                os.environ.pop(key)
 
     def build(self, name: str, updates: tuple = ()) -> Client:
         client = Client(
