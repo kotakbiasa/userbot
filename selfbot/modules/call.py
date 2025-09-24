@@ -30,9 +30,8 @@ from selfbot.utils import fmtsec, fmtstr, ids, ikm
 pattern = re.compile(
     r"^"
     r"(?P<action>(?:start|end|join|leave))call"
-    r"(?:\s+chat@(?P<chat>@?[a-zA-Z][a-zA-Z0-9_]{5,32}|-100\d{10}))?"
-    r"(?:\s+as@(?P<as>@?[a-z][a-zA-Z0-9_]{5,32}|-100\d{10}))?"
-    r"(?:\s+(?P<mute>-mute))?"
+    r"(?:\s+(?P<chat>@?[a-zA-Z][a-zA-Z0-9_]{3,32}|-100\d{10}))?"
+    r"(?:\s+as@(?P<as>@?[a-z][a-zA-Z0-9_]{3,32}|-100\d{10}))?"
     r"(?:\s+-t\s(?P<title>.+))?"
     r"$"
 )
@@ -40,7 +39,7 @@ pattern = re.compile(
 
 class Call(Module):
     name = "Call"
-    cmds = "{action(call)} *{(chat@) chat} *{(as@) as} *(-mute) *{(-t) title}"
+    cmds = "{action(call)} *{chat} *{(as@)as} *{(-t) title}"
     desc = {
         "action": "[join, leave, start, end]",
         "*": "Optional",
@@ -60,7 +59,7 @@ class Call(Module):
         self.client.tgc = PyTgCalls(self.client.app, 1, 900)
         await self.client.tgc.start()
 
-        for group in list(self.client.app.dispatcher.groups.keys()):
+        for group in self.client.app.dispatcher.groups.keys():
             if group == -1:
                 continue
 
@@ -137,7 +136,6 @@ class Call(Module):
                     text["data"]["Peer"] = data["as"]
                     args["config"] = GroupCallConfig(join_as=peer)
 
-            text["data"]["Mute"] = True if data["mute"] else False
             coro = self.client.tgc.play
 
         elif data["action"] == "leave":
@@ -165,9 +163,6 @@ class Call(Module):
                 reply_markup=ikm(("Close", b"0")),
             )
         else:
-            if data["action"] == "join" and data["mute"]:
-                self.client.loop.create_task(self.client.tgc.mute(data["chat_id"]))
-
             await event.edit_message_text(
                 fmtstr(**text, foot=fmtsec(now)), reply_markup=ikm(("Close", b"0"))
             )
