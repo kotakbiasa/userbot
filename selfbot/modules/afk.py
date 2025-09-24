@@ -42,14 +42,14 @@ class Afk(Module):
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
-        await self.client.db.execute(QUERY)await self.client.db.execute(
+        await self.client.db.execute(QUERY)
+        await self.client.db.execute(
             """
             INSERT INTO afk (status, reason, since)
             SELECT FALSE, NULL, CURRENT_TIMESTAMP
             WHERE NOT EXISTS (SELECT COUNT(*) FROM afk);
             """
         )
-
         self.afk = await self.client.db.fetchval("SELECT status FROM afk;")
 
     @listener.handler(filters.regex(pattern), 1)
