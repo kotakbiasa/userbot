@@ -130,7 +130,6 @@ class PostgresStorage(Storage):
 
         peer_records = []
         username_records = []
-        peer_ids_to_update = [p[0] for p in peers]
 
         for p_id, p_access_hash, p_type, p_usernames, p_phone_number in peers:
             peer_records.append(
@@ -154,12 +153,17 @@ class PostgresStorage(Storage):
                     """,
                     peer_records,
                 )
-                await conn.execute(
-                    "DELETE FROM usernames WHERE session = $1 AND id = ANY($2::bigint[])",
-                    self.session,
-                    peer_ids_to_update,
-                )
                 if username_records:
+                    usernames_to_update = [rec[2] for rec in username_records]
+                    await conn.execute(
+                        """
+                        DELETE FROM usernames
+                        WHERE session = $1 AND username = ANY($2::text[])
+                        """,
+                        self.session,
+                        usernames_to_update,
+                    )
+
                     await conn.copy_records_to_table(
                         "usernames",
                         records=username_records,
