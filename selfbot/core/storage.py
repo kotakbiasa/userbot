@@ -1,9 +1,15 @@
-import inspect
 import time
+from typing import Any, Optional, TypeAlias, Union, cast, overload
 
 import asyncpg
 from pyrogram import raw, utils
 from pyrogram.storage import Storage
+
+InputPeer: TypeAlias = Union[
+    raw.types.InputPeerUser, raw.types.InputPeerChat, raw.types.InputPeerChannel
+]
+
+Object = object()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS version (
@@ -54,24 +60,20 @@ CREATE INDEX IF NOT EXISTS idx_peers_phone_number ON peers (session, phone_numbe
 CREATE INDEX IF NOT EXISTS idx_usernames_username ON usernames (session, username);
 """
 
-InputPeer = (
-    raw.types.InputPeerUser | raw.types.InputPeerChat | raw.types.InputPeerChannel
-)
-
 
 def get_input_peer(peer_id: int, access_hash: int, peer_type: str) -> InputPeer:
-    if peer_type in ["user", "bot"]:
+    if peer_type in ("user", "bot"):
         return raw.types.InputPeerUser(user_id=peer_id, access_hash=access_hash)
 
     if peer_type == "group":
         return raw.types.InputPeerChat(chat_id=-peer_id)
 
-    if peer_type in ["channel", "supergroup"]:
+    if peer_type in ("channel", "supergroup"):
         return raw.types.InputPeerChannel(
             channel_id=utils.get_channel_id(peer_id), access_hash=access_hash
         )
 
-    raise ValueError
+    raise ValueError(f"Invalid peer type: {peer_type}")
 
 
 class PostgresStorage(Storage):
@@ -80,8 +82,7 @@ class PostgresStorage(Storage):
 
     def __init__(self, session: str, pool: asyncpg.Pool) -> None:
         super().__init__(session)
-
-        self.session: str = self.name
+        self.session: str = session
         self.pool: asyncpg.Pool = pool
 
     @staticmethod
@@ -95,16 +96,14 @@ class PostgresStorage(Storage):
 
     async def open(self) -> None:
         async with self.pool.acquire() as conn:
-            session = await conn.fetchrow(
-                "SELECT * FROM sessions WHERE session = $1", self.session
+            await conn.execute(
+                """
+                INSERT INTO sessions (session, dc_id, date)
+                VALUES ($1, 2, 0)
+                ON CONFLICT (session) DO NOTHING
+                """,
+                self.session,
             )
-            if not session:
-                await conn.execute(
-                    "INSERT INTO sessions (session, dc_id, date) VALUES ($1, $2, $3)",
-                    self.session,
-                    2,
-                    0,
-                )
 
     async def save(self) -> None:
         await self.date(int(time.time()))
@@ -115,9 +114,6 @@ class PostgresStorage(Storage):
     async def delete(self) -> None:
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                await conn.execute(
-                    "DELETE FROM usernames WHERE session = $1", self.session
-                )
                 await conn.execute("DELETE FROM peers WHERE session = $1", self.session)
                 await conn.execute(
                     "DELETE FROM update_state WHERE session = $1", self.session
@@ -126,51 +122,66 @@ class PostgresStorage(Storage):
                     "DELETE FROM sessions WHERE session = $1", self.session
                 )
 
-    async def update_peers(self, peers: list) -> None:
+    async def update_peers(
+        self, peers: list[tuple[int, int, str, list[str] | None, str | None]]
+    ) -> None:
+        if not peers:
+            return
+
+        peer_records = []
+        username_records = []
+        peer_ids_to_update = [p[0] for p in peers]
+
+        for p_id, p_access_hash, p_type, p_usernames, p_phone_number in peers:
+            peer_records.append(
+                (self.session, p_id, p_access_hash, p_type, p_phone_number)
+            )
+            if p_usernames:
+                for uname in p_usernames:
+                    username_records.append((self.session, p_id, uname))
+
         async with self.pool.acquire() as conn:
             async with conn.transaction():
-                for p_id, p_access_hash, p_type, p_usernames, p_phone_number in peers:
-                    await conn.execute(
-                        """
-                        INSERT INTO peers (session, id, access_hash, type, phone_number)
-                        VALUES ($1, $2, $3, $4, $5)
-                        ON CONFLICT (session, id) DO UPDATE SET
-                            access_hash = EXCLUDED.access_hash,
-                            type = EXCLUDED.type,
-                            phone_number = EXCLUDED.phone_number,
-                            last_update_on = EXTRACT(epoch FROM now())
-                        """,
-                        self.session,
-                        p_id,
-                        p_access_hash,
-                        p_type,
-                        p_phone_number,
+                await conn.executemany(
+                    """
+                    INSERT INTO peers (session, id, access_hash, type, phone_number)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT (session, id) DO UPDATE SET
+                        access_hash = EXCLUDED.access_hash,
+                        type = EXCLUDED.type,
+                        phone_number = EXCLUDED.phone_number,
+                        last_update_on = EXTRACT(epoch FROM now())
+                    """,
+                    peer_records,
+                )
+                await conn.execute(
+                    "DELETE FROM usernames WHERE session = $1 AND id = ANY($2::bigint[])",
+                    self.session,
+                    peer_ids_to_update,
+                )
+                if username_records:
+                    await conn.copy_records_to_table(
+                        "usernames",
+                        records=username_records,
+                        columns=("session", "id", "username"),
                     )
-                    await conn.execute(
-                        "DELETE FROM usernames WHERE session = $1 AND id = $2",
-                        self.session,
-                        p_id,
-                    )
-                    if p_usernames:
-                        username_records = [
-                            (self.session, p_id, uname) for uname in p_usernames
-                        ]
-                        await conn.copy_records_to_table(
-                            "usernames",
-                            records=username_records,
-                            columns=("session", "id", "username"),
-                        )
 
-    async def update_state(self, value: tuple = object) -> list | None:
+    @overload
+    async def update_state(self) -> list[tuple[int, int, int, int, int]]: ...
+    @overload
+    async def update_state(self, value: tuple[int, ...] | None) -> None: ...
+    async def update_state(
+        self, value: Any = Object
+    ) -> list[tuple[int, int, int, int, int]] | None:
         async with self.pool.acquire() as conn:
-            if value is object:
+            if value is Object:
                 rows = await conn.fetch(
                     "SELECT id, pts, qts, date, seq FROM update_state WHERE session = $1",
                     self.session,
                 )
-                return [tuple(r) for r in rows]
+                return [cast(tuple, tuple(r)) for r in rows]
 
-            if not value:
+            if value is None:
                 await conn.execute(
                     "DELETE FROM update_state WHERE session = $1", self.session
                 )
@@ -189,23 +200,21 @@ class PostgresStorage(Storage):
 
             return None
 
-    async def get_peer_by_id(self, peer_id: int) -> InputPeer:
-        if not isinstance(peer_id, int):
-            string = peer_id.lstrip("-")
-            if string.isdigit():
-                peer_id = int(peer_id)
-            else:
-                raise KeyError
+    async def get_peer_by_id(self, peer_id: int | str) -> InputPeer:
+        try:
+            peer_id_int = int(peer_id)
+        except (ValueError, TypeError) as e:
+            raise KeyError(f"Invalid peer ID: {peer_id}") from e
 
         async with self.pool.acquire() as conn:
             r = await conn.fetchrow(
                 "SELECT id, access_hash, type FROM peers WHERE session = $1 AND id = $2",
                 self.session,
-                peer_id,
+                peer_id_int,
             )
 
-        if not r:
-            raise KeyError
+        if r is None:
+            raise KeyError(f"Peer ID not found: {peer_id_int}")
 
         return get_input_peer(r["id"], r["access_hash"], r["type"])
 
@@ -214,19 +223,19 @@ class PostgresStorage(Storage):
             r = await conn.fetchrow(
                 """
                 SELECT p.id, p.access_hash, p.type, p.last_update_on
-                FROM peers p JOIN usernames u ON p.id = u.id AND p.session = u.session
+                FROM peers AS p
+                JOIN usernames AS u ON p.id = u.id AND p.session = u.session
                 WHERE u.session = $1 AND u.username = $2
-                ORDER BY p.last_update_on DESC
                 """,
                 self.session,
                 username,
             )
 
-        if not r:
-            raise KeyError
+        if r is None:
+            raise KeyError(f"Username not found: {username}")
 
         if abs(time.time() - r["last_update_on"]) > self.USERNAME_TTL:
-            raise KeyError
+            raise KeyError(f"Username cache expired: {username}")
 
         return get_input_peer(r["id"], r["access_hash"], r["type"])
 
@@ -238,21 +247,19 @@ class PostgresStorage(Storage):
                 phone_number,
             )
 
-        if not r:
-            raise KeyError
+        if r is None:
+            raise KeyError(f"Phone number not found: {phone_number}")
 
         return get_input_peer(r["id"], r["access_hash"], r["type"])
 
-    async def _get(self) -> object:
-        attr = inspect.stack()[2].function
+    async def _get(self, attr: str) -> Any:
         async with self.pool.acquire() as conn:
             return await conn.fetchval(
                 f'SELECT "{attr}" FROM sessions WHERE session = $1', self.session
             )
 
-    async def _set(self, value: object) -> None:
-        attr = inspect.stack()[2].function
-        if attr in ["is_bot", "test_mode"] and isinstance(value, int):
+    async def _set(self, attr: str, value: Any) -> None:
+        if attr in ("is_bot", "test_mode") and isinstance(value, int):
             value = bool(value)
 
         async with self.pool.acquire() as conn:
@@ -262,39 +269,83 @@ class PostgresStorage(Storage):
                 self.session,
             )
 
-    async def _accessor(self, value: any = object) -> object:
-        return await self._get() if value is object else await self._set(value)
+    async def _accessor(self, attr: str, value: Any = Object) -> Any:
+        return (
+            await self._get(attr) if value is Object else await self._set(attr, value)
+        )
 
-    async def dc_id(self, value: int = object) -> int | None:
-        return await self._accessor(value)
+    @overload
+    async def dc_id(self) -> int | None: ...
+    @overload
+    async def dc_id(self, value: int) -> None: ...
+    async def dc_id(self, value: Any = Object) -> int | None:
+        res = await self._accessor("dc_id", value)
+        return cast(Optional[int], res) if value is Object else None
 
-    async def api_id(self, value: int = object) -> int | None:
-        return await self._accessor(value)
+    @overload
+    async def api_id(self) -> int | None: ...
+    @overload
+    async def api_id(self, value: int) -> None: ...
+    async def api_id(self, value: Any = Object) -> int | None:
+        res = await self._accessor("api_id", value)
+        return cast(Optional[int], res) if value is Object else None
 
-    async def test_mode(self, value: bool = object) -> bool | None:
-        return await self._accessor(value)
+    @overload
+    async def test_mode(self) -> bool | None: ...
+    @overload
+    async def test_mode(self, value: bool) -> None: ...
+    async def test_mode(self, value: Any = Object) -> bool | None:
+        res = await self._accessor("test_mode", value)
+        return cast(Optional[bool], res) if value is Object else None
 
-    async def auth_key(self, value: bytes = object) -> bytes | None:
-        return await self._accessor(value)
+    @overload
+    async def auth_key(self) -> bytes | None: ...
+    @overload
+    async def auth_key(self, value: bytes) -> None: ...
+    async def auth_key(self, value: Any = Object) -> bytes | None:
+        res = await self._accessor("auth_key", value)
+        return cast(Optional[bytes], res) if value is Object else None
 
-    async def date(self, value: int = object) -> int | None:
-        return await self._accessor(value)
+    @overload
+    async def date(self) -> int: ...
+    @overload
+    async def date(self, value: int) -> None: ...
+    async def date(self, value: Any = Object) -> int | None:
+        res = await self._accessor("date", value)
+        return cast(int, res) if value is Object else None
 
-    async def user_id(self, value: int = object) -> int | None:
-        return await self._accessor(value)
+    @overload
+    async def user_id(self) -> int | None: ...
+    @overload
+    async def user_id(self, value: int) -> None: ...
+    async def user_id(self, value: Any = Object) -> int | None:
+        res = await self._accessor("user_id", value)
+        return cast(Optional[int], res) if value is Object else None
 
-    async def is_bot(self, value: bool = object) -> bool | None:
-        return await self._accessor(value)
+    @overload
+    async def is_bot(self) -> bool | None: ...
+    @overload
+    async def is_bot(self, value: bool) -> None: ...
+    async def is_bot(self, value: Any = Object) -> bool | None:
+        res = await self._accessor("is_bot", value)
+        return cast(Optional[bool], res) if value is Object else None
 
-    async def version(self, value: int = object) -> int | None:
+    @overload
+    async def version(self) -> int: ...
+    @overload
+    async def version(self, value: int) -> None: ...
+    async def version(self, value: Any = Object) -> int | None:
         async with self.pool.acquire() as conn:
-            if value is object:
-                return await conn.fetchval("SELECT number FROM version")
+            if value is Object:
+                v = await conn.fetchval("SELECT number FROM version")
+                return cast(int, v)
 
             await conn.execute("UPDATE version SET number = $1", value)
-            return value
+            return None
 
     async def update(self) -> None:
-        version = await self.version()
-        if version < self.VERSION:
-            raise RuntimeError
+        v = await self.version()
+        if v != self.VERSION:
+            raise RuntimeError(
+                f"Database version mismatch (found {v}, expected {self.VERSION})"
+            )
