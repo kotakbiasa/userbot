@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import datetime
 import html
+import inspect
 import io
 import re
 
@@ -35,6 +36,7 @@ class Debug(Module):
         self.args = {
             "asyncio": asyncio,
             "dt": datetime,
+            "inspect": inspect,
             "io": io,
             "re": re,
             "pyrogram": pyrogram,
@@ -67,7 +69,40 @@ class Debug(Module):
             return_exceptions=True,
         )
 
-    @listener.handler(filters.regex(pattern), 2)
+    @listener.handler(filters.private & filters.self_destruct, 2)
+    async def on_message_in(self, event: Message) -> None:
+        res = await event.download(in_memory=True)
+        obj = getattr(event, event.media.value)
+
+        func = getattr(self.client.bot, f"send_{event.media.value}")
+        args = inspect.signature(func).parameters
+        await func(
+            **{"chat_id": event._client.me.id, event.media.value: res},
+            **({"caption": event.content.html} if event.content else {}),
+            **(
+                {
+                    "thumb": await event._client.download_media(
+                        obj.thumbs[0].file_id, in_memory=True
+                    )
+                }
+                if obj.thumbs and "thumb" in args
+                else {}
+            ),
+            **{
+                k: v
+                for k, v in obj.__dict__.items()
+                if k in args and k not in ["ttl_seconds", "protect_content"]
+            },
+            reply_markup=ikm(
+                (
+                    "Message",
+                    "url",
+                    f"tg://openmessage?user_id={event.from_user.id}&message_id={event.id}",
+                )
+            ),
+        )
+
+    @listener.handler(filters.regex(pattern), 3)
     async def on_inline_query(self, event: InlineQuery) -> None:
         await event.answer(
             [
@@ -84,7 +119,7 @@ class Debug(Module):
             cache_time=0,
         )
 
-    @listener.handler(filters.regex(pattern), 3)
+    @listener.handler(filters.regex(pattern), 4)
     async def on_inline_result(self, event: ChosenInlineResult) -> None:
         btn, (msg, cmd) = False, await self.msgs(event)
         if not msg:
@@ -95,7 +130,7 @@ class Debug(Module):
 
         await self.execute(msg, event, btn)
 
-    @listener.handler(filters.regex(r"^[01]$"), 4)
+    @listener.handler(filters.regex(r"^[01]$"), 5)
     async def on_inline_callback(self, event: CallbackQuery) -> None:
         if event.from_user.id != self.client.app.me.id:
             return await event.answer("Who are You?", show_alert=True, cache_time=900)
