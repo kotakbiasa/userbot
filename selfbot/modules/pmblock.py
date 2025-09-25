@@ -41,7 +41,7 @@ pattern = re.compile(
 
 
 class PmBlock(Module):
-    name = "PM Block"
+    name = "PMBL"
     cmds = "(pmbl) *{set content} | (auth) *{user}"
     desc = {
         "*": "Optional",
