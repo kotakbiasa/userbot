@@ -47,7 +47,7 @@ class PmBlock(Module):
         "*": "Optional",
         "set": "[msg, url]",
         "content": "String",
-        "user": [user_id, username, reply_user],
+        "user": "[user_id, username, reply_user]",
     }
 
     async def on_starting(self) -> None:
