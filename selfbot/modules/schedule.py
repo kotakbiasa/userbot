@@ -29,7 +29,7 @@ pattern = re.compile(
 
 class Schedule(Module):
     name = "Schedule"
-    cmds = "{action} {{n}{unit}}*{(*)repeat} {text}"
+    cmds = "{action} {n}{unit}*{(*)repeat} {text}"
     desc = {
         "action": "[sch, schme]",
         "n": "[1-99]",
