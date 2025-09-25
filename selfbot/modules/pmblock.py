@@ -55,17 +55,25 @@ class PmBlock(Module):
         self.lock = asyncio.Lock()
 
         await self.client.db.execute(QUERY)
-        self.pmbl = await self.client.db.fetchval("SELECT active FROM pmblock;")
 
-        self.text = await self.client.db.fetchval("SELECT message FROM pmblock;")
-        if not self.text:
+        data = await self.client.db.fetch("SELECT * FROM pmblock;")
+        if not data:
+            self.pmbl = False
             self.text = "<b>Sorry, No PMs!</b>"
-            await self.client.db.execute("UPDATE pmblock SET message = $1", self.text)
-
-        self.link = await self.client.db.fetchval("SELECT feedback FROM pmblock;")
-        if not self.link:
             self.link = "t.me/resolveUsername?direct"
-            await self.client.db.execute("UPDATE pmblock SET feedback = $1", self.link)
+            await self.client.db.execute(
+                """
+                INSERT INTO pmblock (active, message, feedback)
+                VALUES ($1, $2, $3);
+                """,
+                self.pmbl,
+                self.text,
+                self.link,
+            )
+        else:
+            self.pmbl = data["active"]
+            self.text = data["message"]
+            self.link = data["feedback"]
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
