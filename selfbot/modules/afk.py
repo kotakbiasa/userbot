@@ -75,7 +75,7 @@ class Afk(Module):
             event.delete(True),
         )
 
-    @listener.handler(filters.all, 2)
+    @listener.handler(~filters.private, 2)
     async def on_message_in(self, event: Message) -> None:
         if not self.afk:
             return
