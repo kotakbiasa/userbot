@@ -86,7 +86,13 @@ class Help(Module):
         act, val = pattern.match(event.data).groups()
         if act == "info":
             return await event.answer(
-                f"Page {int(val) + 1} of {len(self.ikb)}",
+                (
+                    f"Selfbot Version {self.client.version}\n"
+                    f"\n    {len(self.client.handlers)} Handlers"
+                    f"\n    {len(self.client.listeners)} Listeners"
+                    f"\n    {len(self.client.modules)} Modules"
+                    f"\n\n{len(self.ikb)} Pages"
+                ),
                 show_alert=True,
                 cache_time=900,
             )
@@ -106,7 +112,7 @@ class Help(Module):
     def build(self, page: int = 0) -> list:
         idx = max(0, min(page, len(self.ikb) - 1))
         ikb = self.ikb[idx][:]
-        ikb.append([("Current Page", f"help/info/{idx}")])
+        ikb.append([("Selfbot Info", "help/info")])
 
         nav = []
         if idx > 0:
