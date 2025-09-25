@@ -204,6 +204,10 @@ class PmBlock(Module):
             not auth,
         )
         await event.edit_message_text(
-            fmtstr("PM Auto Block", {"User ID": data["user"], "Authorized": not auth}),
+            fmtstr(
+                "PM Auto Block",
+                {"User ID": data["user"], "Authorized": not auth},
+                fmtsec(now),
+            ),
             reply_markup=ikm(("Close", "0")),
         )
