@@ -78,7 +78,7 @@ class Afk(Module):
     @listener.handler(filters.all, 2)
     async def on_message_in(self, event: Message) -> None:
         if not self.afk:
-            return await event.continue_propagation()
+            return
 
         async with self.lock:
             res = await event._client.get_inline_bot_results(

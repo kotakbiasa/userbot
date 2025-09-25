@@ -27,6 +27,14 @@ from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import fmtsec, fmtstr, ids, ikm
 
+QUERY = """
+CREATE TABLE IF NOT EXISTS call (
+    chat_id BIGINT  PRIMARY KEY,
+    joined  BOOLEAN DEFAULT FALSE,
+    join_as BIGINT
+);
+"""
+
 pattern = re.compile(
     r"^"
     r"(?P<action>(?:start|end|join|leave))call"
@@ -68,10 +76,35 @@ class Call(Module):
 
             self.client.app.dispatcher.groups.pop(group, None)
 
+        await self.client.db.execute(QUERY)
+        rows = await self.client.db.fetch(
+            "SELECT chat_id, join_as FROM call WHERE joined = TRUE"
+        )
+        for row in rows:
+            args = {"chat_id": row["chat_id"]}
+            if row.get("join_as"):
+                try:
+                    peer = await self.client.app.resolve_peer(row["join_as"])
+                except RPCError:
+                    pass
+                else:
+                    args["config"] = GroupCallConfig(join_as=peer)
+
+            try:
+                await self.client.tgc.play(**args)
+            except Exception:
+                await self.client.db.execute(
+                    "UPDATE call SET joined = FALSE WHERE chat_id = $1;", row["chat_id"]
+                )
+
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
-        data["chat_id"] = data["chat"] or event.chat.id
+        data["chat_id"] = event.chat.id
+        if data["chat"]:
+            chat = await self.client.app.get_chat(data["chat"], False)
+            data["chat_id"] = chat.id
+
         async with self.lock:
             await self.data.put(data)
 
@@ -163,6 +196,20 @@ class Call(Module):
                 reply_markup=ikm(("Close", b"0")),
             )
         else:
+            if data["action"] in ["join", "leave"]:
+                await self.client.db.execute(
+                    """
+                    INSERT INTO call (chat_id, joined, join_as)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (chat_id) DO UPDATE SET
+                        joined = EXCLUDED.joined,
+                        join_as = EXCLUDED.join_as;
+                    """,
+                    data["chat_id"],
+                    True if data["action"] == "join" else False,
+                    data["as"],
+                )
+
             await event.edit_message_text(
                 fmtstr(**text, foot=fmtsec(now)), reply_markup=ikm(("Close", b"0"))
             )
