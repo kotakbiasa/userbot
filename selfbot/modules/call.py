@@ -13,13 +13,13 @@ from pyrogram.types import (
     ReplyParameters,
 )
 
-hide = False
+load = True
 try:
     from pytgcalls import PyTgCalls
     from pytgcalls.pytgcalls_session import PyTgCallsSession
     from pytgcalls.types import GroupCallConfig
 except Exception:
-    hide = True
+    load = False
 else:
     PyTgCallsSession.notice_displayed = True
 
@@ -57,8 +57,7 @@ class Call(Module):
     }
 
     async def on_starting(self) -> None:
-        if hide:
-            self.hide = True
+        if not load:
             return self.client.unload(self)
 
         self.data = asyncio.Queue()
@@ -100,10 +99,25 @@ class Call(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
+
         data["chat_id"] = event.chat.id
         if data["chat"]:
-            chat = await self.client.app.get_chat(data["chat"], False)
-            data["chat_id"] = chat.id
+            try:
+                chat = await self.client.app.get_chat(data["chat"], False)
+            except RPCError as e:
+                return await event.edit(f"<code>{e.__class__.__name__}</code>")
+            else:
+                data["chat_id"] = chat.id
+            finally:
+                data.pop("chat")
+
+        if data["as"]:
+            try:
+                chat = await self.client.app.get_chat(data["as"], False)
+            except RPCError as e:
+                return await event.edit(f"<code>{e.__class__.__name__}</code>")
+            else:
+                data["as"] = chat.id
 
         async with self.lock:
             await self.data.put(data)
@@ -124,14 +138,13 @@ class Call(Module):
 
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:
-        action = pattern.match(event.query).groupdict()["action"].title()
         await event.answer(
             [
                 InlineQueryResultCachedSticker(
                     sticker_file_id=self.client.config["sticker_file_id"],
                     reply_markup=ikm((">_", "user_id", event._client.me.id)),
                     input_message_content=InputTextMessageContent(
-                        f"<code>{action} Call...</code>"
+                        f"<code>{pattern.match(event.query).groupdict()['action'].title()} Call...</code>"
                     ),
                 )
             ],
@@ -149,7 +162,8 @@ class Call(Module):
             data = await self.data.get()
 
         text = {"data": {"Chat": data["chat_id"]}}
-        coro = None
+
+        func = None
         args = {"chat_id": data["chat_id"]}
 
         now = datetime.datetime.now()
@@ -169,11 +183,11 @@ class Call(Module):
                     text["data"]["Peer"] = data["as"]
                     args["config"] = GroupCallConfig(join_as=peer)
 
-            coro = self.client.tgc.play
+            func = self.client.tgc.play
 
         elif data["action"] == "leave":
             text["head"] = "Left Call"
-            coro = self.client.tgc.leave_call
+            func = self.client.tgc.leave_call
 
         elif data["action"] == "start":
             text["head"] = "Started Call"
@@ -182,14 +196,14 @@ class Call(Module):
                 text["data"]["Title"] = data["title"]
                 args["title"] = data["title"]
 
-            coro = self.client.app.create_video_chat
+            func = self.client.app.create_video_chat
 
         else:
             text["head"] = "Ended Call"
-            coro = self.client.app.discard_group_call
+            func = self.client.app.discard_group_call
 
         try:
-            await coro(**args)
+            await func(**args)
         except Exception as e:
             await event.edit_message_text(
                 f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",

@@ -87,14 +87,13 @@ class Sticker(Module):
 
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:
-        action = pattern.match(event.query).groupdict()["mode"].title()
         await event.answer(
             [
                 InlineQueryResultCachedSticker(
                     sticker_file_id=self.client.config["sticker_file_id"],
                     reply_markup=ikm((">_", "user_id", event._client.me.id)),
                     input_message_content=InputTextMessageContent(
-                        f"<code>{action} Sticker...</code>"
+                        f"<code>{pattern.match(event.query).groupdict()['mode'].title()} Sticker...</code>"
                     ),
                 )
             ],
@@ -122,24 +121,24 @@ class Sticker(Module):
                 reply_markup=ikm(("Close", b"0")),
             )
 
-        sticker = InputStickerSetItem(
+        item = InputStickerSetItem(
             document=get_input_media_from_file_id(data["source"]["file"]).id,
             emoji=data["emoji"],
         )
-        text, func = "", None
+        head, func = "", None
         if data["mode"] == "add":
-            text = "Added to Sticker Set"
+            head = "Added to Sticker Set"
             func = AddStickerToSet(
                 stickerset=InputStickerSetShortName(short_name=data["name"]),
-                sticker=sticker,
+                sticker=item,
             )
         else:
-            text = "Sticker Set Created"
+            head = "Sticker Set Created"
             func = CreateStickerSet(
                 user_id=await self.client.app.resolve_peer("me"),
                 title="Sticker Set",
                 short_name=data["name"],
-                stickers=[sticker],
+                stickers=[item],
             )
 
         try:
@@ -153,7 +152,7 @@ class Sticker(Module):
         try:
             await event.edit_message_text(
                 fmtstr(
-                    text,
+                    head,
                     {
                         "Name": last.set.short_name,
                         "Emoji": data["emoji"],

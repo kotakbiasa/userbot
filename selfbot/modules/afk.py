@@ -47,18 +47,13 @@ class Afk(Module):
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
-        off, reason = pattern.match(event.content).groups()
-
-        if off:
+        data = pattern.match(event.content).groups()
+        if data[0]:
             if not self.afk:
                 return await event.edit("<code>Already Online!</code>")
-
-            data = (False, reason)
         else:
             if self.afk:
                 return await event.edit("<code>Already AFK!</code>")
-
-            data = (True, reason)
 
         async with self.lock:
             await self.data.put(data)
@@ -136,15 +131,14 @@ class Afk(Module):
             data = await self.data.get()
 
         now = datetime.datetime.now()
-        action, reason = data
-        if action:
+        if data[0]:
             await self.client.db.execute("DELETE FROM afk;")
             await self.client.db.execute(
                 """
                 INSERT INTO afk (status, reason, since)
                 VALUES (TRUE, $1, $2);
                 """,
-                reason,
+                data[1],
                 now,
             )
             self.afk = True
@@ -162,7 +156,7 @@ class Afk(Module):
         await event.edit_message_text(
             fmtstr(
                 "Away from Keyboard",
-                {"Status": action, "Reason": reason if reason else "N/A"},
+                {"Status": data[0], "Reason": data[1] if data[1] else "N/A"},
                 fmtsec(now),
             ),
             reply_markup=ikm(("Close", "0")),

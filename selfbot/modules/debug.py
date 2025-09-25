@@ -71,18 +71,19 @@ class Debug(Module):
 
     @listener.handler(filters.private & filters.self_destruct, 2)
     async def on_message_in(self, event: Message) -> None:
-        res = await event.download(in_memory=True)
-        obj = getattr(event, event.media.value)
-
+        attr = getattr(event, event.media.value)
         func = getattr(self.client.bot, f"send_{event.media.value}")
         args = inspect.signature(func).parameters
         await func(
-            **{"chat_id": event._client.me.id, event.media.value: res},
+            **{
+                "chat_id": event._client.me.id,
+                event.media.value: await event.download(in_memory=True),
+            },
             **({"caption": event.content.html} if event.content else {}),
             **(
                 {
                     "thumb": await event._client.download_media(
-                        obj.thumbs[0].file_id, in_memory=True
+                        attr.thumbs[0].file_id, in_memory=True
                     )
                 }
                 if obj.thumbs and "thumb" in args
@@ -90,7 +91,7 @@ class Debug(Module):
             ),
             **{
                 k: v
-                for k, v in obj.__dict__.items()
+                for k, v in attr.__dict__.items()
                 if k in args and k not in ["ttl_seconds", "protect_content"]
             },
             reply_markup=ikm(

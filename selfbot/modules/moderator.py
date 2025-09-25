@@ -49,8 +49,7 @@ class Moderator(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         data = pattern.match(event.content).groupdict()
-        user = data["target"]
-        if user:
+        if data["target"]:
             if (
                 event.entities
                 and event.entities[0].type == MessageEntityType.TEXT_MENTION
@@ -88,14 +87,13 @@ class Moderator(Module):
 
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:
-        action = pattern.match(event.query).groupdict()["action"].title()
         await event.answer(
             [
                 InlineQueryResultCachedSticker(
                     sticker_file_id=self.client.config["sticker_file_id"],
                     reply_markup=ikm((">_", "user_id", event._client.me.id)),
                     input_message_content=InputTextMessageContent(
-                        f"<code>{action} User...</code>"
+                        f"<code>{pattern.match(event.query).groupdict()['action'].title()} User...</code>"
                     ),
                 )
             ],
@@ -112,41 +110,41 @@ class Moderator(Module):
         async with self.lock:
             data = await self.data.get()
 
-        action, target = data["action"], data["target"]
-        kwargs = {"chat_id": ids(event.inline_message_id)[0], "user_id": int(target)}
-
-        unit, coro = "N/A", None
-        if action in ["ban", "kick"]:
-            coro = self.client.app.ban_chat_member
-        elif action in ["mute", "unmute"]:
-            coro = self.client.app.restrict_chat_member
-            kwargs["permissions"] = ChatPermissions(
+        func = None
+        args = {
+            "chat_id": ids(event.inline_message_id)[0],
+            "user_id": int(data["target"]),
+        }
+        if data["action"] in ["ban", "kick"]:
+            func = self.client.app.ban_chat_member
+        elif data["action"] in ["mute", "unmute"]:
+            func = self.client.app.restrict_chat_member
+            args["permissions"] = ChatPermissions(
                 **{
-                    k: True if action == "unmute" else False
+                    k: True if data["action"] == "unmute" else False
                     for k in inspect.signature(ChatPermissions).parameters
                 }
             )
         else:
-            coro = self.client.app.unban_chat_member
+            func = self.client.app.unban_chat_member
 
-        if action != "kick":
-            if "until_date" in inspect.signature(coro).parameters and data["duration"]:
-                args = {self.period[data["unit"]]: int(data["duration"])}
-                unit = "".join(
+        period = "N/A"
+        if data["action"] != "kick":
+            if "until_date" in inspect.signature(func).parameters and data["duration"]:
+                kwargs = {self.period[data["unit"]]: int(data["duration"])}
+                period = "".join(
                     f"{v} {k.removesuffix('s').title() if v == 1 else k.title()}"
-                    for k, v in args.items()
+                    for k, v in kwargs.items()
                 )
-                kwargs["until_date"] = datetime.datetime.now() + datetime.timedelta(
-                    **args
+                args["until_date"] = datetime.datetime.now() + datetime.timedelta(
+                    **kwargs
                 )
         else:
-            kwargs["until_date"] = datetime.datetime.now() + datetime.timedelta(
-                minutes=1
-            )
+            args["until_date"] = datetime.datetime.now() + datetime.timedelta(minutes=1)
 
         now = datetime.datetime.now()
         try:
-            await coro(**kwargs)
+            await func(**args)
         except RPCError as e:
             await event.edit_message_text(
                 f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
@@ -155,8 +153,12 @@ class Moderator(Module):
         else:
             await event.edit_message_text(
                 fmtstr(
-                    f"<a href='tg://user?id={target}'>User</a> {self._past(action)}",
-                    {"ID": target, "Reason": data["reason"] or "N/A", "Duration": unit},
+                    f"<a href=tg://user?id={data['target']}>User</a> {self._past(data['action'])}",
+                    {
+                        "ID": data["target"],
+                        "Reason": data["reason"] or "N/A",
+                        "Duration": period,
+                    },
                     fmtsec(now),
                 ),
                 reply_markup=ikm(("Close", b"0")),

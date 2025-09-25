@@ -107,7 +107,7 @@ class Schedule(Module):
         async with self.lock:
             data = await self.data.get()
 
-        params = {
+        args = {
             "chat_id": data["self"] or ids(event.inline_message_id)[0],
             "text": data["text"].strip(),
         }
@@ -118,13 +118,14 @@ class Schedule(Module):
         res, now = 0, datetime.datetime.now()
         if data["loop"]:
             for i in range(1, int(data["loop"]) + 1):
-                args = {self.period[data["unit"]]: int(data["time"]) * i}
                 try:
                     await self.client.app.send_message(
-                        **params,
+                        **args,
                         reply_parameters=ReplyParameters(**data["reply"]),
                         schedule_date=datetime.datetime.now()
-                        + datetime.timedelta(**args),
+                        + datetime.timedelta(
+                            **{self.period[data["unit"]]: int(data["time"]) * i}
+                        ),
                     )
                 except RPCError:
                     break
@@ -148,12 +149,14 @@ class Schedule(Module):
                 reply_markup=ikm(("Close", b"0")),
             )
         else:
-            args = {self.period[data["unit"]]: int(data["time"])}
             try:
                 await self.client.app.send_message(
-                    **params,
+                    **args,
                     reply_parameters=ReplyParameters(**data["reply"]),
-                    schedule_date=datetime.datetime.now() + datetime.timedelta(**args),
+                    schedule_date=datetime.datetime.now()
+                    + datetime.timedelta(
+                        **{self.period[data["unit"]]: int(data["time"])}
+                    ),
                 )
             except RPCError as e:
                 return await event.edit_message_text(
