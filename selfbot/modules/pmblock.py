@@ -71,9 +71,9 @@ class PmBlock(Module):
                 self.link,
             )
         else:
-            self.pmbl = data["active"]
-            self.text = data["message"]
-            self.link = data["feedback"]
+            self.pmbl = data[0]["active"]
+            self.text = data[0]["message"]
+            self.link = data[0]["feedback"]
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
