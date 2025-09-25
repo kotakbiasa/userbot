@@ -69,7 +69,7 @@ class PmBlock(Module):
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
-        data = pattern.match(event.content)
+        data = pattern.match(event.content).groupdict()
         if data["action"] == "auth":
             if data["user"]:
                 try:
