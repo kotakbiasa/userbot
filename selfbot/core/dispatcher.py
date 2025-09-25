@@ -51,9 +51,8 @@ class Dispatcher(abc.ABC):
                     await self.bot.send_message(
                         self.app.me.id,
                         (
-                            f"<pre language={e.__class__.__name__}>{e}</pre>"
-                            f"\n<code>File</code> : <code>{fn}</code>"
-                            f"\n<code>Line</code> : <code>{ln}</code>"
+                            f"<code>{fn}</code>\n<b>Line</b> <code>{ln}</code>"
+                            f"\n\n<b>{e.__class__.__name__}</b>\n<code>{e}</code>"
                         ),
                     )
 
