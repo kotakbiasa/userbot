@@ -908,7 +908,7 @@ fast = ["pytgcrypto (>1.2.9.2,<=1.4)", "uvloop (>0.18.0,<=0.19.0)"]
 type = "git"
 url = "https://github.com/TelegramPlayground/pyrogram"
 reference = "dev"
-resolved_reference = "b552050b790879597f4a4033835b30509dc065c9"
+resolved_reference = "4836dc65f509f9fba0def0b9f774c8977e8b2754"
 
 [[package]]
 name = "pysocks"
