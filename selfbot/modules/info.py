@@ -5,7 +5,7 @@ import re
 
 from pyrogram import filters
 from pyrogram.enums import ChatType, MessageEntityType
-from pyrogram.errors import RPCError
+from pyrogram.errors import MediaCaptionTooLong, MessageTooLong, RPCError
 from pyrogram.types import (
     ChosenInlineResult,
     InlineQuery,
@@ -136,18 +136,18 @@ class Info(Module):
                 photo = await self.client.app.download_media(chat.photo.big_file_id)
                 await event.edit_message_media(InputMediaPhoto(photo))
 
-            if len(str(text)) > 512:
+            try:
+                await event.edit_message_text(
+                    fmtstr("Chat Information", text, fmtsec(now)),
+                    reply_markup=ikm(("Close", b"0")),
+                )
+            except (MessageTooLong, MediaCaptionTooLong) as e:
                 link = (
                     await self.client.http.post(
                         "https://paste.rs", data=json.dumps(text, indent=2).encode()
                     )
                 ).text.strip()
-                return await event.edit_message_text(
-                    fmtstr("Chat Information", "MessageTooLong", fmtsec(now)),
+                await event.edit_message_text(
+                    fmtstr("Chat Information", e.__class__.__name__, fmtsec(now)),
                     reply_markup=ikm([("Full", "url", link), ("Close", b"0")]),
                 )
-
-            await event.edit_message_text(
-                fmtstr("Chat Information", text, fmtsec(now)),
-                reply_markup=ikm(("Close", b"0")),
-            )
