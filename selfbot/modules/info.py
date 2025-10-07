@@ -137,7 +137,7 @@ class Info(Module):
 
             if len(str(text)) > 756:
                 return await event.edit_message_text(
-                    "<code>Message Too Long</code>",
+                    fmtstr("Chat Information", "MessageTooLong", fmtsec(now)),
                     reply_markup=ikm([("Full", "url", link), ("Close", b"0")]),
                 )
 
