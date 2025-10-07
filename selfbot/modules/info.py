@@ -9,6 +9,7 @@ from pyrogram.types import (
     ChosenInlineResult,
     InlineQuery,
     InlineQueryResultCachedSticker,
+    InputMediaPhoto,
     InputTextMessageContent,
     Message,
     ReplyParameters,
