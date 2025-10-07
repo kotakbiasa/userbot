@@ -126,7 +126,8 @@ class Info(Module):
                 .removeprefix("is_")
                 .title()
                 .replace("Id", "ID")
-                .replace("Dc", "DC"): v.name if isinstance(v, ChatType) else v
+                .replace("Dc", "DC")
+                .replace("_", " "): v.name if isinstance(v, ChatType) else v
                 for k, v in chat.__dict__.items()
                 if isinstance(v, int | str | ChatType) and not k.startswith("_")
             }
