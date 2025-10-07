@@ -19,7 +19,7 @@ from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import fmtsec, fmtstr, ids, ikm
 
-pattern = re.compile(r"^info(?:\s+(?P<chat>.+))?$")
+pattern = re.compile(r"^info(?:\s(?P<chat>.+))?$")
 
 
 class Info(Module):
@@ -135,7 +135,7 @@ class Info(Module):
                 photo = await self.client.app.download_media(chat.photo.big_file_id)
                 await event.edit_message_media(InputMediaPhoto(photo))
 
-            if len(str(text)) > 756:
+            if len(str(text)) > 512:
                 link = (
                     await self.client.http.post(
                         "https://paste.rs", data=str(text).encode()
