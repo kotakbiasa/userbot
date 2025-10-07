@@ -136,6 +136,11 @@ class Info(Module):
                 await event.edit_message_media(InputMediaPhoto(photo))
 
             if len(str(text)) > 756:
+                link = (
+                    await self.client.http.post(
+                        "https://paste.rs", data="\n".join(cids).encode()
+                    )
+                ).text.strip()
                 return await event.edit_message_text(
                     fmtstr("Chat Information", "MessageTooLong", fmtsec(now)),
                     reply_markup=ikm([("Full", "url", link), ("Close", b"0")]),
