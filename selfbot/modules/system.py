@@ -278,7 +278,7 @@ class System(Module):
 
     def ikbsha(self, old_sha: str | None, new_sha: str | None, head_sha: str | None):
         if old_sha and new_sha and old_sha != new_sha:
-            txt = f"{old_sha[:7]} > {new_sha[:7]}"
+            txt = f"{old_sha[:7]}...{new_sha[:7]}"
             url = f"{self.remote}/compare/{old_sha}...{new_sha}"
         else:
             hs = (new_sha or head_sha) or ""
