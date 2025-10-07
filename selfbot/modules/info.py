@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import re
 
 from pyrogram import filters
@@ -138,7 +139,7 @@ class Info(Module):
             if len(str(text)) > 512:
                 link = (
                     await self.client.http.post(
-                        "https://paste.rs", data=str(text).encode()
+                        "https://paste.rs", data=json.dumps(text, indent=2).encode()
                     )
                 ).text.strip()
                 return await event.edit_message_text(

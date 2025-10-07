@@ -55,7 +55,7 @@ def fmtstr(head: str, data: any = None, foot: str = None, msgs: str = None) -> s
             for n, item in enumerate(data, start=1)
         )
     elif data:
-        body = f"  {data}"
+        body = f"  <code>{data}</code>"
 
     text = [f"<b>{head}</b>"]
     if body:
