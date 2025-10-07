@@ -124,9 +124,7 @@ class Info(Module):
             )
         else:
             text = {
-                k.removeprefix("has_")
-                .removeprefix("is_")
-                .title()
+                k.title()
                 .replace("Id", "ID")
                 .replace("Dc", "DC")
                 .replace("_", " "): v.name if isinstance(v, ChatType) else v
