@@ -18,7 +18,7 @@ from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import fmtsec, fmtstr, ids, ikm
 
-pattern = re.compile(r"^info(?:\s(?P<chat>.+))$")
+pattern = re.compile(r"^info(?:\s+(?P<chat>.+))?$")
 
 
 class Info(Module):
