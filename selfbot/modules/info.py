@@ -133,7 +133,9 @@ class Info(Module):
                 if isinstance(v, int | str | ChatType) and not k.startswith("_")
             }
             if chat.photo:
-                photo = await self.client.app.download_media(chat.photo.big_file_id)
+                photo = await self.client.app.download_media(
+                    chat.photo.big_file_id, in_memory=True
+                )
                 await event.edit_message_media(InputMediaPhoto(photo))
 
             try:
