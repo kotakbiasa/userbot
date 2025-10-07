@@ -38,7 +38,7 @@ class Info(Module):
     async def on_message_out(self, event: Message) -> None:
         data, args = pattern.match(event.content).groupdict(), {}
         if not data["chat"]:
-            if event.quote and event.quote.text and event.quote.text.split() == 1:
+            if event.quote and event.quote.text:
                 data["chat"] = event.quote.text
                 args = {
                     "quote": event.quote.text,
@@ -134,6 +134,12 @@ class Info(Module):
             if chat.photo:
                 photo = await self.client.app.download_media(chat.photo.big_file_id)
                 await event.edit_message_media(InputMediaPhoto(photo))
+
+            if len(str(text)) > 756:
+                return await event.edit_message_text(
+                    "<code>Message Too Long</code>",
+                    reply_markup=ikm([("Full", "url", link), ("Close", b"0")]),
+                )
 
             await event.edit_message_text(
                 fmtstr("Chat Information", text, fmtsec(now)),
