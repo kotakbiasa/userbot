@@ -33,7 +33,7 @@ class Info(Module):
         self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
-    @listener.handler(filters.regex(pattern) & ~filters.private, 1)
+    @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         data, args = pattern.match(event.content).groupdict(), {}
         if not data["chat"]:
@@ -52,14 +52,12 @@ class Info(Module):
                 )
             else:
                 data["chat"] = event.chat.id
-        elif (
-            len(data["chat"].split()) > 1
-            and event.entities
-            and event.entities[0].type == MessageEntityType.TEXT_MENTION
-        ):
-            data["chat"] = event.entities[0].user.id
         else:
-            return await event.edit("<code>Reply to Chat or Give an ID</code>")
+            if (
+                event.entities
+                and event.entities[0].type == MessageEntityType.TEXT_MENTION
+            ):
+                data["chat"] = event.entities[0].user.id
 
         async with self.lock:
             await self.data.put(data)
