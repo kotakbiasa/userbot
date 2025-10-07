@@ -50,7 +50,7 @@ class Info(Module):
                 data["chat"] = (
                     event.reply_to_message.sender_chat.id
                     if event.reply_to_message.sender_chat
-                    else event.reply_to_message.user.id
+                    else event.reply_to_message.from_user.id
                 )
             else:
                 data["chat"] = event.chat.id
