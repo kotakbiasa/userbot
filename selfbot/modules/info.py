@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import os
 import re
 
 from pyrogram import filters
@@ -135,7 +136,8 @@ class Info(Module):
             if chat.photo:
                 photo = await self.client.app.download_media(chat.photo.big_file_id)
                 await event.edit_message_media(InputMediaPhoto(photo))
-                await asyncio.to_thread(os.remove, photo)
+                if os.path.exists(photo):
+                    await asyncio.to_thread(os.remove, photo)
 
             try:
                 await event.edit_message_text(
