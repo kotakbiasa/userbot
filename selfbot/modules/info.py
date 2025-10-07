@@ -138,7 +138,7 @@ class Info(Module):
             if len(str(text)) > 756:
                 link = (
                     await self.client.http.post(
-                        "https://paste.rs", data="\n".join(cids).encode()
+                        "https://paste.rs", data=str(text).encode()
                     )
                 ).text.strip()
                 return await event.edit_message_text(
