@@ -140,7 +140,7 @@ class Info(Module):
             if chat.type in [ChatType.PRIVATE, ChatType.BOT]:
                 profile = f"tg://user?id={chat.id}"
             else:
-                profile = f"tg://chat?id={chat._raw.id}"
+                profile = f"tg://chat?id={chat._raw.full_chat.id}"
 
             keyb = [[("Open", "url", profile), ("Close", b"0")]]
             if chat.photo:
