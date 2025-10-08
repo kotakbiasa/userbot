@@ -6,7 +6,12 @@ import re
 
 from pyrogram import filters
 from pyrogram.enums import ChatType, MessageEntityType
-from pyrogram.errors import MediaCaptionTooLong, MessageTooLong, RPCError
+from pyrogram.errors import (
+    FileReferenceExpired,
+    MediaCaptionTooLong,
+    MessageTooLong,
+    RPCError,
+)
 from pyrogram.types import (
     ChosenInlineResult,
     InlineQuery,
@@ -131,16 +136,27 @@ class Info(Module):
                 for k, v in chat.__dict__.items()
                 if isinstance(v, int | str | ChatType) and not k.startswith("_")
             }
+            profile = ""
+            if chat.type in [ChatType.PRIVATE, ChatType.BOT]:
+                profile = f"tg://user?id={chat.id}"
+            else:
+                profile = f"tg://chat?id={chat._raw.id}"
+
+            keyb = [[("Open", "url", profile), ("Close", b"0")]]
             if chat.photo:
                 photo = await self.client.app.download_media(chat.photo.big_file_id)
-                await event.edit_message_media(InputMediaPhoto(photo))
-                if os.path.exists(photo):
-                    await asyncio.to_thread(os.remove, photo)
+                try:
+                    await event.edit_message_media(InputMediaPhoto(photo))
+                except FileReferenceExpired:
+                    pass
+                finally:
+                    if os.path.exists(photo):
+                        await asyncio.to_thread(os.remove, photo)
 
             try:
                 await event.edit_message_text(
                     fmtstr("Chat Information", text, fmtsec(now)),
-                    reply_markup=ikm(("Close", b"0")),
+                    reply_markup=ikm(keyb),
                 )
             except (MessageTooLong, MediaCaptionTooLong) as e:
                 link = (
@@ -148,7 +164,8 @@ class Info(Module):
                         "https://paste.rs", data=json.dumps(text, indent=2).encode()
                     )
                 ).text.strip()
+                keyb.insert(0, [("Full", "url", link)])
                 await event.edit_message_text(
                     fmtstr("Chat Information", e.__class__.__name__, fmtsec(now)),
-                    reply_markup=ikm([("Full", "url", link), ("Close", b"0")]),
+                    reply_markup=ikm(keyb),
                 )
