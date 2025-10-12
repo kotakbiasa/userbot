@@ -133,7 +133,7 @@ class Telegram(abc.ABC):
     def conf(self) -> None:
         self.config.clear()
         for key in list(os.environ):
-            if key in ["DATABASE_URL", "STICKER_FILE_ID"]:
+            if key in ["DATABASE_URL", "GEMINI_API_KEY", "STICKER_FILE_ID"]:
                 self.config[key.lower()] = os.environ[key]
 
     def build(self, name: str, updates: tuple = ()) -> Client:
