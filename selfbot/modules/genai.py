@@ -136,7 +136,9 @@ class GenAI(Module):
 
         text = None
         try:
-            resp = await client.post(f"/models/{model}:generateContent", json=payload)
+            resp = await self.genai.post(
+                f"/models/{model}:generateContent", json=payload
+            )
             resp.raise_for_status()
         except Exception as e:
             return f"{e.__class__.__name__}: {e}"
