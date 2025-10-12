@@ -97,9 +97,7 @@ class GenAI(Module):
                 InlineQueryResultCachedSticker(
                     sticker_file_id=self.client.config["sticker_file_id"],
                     reply_markup=ikm((">_", "user_id", event._client.me.id)),
-                    input_message_content=InputTextMessageContent(
-                        "<code>Thinking...</code>"
-                    ),
+                    input_message_content=InputTextMessageContent("<code>...</code>"),
                 )
             ],
             cache_time=0,
@@ -122,6 +120,12 @@ class GenAI(Module):
 
         async with self.lock:
             self.coll.append({"role": "user", "parts": [{"text": query}]})
+
+        await event.edit_message_text(
+            f"<code>{event.query.removeprefix("ask").lstrip()}</code>"
+            if len(event.query.split()) > 1
+            else "<code>Thinking...</code>"
+        )
 
         keyb = [("Ask", "switch_inline_query_current_chat", "ask ")]
         resp = await self.gemini()
