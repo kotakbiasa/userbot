@@ -127,7 +127,7 @@ class GenAI(Module):
         )
 
     async def gemini(self, model: str = "gemini-2.5-flash"):
-        payload = {"contents": self.coll, "tools": [{"google_search": {}}]}
+        payload = {"contents": list(self.coll), "tools": [{"google_search": {}}]}
 
         text = None
         try:
