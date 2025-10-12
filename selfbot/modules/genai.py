@@ -120,7 +120,8 @@ class GenAI(Module):
             async with self.lock:
                 query = await self.data.get()
 
-        self.coll.append({"role": "user", "parts": [{"text": query}]})
+        async with self.lock:
+            self.coll.append({"role": "user", "parts": [{"text": query}]})
 
         keyb = [("Ask", "switch_inline_query_current_chat", "ask ")]
         resp = await self.gemini()
@@ -139,7 +140,8 @@ class GenAI(Module):
         )
 
     async def gemini(self, model: str = "gemini-2.5-flash") -> any:
-        payload = {"contents": list(self.coll), "tools": [{"google_search": {}}]}
+        async with self.lock:
+            payload = {"contents": list(self.coll), "tools": [{"google_search": {}}]}
 
         text = None
         try:
@@ -155,4 +157,5 @@ class GenAI(Module):
             return text["parts"][0]["text"]
         finally:
             if text:
-                self.coll.append(text)
+                async with self.lock:
+                    self.coll.append(text)
