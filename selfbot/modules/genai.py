@@ -37,7 +37,7 @@ class GenAI(Module):
                 "Content-Type": "application/json",
                 "x-goog-api-key": self.client.config["gemini_api_key"],
             },
-            timeout=15,
+            timeout=45,
         )
 
         self.data = asyncio.Queue()
