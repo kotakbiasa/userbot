@@ -4,6 +4,7 @@ import re
 
 from httpx import AsyncClient
 from pyrogram import filters
+from pyrogram.enums import ParseMode
 from pyrogram.types import (
     ChosenInlineResult,
     InlineQuery,
@@ -74,7 +75,10 @@ class GenAI(Module):
             )
         else:
             args.update(
-                {"chat_id": event.chat.id, "message_id": event.reply_to_message_id}
+                {
+                    "chat_id": event.chat.id,
+                    "message_id": event.reply_to_message_id or event.id,
+                }
             )
 
         res = await event._client.get_inline_bot_results(self.client.bot.me.id, "ask")
@@ -127,7 +131,7 @@ class GenAI(Module):
             resp, parse_mode=ParseMode.MARKDOWN, reply_markup=ikm(keyb)
         )
 
-    async def gemini(self, model: str = "gemini-2.5-flash"):
+    async def gemini(self, model: str = "gemini-2.5-flash") -> any:
         payload = {"contents": list(self.coll), "tools": [{"google_search": {}}]}
 
         text = None
