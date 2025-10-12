@@ -134,7 +134,7 @@ class GenAI(Module):
                 await self.client.http.post("https://paste.rs", data=resp.encode())
             ).text.strip()
             keyb.insert(0, ("Full", "url", f"{link}.markdown"))
-            resp = f"{resp[:1024]}... [Truncated]"
+            resp = f"{resp[:1024]}... `[TRUNCATED]`"
 
         if len(event.query.split()) > 1:
             resp = f"```Question\n{event.query.removeprefix('ask').lstrip()}```\n{resp}"
