@@ -63,6 +63,9 @@ class GenAI(Module):
 
             await event.delete(True)
 
+        else:
+            await event.edit(event.content.removeprefix("ask").lstrip())
+
         async with self.lock:
             await self.data.put(query)
 
@@ -118,7 +121,7 @@ class GenAI(Module):
 
         self.coll.append({"role": "user", "parts": [{"text": query}]})
 
-        keyb = [("Ask", "switch_inline_query_current_chat", "ask")]
+        keyb = [("Ask", "switch_inline_query_current_chat", "ask ")]
         resp = await self.gemini()
         if len(resp) > 2048:
             link = (
@@ -126,6 +129,9 @@ class GenAI(Module):
             ).text.strip()
             keyb.insert(0, ("Full", f"{link}.markdown", link))
             resp = f"{resp[:1024]}... [Truncated]"
+
+        if len(event.query.split()) > 1:
+            resp = f"```Question\n{event.query.removeprefix('ask').lstrip()}```\n{resp}"
 
         await event.edit_message_text(
             resp, parse_mode=ParseMode.MARKDOWN, reply_markup=ikm(keyb)
