@@ -246,5 +246,6 @@ class Debug(Module):
             out = f"{out[:512]}..."
 
         await edit(
-            f"<code>{html.escape(out)}</code>\n\n<b>{rtt}</b>", reply_markup=ikm(ikb)
+            f"<code>{html.escape(out)}</code>\n\n<b><blockquote>{rtt}</blockquote></b>",
+            reply_markup=ikm(ikb),
         )
