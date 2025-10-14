@@ -146,7 +146,7 @@ class Call(Module):
             pattern.match(text).groupdict().values(),
         )
         if not action:
-            return await event.edit_message_text(
+            return await edit(
                 fmtstr(
                     "Call-Joined Chat IDs",
                     list(await self.client.tgc.calls),
@@ -160,7 +160,11 @@ class Call(Module):
                 chat = await self.client.app.get_chat(target, False)
             except RPCError as e:
                 return await edit(
-                    fmtstr(e.__class__.__name__, e.MESSAGE, fmtsec(now)),
+                    fmtstr(
+                        e.__class__.__name__,
+                        e.MESSAGE.format(value=e.value),
+                        fmtsec(now),
+                    ),
                     reply_markup=ikm(("Close", b"0")),
                 )
             else:
@@ -179,7 +183,11 @@ class Call(Module):
                     peer = await self.client.app.resolve_peer(join_as)
                 except RPCError as e:
                     return await edit(
-                        fmtstr(e.__class__.__name__, e.MESSAGE, fmtsec(now)),
+                        fmtstr(
+                            e.__class__.__name__,
+                            e.MESSAGE.format(value=e.value),
+                            fmtsec(now),
+                        ),
                         reply_markup=ikm(("Close", b"0")),
                     )
                 else:
@@ -204,9 +212,11 @@ class Call(Module):
 
         try:
             await func(**args)
-        except Exception as e:
+        except RPCError as e:
             await edit(
-                fmtstr(e.__class__.__name__, str(e), fmtsec(now)),
+                fmtstr(
+                    e.__class__.__name__, e.MESSAGE.format(value=e.value), fmtsec(now)
+                ),
                 reply_markup=ikm(("Close", b"0")),
             )
         else:
