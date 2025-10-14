@@ -1,5 +1,6 @@
 import asyncio
 import collections
+import datetime
 import re
 
 from httpx import AsyncClient
@@ -11,12 +12,11 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
-    ReplyParameters,
 )
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import ids, ikm
+from selfbot.utils import fmtsec, ikm
 
 pattern = re.compile(r"^(?:ask\s?)(.*)?", flags=re.DOTALL)
 
@@ -44,60 +44,12 @@ class GenAI(Module):
             timeout=45,
         )
 
-        self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
-
-        self.coll = collections.deque(maxlen=32)
+        self.data = collections.deque(maxlen=32)
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
-        (query,), args = pattern.match(event.content).groups(), {}
-
-        if not query:
-            if event.quote and event.quote.text:
-                query = event.quote.text
-                args = {
-                    "quote": event.quote.text,
-                    "quote_entities": event.quote.entities,
-                    "quote_position": event.quote.position,
-                }
-            elif event.reply_to_message and event.reply_to_message.content:
-                query = event.reply_to_message.content
-            else:
-                return await event.edit("<code>Reply to Content or Give a Text</code>")
-
-            await event.delete(True)
-
-        else:
-            await event.edit(event.content.removeprefix("ask").lstrip())
-
-        async with self.lock:
-            await self.data.put(query)
-
-        if event.external_reply:
-            if event.external_reply.message_id:
-                args.update(
-                    {
-                        "chat_id": event.external_reply.chat.id,
-                        "message_id": event.external_reply.message_id,
-                    }
-                )
-            else:
-                args.update(
-                    {"chat_id": event.chat.id, "message_id": event.reply_to_message_id}
-                )
-        else:
-            args.update(
-                {
-                    "chat_id": event.chat.id,
-                    "message_id": event.reply_to_message_id or event.id,
-                }
-            )
-
-        res = await event._client.get_inline_bot_results(self.client.bot.me.id, "ask")
-        await event.reply_inline_bot_result(
-            res.query_id, res.results[0].id, reply_parameters=ReplyParameters(**args)
-        )
+        await self.respond(event)
 
     @listener.handler(filters.command("start"), 2)
     async def on_message_bot(self, event: Message) -> None:
@@ -112,7 +64,7 @@ class GenAI(Module):
             )
 
             async with self.lock:
-                self.coll.clear()
+                self.data.clear()
 
             await asyncio.gather(event.delete(True), resp.delete(True))
 
@@ -133,47 +85,10 @@ class GenAI(Module):
 
     @listener.handler(filters.regex(pattern), 4)
     async def on_inline_result(self, event: ChosenInlineResult) -> None:
-        query: str
-
-        if self.data.empty():
-            if len(event.query.split()) == 1:
-                return await self.client.app.delete_messages(
-                    *ids(event.inline_message_id), True
-                )
-
-            query = event.query.split(maxsplit=1)[1]
-        else:
-            async with self.lock:
-                query = await self.data.get()
-
-        async with self.lock:
-            self.coll.append({"role": "user", "parts": [{"text": query}]})
-
-        await event.edit_message_text(
-            f"<code>{event.query.removeprefix("ask").lstrip()}</code>"
-            if len(event.query.split()) > 1
-            else "<code>Thinking...</code>"
-        )
-
-        keyb = [("Ask", "switch_inline_query_current_chat", "ask ")]
-        resp = await self.gemini()
-        if len(resp) > 2048:
-            link = (
-                await self.client.http.post("https://paste.rs", data=resp.encode())
-            ).text.strip()
-            keyb.insert(0, ("Full", "url", f"{link}.markdown"))
-            resp = f"{resp[:1024]}... `[TRUNCATED]`"
-
-        if len(event.query.split()) > 1:
-            resp = f"```Question\n{event.query.removeprefix('ask').lstrip()}```\n{resp}"
-
-        await event.edit_message_text(
-            resp, parse_mode=ParseMode.MARKDOWN, reply_markup=ikm(keyb)
-        )
+        await self.respond(event)
 
     async def gemini(self, model: str = "gemini-2.5-flash") -> any:
-        async with self.lock:
-            payload = {"contents": list(self.coll), "tools": [{"google_search": {}}]}
+        payload = {"contents": list(self.data), "tools": [{"google_search": {}}]}
 
         text = None
         try:
@@ -182,12 +97,71 @@ class GenAI(Module):
             )
             resp.raise_for_status()
         except Exception as e:
-            return f"{e.__class__.__name__}: {e}"
+            return f"**{e.__class__.__name__}**:\n  `{e}`"
         else:
             data = resp.json()
             text = data["candidates"][0]["content"]
             return text["parts"][0]["text"]
         finally:
             if text:
-                async with self.lock:
-                    self.coll.append(text)
+                self.data.append(text)
+
+    async def respond(self, event: Update) -> None:
+        text: str
+        edit: callable
+
+        if isinstance(event, ChosenInlineResult):
+            text = event.query
+            edit = event.edit_message_text
+        else:
+            text = event.content
+            edit = event.edit_text
+
+        (query,) = pattern.match(text).groups()
+        question = ""
+        if not query:
+            if isinstance(event, ChosenInlineResult):
+                return await edit(
+                    "<b>Hello, World!</b>",
+                    reply_markup=ikm(
+                        [
+                            ("Ask", "switch_inline_query_current_chat", "ask "),
+                            ("Close", b"0"),
+                        ]
+                    ),
+                )
+
+            if event.quote and event.quote.text:
+                query = event.quote.text
+            elif event.reply_to_message and event.reply_to_message.content:
+                query = event.reply_to_message.content
+            else:
+                return await event.edit(
+                    f"<code>Reply to Content or Give a Text</code>\n\n<b><blockquote>/del_{event.id}</blockquote></b>"
+                )
+        else:
+            question = f"```Query\n{query}```\n"
+            await edit(question, parse_mode=ParseMode.MARKDOWN)
+
+        ikb = [[("Ask", "switch_inline_query_current_chat", "ask "), ("Close", b"0")]]
+        now = datetime.datetime.now()
+        async with self.lock:
+            self.data.append({"role": "user", "parts": [{"text": query}]})
+            res = await self.gemini()
+            rtt = fmtsec(now)
+            if len(resp) > 2048:
+                link = (
+                    await self.client.http.post("https://paste.rs", data=resp.encode())
+                ).text.strip()
+                if isinstance(event, ChosenInlineResult):
+                    ikb[0].insert(0, [("Output", "url", f"{link}.markdown")])
+                    res = f"{res[:1024]}... `[TRUNCATED]`"
+                else:
+                    rtt = f"[{rtt}]({link})"
+                    res = f"{res[:1024]}... `[TRUNCATED]`\n\n`@{self.client.bot.me.username} ask `"
+
+                await edit(
+                    f"{question}{res}\n\n**{rtt}**",
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=ikm(ikb),
+                )
