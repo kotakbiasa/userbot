@@ -11,7 +11,6 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
-    ReplyParameters,
     Update,
 )
 
@@ -19,28 +18,18 @@ from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import fmtsec, fmtstr, ikm
 
-pattern = re.compile(r"^ping$")
+pattern = re.compile(r"^p(?:ing)?$")
 
 
-class Network(Module):
-    name = "Network"
+class Ping(Module):
+    name = "Ping"
 
-    cmds = "ping"
-    desc = "Selfbot Latency"
+    cmds = "p(ing)?"
+    desc = {"?": "Optional", "e.g.": "ping"}
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
-        res = await event._client.get_inline_bot_results(self.client.bot.me.id, "ping")
-        await asyncio.gather(
-            event.reply_inline_bot_result(
-                res.query_id,
-                res.results[0].id,
-                reply_parameters=ReplyParameters(
-                    message_id=event.reply_to_message_id or event.id
-                ),
-            ),
-            event.delete(True),
-        )
+        await self.respond(event)
 
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:
@@ -49,9 +38,7 @@ class Network(Module):
                 InlineQueryResultCachedSticker(
                     sticker_file_id=self.client.config["sticker_file_id"],
                     reply_markup=ikm((">_", "user_id", event._client.me.id)),
-                    input_message_content=InputTextMessageContent(
-                        "<code>Calculating...</code>"
-                    ),
+                    input_message_content=InputTextMessageContent("<code>...</code>"),
                 )
             ],
             cache_time=0,
@@ -59,26 +46,32 @@ class Network(Module):
 
     @listener.handler(filters.regex(pattern), 3)
     async def on_inline_result(self, event: ChosenInlineResult) -> None:
-        await self.edit(event)
+        await self.respond(event)
 
     @listener.handler(filters.regex(pattern), 4)
     async def on_inline_callback(self, event: CallbackQuery) -> None:
         if event.from_user.id != self.client.app.me.id:
             return await event.answer("Who are You?", show_alert=True, cache_time=0)
 
-        await self.edit(event)
+        await self.respond(event)
 
-    async def edit(self, event: Update) -> None:
-        await event.edit_message_text("<code>Pinging...</code>")
+    async def respond(self, event: Update) -> None:
+        edit: callable
+        if isinstance(event, Message):
+            edit = event.edit_text
+        else:
+            edit = event.edit_message_text
+
+        await edit("Ping...")
         now, (app, bot) = datetime.datetime.now(), await asyncio.gather(
             self.ping(self.client.app), self.ping(event._client)
         )
-        await event.edit_message_text(
-            fmtstr("Selfbot Latency", {"App": app, "Bot": bot}, fmtsec(now)),
+        await edit(
+            fmtstr("Pong!", {"App": app, "Bot": bot}, fmtsec(now)),
             reply_markup=ikm([[("Ping!", b"ping")], [("Close", b"0")]]),
         )
 
     async def ping(self, client: Client) -> str:
         now = datetime.datetime.now()
         await client.invoke(Ping(ping_id=0))
-        return fmtsec(now)
+        return fmtsec(now, 1)
