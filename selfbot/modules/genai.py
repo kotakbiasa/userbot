@@ -138,7 +138,7 @@ class GenAI(Module):
                     f"<code>Reply to Content or Give a Text</code>\n\n<b><blockquote>/del_{event.id}</blockquote></b>"
                 )
 
-            await edit("...")
+            await edit("<code>...</code>")
         else:
             question = f"```Query\n{query}```\n\n"
             await edit(question, parse_mode=ParseMode.MARKDOWN)

@@ -74,7 +74,7 @@ class Debug(Module):
     async def on_message_out(self, event: Message) -> None:
         cmd, msg = await asyncio.gather(
             event.edit_text(html.escape(event.content.markdown).removesuffix("#")),
-            event.reply_text("...", quote=True),
+            event.reply_text("<code>...</code>", quote=True),
         )
         await self.execute(cmd, msg)
 
