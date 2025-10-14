@@ -152,15 +152,15 @@ class GenAI(Module):
             self.data.append({"role": "user", "parts": [{"text": query}]})
             res = await self.gemini()
             rtt = fmtsec(now)
-            if len(resp) > 2048:
+            if len(res) > 2048:
                 link = (
-                    await self.client.http.post("https://paste.rs", data=resp.encode())
+                    await self.client.http.post("https://paste.rs", data=res.encode())
                 ).text.strip()
                 if isinstance(event, ChosenInlineResult):
                     ikb[0].insert(0, [("Output", "url", f"{link}.markdown")])
                     res = f"{res[:1024]}... `[TRUNCATED]`"
                 else:
-                    rtt = f"[{rtt}]({link})"
+                    rtt = f"[{rtt}]({link}.markdown)"
                     res = f"{res[:1024]}... `[TRUNCATED]`\n\n`@{self.client.bot.me.username} ask `"
 
                 await edit(
