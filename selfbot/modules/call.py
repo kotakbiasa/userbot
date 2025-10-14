@@ -10,6 +10,7 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
+    Update,
 )
 from pyrogram.utils import get_channel_id
 
@@ -125,7 +126,7 @@ class Call(Module):
     async def on_inline_result(self, event: ChosenInlineResult) -> None:
         await self.respond(event)
 
-    async def respond(self, event: Message | ChosenInlineResult) -> None:
+    async def respond(self, event: Update) -> None:
         text: str
         edit: callable
 

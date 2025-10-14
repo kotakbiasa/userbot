@@ -10,6 +10,7 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
+    Update,
 )
 
 from selfbot import listener
@@ -151,7 +152,7 @@ class Afk(Module):
 
         await self.respond(event)
 
-    async def respond(self, event: Message | ChosenInlineResult) -> None:
+    async def respond(self, event: Update) -> None:
         text: str
         edit: callable
 

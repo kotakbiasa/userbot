@@ -72,12 +72,10 @@ class Debug(Module):
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
-        res = await event._client.get_inline_bot_results(self.client.bot.me.id, "#")
-        await asyncio.gather(
-            event.edit(html.escape(event.content.markdown).removesuffix("#").rstrip()),
-            event.reply_inline_bot_result(res.query_id, res.results[0].id, quote=True),
-            return_exceptions=True,
+        msg = await event.edit_text(
+            html.escape(event.content.markdown).removesuffix("#")
         )
+        await self.execute(msg)
 
     @listener.handler(filters.private & filters.self_destruct, 2)
     async def on_message_in(self, event: Message) -> None:
@@ -149,9 +147,7 @@ class Debug(Module):
         if event.from_user.id != self.client.app.me.id:
             return await event.answer("Who are You?", show_alert=True, cache_time=0)
 
-        (msg, cmd), _ = await asyncio.gather(
-            self.msgs(event), event.answer(r"¯\_(ツ)_/¯", cache_time=0)
-        )
+        msg, cmd = await self.msgs(event)
         if event.data == "0":
             task = next(
                 (
@@ -187,7 +183,17 @@ class Debug(Module):
 
         return msg, cmd
 
-    async def execute(self, msg: Message, event: Update, btn: bool = False) -> None:
+    async def execute(
+        self, msg: Message, event: Update = None, btn: bool = False
+    ) -> None:
+        edit: callable
+        if not event:
+            event = await msg.reply_text("...", quote=True)
+            edit = event.edit_text
+        else:
+            edit = event.edit_message_text
+            self.args.update({"event": event})
+
         ikb, out, rtt = [[("Del", b"0")]], "", ""
         if btn:
             code = event.query.removesuffix("#").rstrip()
@@ -202,15 +208,19 @@ class Debug(Module):
                 "rep": msg.reply_to_message,
                 "chat": msg.chat,
                 "user": (msg.reply_to_message or msg).from_user,
-                "event": event,
             }
         )
-        await event.edit_message_reply_markup(ikm(("Cancel", b"0")))
+        await edit("...", reply_markup=ikm(("Cancel", b"0")))
 
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             fut = asyncio.create_task(
-                aexec(code, self.args), name=event.inline_message_id
+                aexec(code, self.args),
+                name=(
+                    event.inline_message_id
+                    if isinstance(event, ChosenInlineResult)
+                    else f"{event.chat.id}/{event.id}"
+                ),
             )
             now = datetime.datetime.now()
             try:
@@ -230,8 +240,11 @@ class Debug(Module):
                 await self.client.http.post("https://paste.rs", data=out.encode())
             ).text.strip()
             ikb.insert(0, [("Output", "url", url)])
+            if isinstance(event, Message):
+                rtt = f"<a href={url}>{rtt}</a>"
+
             out = f"{out[:512]}..."
 
-        await event.edit_message_text(
+        await edit(
             f"<code>{html.escape(out)}</code>\n\n<b>{rtt}</b>", reply_markup=ikm(ikb)
         )
