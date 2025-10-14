@@ -188,6 +188,7 @@ class Debug(Module):
         edit: callable
         if isinstance(event, Message):
             edit = event.edit_text
+            self.args.pop("event", None)
         else:
             edit = event.edit_message_text
             self.args.update({"event": event})
