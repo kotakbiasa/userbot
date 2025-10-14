@@ -160,7 +160,7 @@ class GenAI(Module):
                     res = f"{res[:1024]}... [TRUNCATED]({link}.markdown)"
 
             await edit(
-                f"{question}{res}\n\n**{rtt}**",
+                f"{question}{res}\n\n> **{rtt}**",
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=ikm(ikb),
             )
