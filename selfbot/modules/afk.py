@@ -80,12 +80,12 @@ class Afk(Module):
                         "Away from Keyboard",
                         {
                             "Since": (
-                                since.strftime("%B %-d, %-I:%M %p") if since else "N/A"
+                                since.strftime("%B %-d, %-I:%M %p") if since else None
                             ),
                             "Timezone": "UTC+7\n",
-                            "Reason": reason or "N/A",
+                            "Reason": reason,
                         },
-                        fmtsec(since) if since else "N/A",
+                        fmtsec(since) if since else None,
                     )
                 )
 
@@ -139,12 +139,12 @@ class Afk(Module):
                         "Away from Keyboard",
                         {
                             "Since": (
-                                since.strftime("%B %-d, %-I:%M %p") if since else "N/A"
+                                since.strftime("%B %-d, %-I:%M %p") if since else None
                             ),
                             "Timezone": "UTC+7\n",
-                            "Reason": reason or "N/A",
+                            "Reason": reason,
                         },
-                        fmtsec(since) if since else "N/A",
+                        fmtsec(since) if since else None,
                     ),
                     reply_markup=ikm(("Close", b"0")),
                 )
@@ -202,8 +202,9 @@ class Afk(Module):
             self.client.db.execute(
                 """
                 INSERT INTO afk (status, reason, since)
-                VALUES (TRUE, $1, $2);
+                VALUES ($1, $2, $3);
                 """,
+                self.afk,
                 reason,
                 now,
             ),
