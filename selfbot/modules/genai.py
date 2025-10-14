@@ -166,8 +166,8 @@ class GenAI(Module):
                 rtt = f"[{rtt}]({link}.markdown)"
                 res = f"{res[:1024]}... `[TRUNCATED]`\n\n`@{self.client.bot.me.username} ask `"
 
-            await edit(
-                f"{question}{res}\n\n**{rtt}**",
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=ikm(ikb),
-            )
+        await edit(
+            f"{question}{res}\n\n**{rtt}**",
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=ikm(ikb),
+        )
