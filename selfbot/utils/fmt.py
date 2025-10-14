@@ -41,9 +41,7 @@ def fmtsec(now: datetime.datetime, part: int = 3) -> str:
     return ", ".join(parts[:part]) if parts else "0 µs"
 
 
-def fmtstr(
-    head: str, data: any = None, foot: str = None, msgs: str = None, ext: str = None
-) -> str:
+def fmtstr(head: str, data: any = None, foot: str = None, msgs: str = None) -> str:
     body = ""
     if isinstance(data, dict):
         padd = max((len(str(k)) for k in data.keys()), default=0)
@@ -68,9 +66,6 @@ def fmtstr(
 
     if foot:
         text.append(f"<b>{html.escape(str(foot))}</b>")
-
-    if ext:
-        text.append(f"<b><blockquote>{ext}</blockquote></b>")
 
     return "\n\n".join(text)
 

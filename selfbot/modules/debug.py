@@ -245,11 +245,6 @@ class Debug(Module):
 
             out = f"{out[:512]}..."
 
-        delcmd = ""
-        if isinstance(event, Message):
-            delcmd = f"\n\n<b><blockquote>/del_{event.id}</b></blockquote>"
-
         await edit(
-            f"<code>{html.escape(out)}</code>\n\n<b>{rtt}</b>{delcmd}",
-            reply_markup=ikm(ikb),
+            f"<code>{html.escape(out)}</code>\n\n<b>{rtt}</b>", reply_markup=ikm(ikb)
         )
