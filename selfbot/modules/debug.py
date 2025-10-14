@@ -72,10 +72,11 @@ class Debug(Module):
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
-        msg = await event.edit_text(
-            html.escape(event.content.markdown).removesuffix("#")
+        cmd, msg = await asyncio.gather(
+            event.edit_text(html.escape(event.content.markdown).removesuffix("#")),
+            event.reply_text("...", quote=True),
         )
-        await self.execute(msg)
+        await self.execute(cmd, msg)
 
     @listener.handler(filters.private & filters.self_destruct, 2)
     async def on_message_in(self, event: Message) -> None:
@@ -183,12 +184,9 @@ class Debug(Module):
 
         return msg, cmd
 
-    async def execute(
-        self, msg: Message, event: Update = None, btn: bool = False
-    ) -> None:
+    async def execute(self, msg: Message, event: Update, btn: bool = False) -> None:
         edit: callable
-        if not event:
-            event = await msg.reply_text("...", quote=True)
+        if isinstance(event, Message):
             edit = event.edit_text
         else:
             edit = event.edit_message_text
@@ -210,16 +208,17 @@ class Debug(Module):
                 "user": (msg.reply_to_message or msg).from_user,
             }
         )
-        await edit("...", reply_markup=ikm(("Cancel", b"0")))
+        if not isinstance(event, Message):
+            await event.edit_message_reply_markup(reply_markup=ikm(("Cancel", b"0")))
 
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             fut = asyncio.create_task(
                 aexec(code, self.args),
                 name=(
-                    event.inline_message_id
-                    if isinstance(event, ChosenInlineResult)
-                    else f"{event.chat.id}/{event.id}"
+                    f"{event.chat.id}/{event.id}"
+                    if isinstance(event, Message)
+                    else event.inline_message_id
                 ),
             )
             now = datetime.datetime.now()
