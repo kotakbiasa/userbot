@@ -55,7 +55,7 @@ class Afk(Module):
 
     @listener.handler(~filters.private, 2)
     async def on_message_in(self, event: Message) -> None:
-        if not self._afk:
+        if not self.afk:
             return
 
         async with self.lock:
