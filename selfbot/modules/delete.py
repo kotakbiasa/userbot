@@ -6,14 +6,14 @@ from pyrogram.types import Message
 from selfbot import listener
 from selfbot.module import Module
 
-pattern = re.compile(r"^d$")
+pattern = re.compile(r"^d(?:el(?:ete)?)?$")
 
 
 class Delete(Module):
     name = "Delete"
 
-    cmds = "<Reply to Message>? d"
-    desc = {"id": "Message ID", "?": "Optional", "e.g.": "d"}
+    cmds = "<Reply to Message>? d(el(ete)?)?"
+    desc = {"id": "Message ID", "?": "Optional", "e.g.": "delete"}
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
