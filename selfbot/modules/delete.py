@@ -26,7 +26,7 @@ class Delete(Module):
 
         if mid:
             try:
-                msg = await event._client.get_messages(event.chat.id, mid)
+                msg = await event._client.get_messages(event.chat.id, int(mid))
             except RPCError:
                 pass
             else:
