@@ -10,12 +10,11 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
-    ReplyParameters,
 )
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, fmtstr, ids, ikm
+from selfbot.utils import fmtsec, fmtstr, ikm
 
 QUERY = """
 CREATE TABLE IF NOT EXISTS afk (
@@ -29,23 +28,22 @@ CREATE TABLE IF NOT EXISTS afk_ids (
 );
 """
 
-pattern = re.compile(r"^(?:#)?(un)?afk(?:/since)?(?:\s(.+))?$")
+pattern = re.compile(r"^#?afk(?:\s(.+))?$")
 
 
 class Afk(Module):
     name = "AFK"
 
-    cmds = "(un)?afk {reason}?"
-    desc = {"reason": "String", "?": "Optional", "e.g.": "afk Undefined"}
+    cmds = "afk {reason}?"
+    desc = {"reason": "String", "?": "Optional", "e.g.": "afk Busy!"}
 
-    _afk: bool
+    afk: bool
 
     async def on_starting(self) -> None:
-        self.data = asyncio.Queue()
         self.lock = asyncio.Lock()
 
         await self.client.db.execute(QUERY)
-        self._afk = await self.client.db.fetchval(
+        self.afk = await self.client.db.fetchval(
             """
             SELECT status FROM afk;
             """
@@ -53,28 +51,7 @@ class Afk(Module):
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
-        data = pattern.match(event.content).groups()
-        if data[0]:
-            if not self._afk:
-                return await event.edit("<code>Already Online!</code>")
-        else:
-            if self._afk:
-                return await event.edit("<code>Already AFK!</code>")
-
-        async with self.lock:
-            await self.data.put(data)
-
-        res = await event._client.get_inline_bot_results(
-            self.client.bot.me.id, event.content
-        )
-        await asyncio.gather(
-            event.reply_inline_bot_result(
-                res.query_id,
-                res.results[0].id,
-                reply_parameters=ReplyParameters(message_id=event.id),
-            ),
-            event.delete(True),
-        )
+        await self.respon(event)
 
     @listener.handler(~filters.private, 2)
     async def on_message_in(self, event: Message) -> None:
@@ -85,9 +62,32 @@ class Afk(Module):
             res = await event._client.get_inline_bot_results(
                 self.client.bot.me.id, "#afk"
             )
-            msg = await event.reply_inline_bot_result(
-                res.query_id, res.results[0].id, quote=True
-            )
+            msg: Message
+
+            try:
+                msg = await event.reply_inline_bot_result(
+                    res.query_id, res.results[0].id, quote=True
+                )
+            except RPCError:
+                since, reason = await self.client.db.fetchval(
+                    """
+                    SELECT (since, reason)
+                    FROM afk;
+                    """
+                )
+                msg = await event.reply(
+                    fmtstr(
+                        "Away from Keyboard",
+                        {
+                            "Since": (
+                                since.strftime("%B %-d, %-I:%M %p") if since else "N/A"
+                            ),
+                            "Timezone": "UTC+7\n",
+                            "Reason": reason or "N/A",
+                        },
+                        fmtsec(since) if since else "N/A",
+                    )
+                )
 
             old = await self.client.db.fetchval(
                 """
@@ -127,57 +127,56 @@ class Afk(Module):
     @listener.handler(filters.regex(pattern), 4)
     async def on_inline_result(self, event: ChosenInlineResult) -> None:
         if event.query.startswith("#"):
-            since, reason = await self.client.db.fetchval(
-                """
-                SELECT (since, reason)
-                FROM afk;
-                """
-            )
-            return await event.edit_message_text(
-                fmtstr(
-                    "Away from Keyboard",
-                    {
-                        "Since": (
-                            since.strftime("%B %-d, %-I:%M %p") if since else "N/A"
-                        ),
-                        "Timezone": "UTC+7\n",
-                        "Reason": reason or "N/A",
-                    },
-                    fmtsec(since) if since else "N/A",
-                ),
-                reply_markup=ikm(("Close", b"0")),
-            )
+            async with self.lock:
+                since, reason = await self.client.db.fetchval(
+                    """
+                    SELECT (since, reason)
+                    FROM afk;
+                    """
+                )
+                return await event.edit_message_text(
+                    fmtstr(
+                        "Away from Keyboard",
+                        {
+                            "Since": (
+                                since.strftime("%B %-d, %-I:%M %p") if since else "N/A"
+                            ),
+                            "Timezone": "UTC+7\n",
+                            "Reason": reason or "N/A",
+                        },
+                        fmtsec(since) if since else "N/A",
+                    ),
+                    reply_markup=ikm(("Close", b"0")),
+                )
 
-        if self.data.empty():
-            return await self.client.app.delete_messages(
-                *ids(event.inline_message_id), True
-            )
+        await self.respon(event)
 
-        async with self.lock:
-            data = await self.data.get()
+    async def respon(self, event: Message | ChosenInlineResult) -> None:
+        text: str
+        edit: callable
 
-        now = datetime.datetime.now()
-        if not data[0]:
-            await self.client.db.execute(
-                """
-                DELETE FROM afk;
-                """
-            )
-            await self.client.db.execute(
-                """
-                INSERT INTO afk (status, reason, since)
-                VALUES (TRUE, $1, $2);
-                """,
-                data[1],
-                now,
-            )
-            self._afk = True
+        if isinstance(event, ChosenInlineResult):
+            text = event.query
+            edit = event.edit_message_text
         else:
-            res = await self.client.db.fetch(
-                """
-                SELECT chat_id, msg_id
-                FROM afk_ids;
-                """
+            text = event.content
+            edit = event.edit_text
+
+        now, (reason,) = datetime.datetime.now(), pattern.match(text).groups()
+        if self.afk:
+            now, res = await asyncio.gather(
+                self.client.db.fetch(
+                    """
+                    SELECT chat_id, msg_id
+                    FROM afk_ids;
+                    """
+                ),
+                self.client.db.fetchval(
+                    """
+                    SELECT since
+                    FROM afk;
+                    """
+                ),
             )
             for i in res:
                 try:
@@ -185,12 +184,6 @@ class Afk(Module):
                 except RPCError:
                     continue
 
-            now = await self.client.db.fetchval(
-                """
-                SELECT since
-                FROM afk;
-                """
-            )
             await asyncio.gather(
                 self.client.db.execute(
                     """
@@ -203,13 +196,23 @@ class Afk(Module):
                     """
                 ),
             )
-            self._afk = False
 
-        await event.edit_message_text(
-            fmtstr(
-                "Away from Keyboard",
-                {"Status": not data[0], "Reason": data[1] if data[1] else "N/A"},
-                fmtsec(now),
+        self.afk = not self.afk
+        await asyncio.gather(
+            self.client.db.execute(
+                """
+                INSERT INTO afk (status, reason, since)
+                VALUES (TRUE, $1, $2);
+                """,
+                reason,
+                now,
             ),
-            reply_markup=ikm(("Close", b"0")),
+            edit(
+                fmtstr(
+                    "Away from Keyboard",
+                    {"Status": self.afk, "Reason": reason},
+                    fmtsec(now),
+                ),
+                reply_markup=ikm(("Close", b"0")),
+            ),
         )
