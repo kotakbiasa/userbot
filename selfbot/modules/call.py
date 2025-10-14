@@ -10,8 +10,8 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
-    ReplyParameters,
 )
+from pyrogram.utils import get_channel_id
 
 load: bool
 try:
@@ -66,9 +66,6 @@ class Call(Module):
         if not load:
             return self.client.unload(self)
 
-        self.data = asyncio.Queue()
-        self.lock = asyncio.Lock()
-
         self.client.tgc = PyTgCalls(self.client.app, 1, 15)
         await self.client.tgc.start()
 
@@ -109,43 +106,7 @@ class Call(Module):
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
-        data = pattern.match(event.content).groupdict()
-
-        data["chat_id"] = event.chat.id
-        if data["chat"]:
-            try:
-                chat = await self.client.app.get_chat(data["chat"], False)
-            except RPCError as e:
-                return await event.edit(f"<code>{e.__class__.__name__}</code>")
-            else:
-                data["chat_id"] = chat.id
-            finally:
-                data.pop("chat")
-
-        if data["as"]:
-            try:
-                chat = await self.client.app.get_chat(data["as"], False)
-            except RPCError as e:
-                return await event.edit(f"<code>{e.__class__.__name__}</code>")
-            else:
-                data["as"] = chat.id
-
-        async with self.lock:
-            await self.data.put(data)
-
-        res = await event._client.get_inline_bot_results(
-            self.client.bot.me.id, event.content
-        )
-        await asyncio.gather(
-            event.reply_inline_bot_result(
-                res.query_id,
-                res.results[0].id,
-                reply_parameters=ReplyParameters(
-                    message_id=event.reply_to_message_id or event.id
-                ),
-            ),
-            event.delete(True),
-        )
+        await self.respond(event)
 
     @listener.handler(filters.regex(pattern), 2)
     async def on_inline_query(self, event: InlineQuery) -> None:
@@ -154,9 +115,7 @@ class Call(Module):
                 InlineQueryResultCachedSticker(
                     sticker_file_id=self.client.config["sticker_file_id"],
                     reply_markup=ikm((">_", "user_id", event._client.me.id)),
-                    input_message_content=InputTextMessageContent(
-                        f"<code>{pattern.match(event.query).groupdict()['action'].title()} Call...</code>"
-                    ),
+                    input_message_content=InputTextMessageContent("<code>...</code>"),
                 )
             ],
             cache_time=0,
@@ -164,69 +123,81 @@ class Call(Module):
 
     @listener.handler(filters.regex(pattern), 3)
     async def on_inline_result(self, event: ChosenInlineResult) -> None:
-        if self.data.empty():
-            return await self.client.app.delete_messages(
-                *ids(event.inline_message_id), True
-            )
+        await self.respond(event)
 
-        async with self.lock:
-            data = await self.data.get()
+    async def respond(self, event: Message | ChosenInlineResult) -> None:
+        text: str
+        edit: callable
 
-        text = {"data": {"Chat": data["chat_id"]}}
-        keyb = [("Close", b"0")]
+        chat_id: int
+        join_as = None
 
-        func = None
-        args = {"chat_id": data["chat_id"]}
+        if isinstance(event, ChosenInlineResult):
+            text = event.query
+            edit = event.edit_message_text
+            chat_id, _ = ids(event.inline_message_id)
+        else:
+            text = event.content
+            edit = event.edit_text
+            chat_id = event.chat.id
 
-        now = datetime.datetime.now()
-        if not data["action"]:
-            cids = [str(i) for i in list(await self.client.tgc.calls)]
-            if len(cids) > 8:
-                link = (
-                    await self.client.http.post(
-                        "https://paste.rs", data="\n".join(cids).encode()
-                    )
-                ).text.strip()
-                keyb.insert(0, ("Full", "url", link))
-                cids = cids[:4]
-
+        now, (action, target, join_as, mute, title) = (
+            datetime.datetime.now(),
+            pattern.match(text).groupdict().values(),
+        )
+        if not action:
             return await event.edit_message_text(
-                fmtstr("Call-Joined Chat IDs", cids, fmtsec(now)),
-                reply_markup=ikm(keyb),
+                fmtstr(
+                    "Call-Joined Chat IDs",
+                    list(await self.client.tgc.calls),
+                    fmtsec(now),
+                ),
+                reply_markup=ikm(("Close", b"0")),
             )
 
-        if data["action"] == "join":
-            text["head"] = "Joined Call"
-            text["data"]["Mute"] = bool(data["mute"])
-            if not data["as"]:
-                text["data"]["Peer"] = "Self"
+        if target:
+            try:
+                chat = await self.client.app.get_chat(target, False)
+            except RPCError as e:
+                return await edit(
+                    fmtstr(e.__class__.__name__, e.MESSAGE, fmtsec(now)),
+                    reply_markup=ikm(("Close", b"0")),
+                )
             else:
+                chat_id = chat.id
+
+        func: callable
+
+        args = {"chat_id": chat_id}
+        text = {"data": {"Chat": chat_id}}
+
+        if action == "join":
+            text["head"] = "Joined Call"
+            text["data"]["Mute"] = bool(mute)
+            if join_as:
                 try:
-                    peer = await self.client.app.resolve_peer(data["as"])
+                    peer = await self.client.app.resolve_peer(join_as)
                 except RPCError as e:
-                    return await event.edit_message_text(
-                        f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
-                        reply_markup=ikm(keyb),
+                    return await edit(
+                        fmtstr(e.__class__.__name__, e.MESSAGE, fmtsec(now)),
+                        reply_markup=ikm(("Close", b"0")),
                     )
                 else:
-                    text["data"]["Peer"] = data["as"]
+                    join_as = get_channel_id(peer.channel_id)
+                    text["data"]["Peer"] = join_as
                     args["config"] = GroupCallConfig(join_as=peer)
 
             func = self.client.tgc.play
-
-        elif data["action"] == "leave":
+        elif action == "leave":
             text["head"] = "Left Call"
             func = self.client.tgc.leave_call
-
-        elif data["action"] == "start":
+        elif action == "start":
             text["head"] = "Started Call"
-            text["data"]["Title"] = "N/A"
-            if data["title"]:
-                text["data"]["Title"] = data["title"]
-                args["title"] = data["title"]
+            if title:
+                args["title"] = title
+                text["data"]["Title"] = title
 
             func = self.client.app.create_video_chat
-
         else:
             text["head"] = "Ended Call"
             func = self.client.app.discard_group_call
@@ -234,19 +205,15 @@ class Call(Module):
         try:
             await func(**args)
         except Exception as e:
-            await event.edit_message_text(
-                f"<code>{e.__class__.__name__}</code>\n\n<b>{fmtsec(now)}</b>",
-                reply_markup=ikm(keyb),
+            await edit(
+                fmtstr(e.__class__.__name__, str(e), fmtsec(now)),
+                reply_markup=ikm(("Close", b"0")),
             )
         else:
-            if data["action"] in ["join", "leave"]:
-                if data["action"] == "join":
-                    mic = (
-                        self.client.tgc.mute
-                        if bool(data["mute"])
-                        else self.client.tgc.unmute
-                    )
-                    await mic(data["chat_id"])
+            if action in ["join", "leave"]:
+                if action == "join":
+                    mic = self.client.tgc.mute if bool(mute) else self.client.tgc.unmute
+                    await mic(chat_id)
 
                 await self.client.db.execute(
                     """
@@ -257,12 +224,12 @@ class Call(Module):
                         mic_on = EXCLUDED.mic_on,
                         join_as = EXCLUDED.join_as;
                     """,
-                    data["chat_id"],
-                    data["action"] == "join",
-                    not bool(data["mute"]),
-                    data["as"],
+                    chat_id,
+                    action == "join",
+                    not bool(mute),
+                    join_as,
                 )
 
-            await event.edit_message_text(
-                fmtstr(**text, foot=fmtsec(now)), reply_markup=ikm(keyb)
+            await edit(
+                fmtstr(**text, foot=fmtsec(now)), reply_markup=ikm(("Close", b"0"))
             )

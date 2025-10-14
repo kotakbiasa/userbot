@@ -51,7 +51,7 @@ class Afk(Module):
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
-        await self.respon(event)
+        await self.respond(event)
 
     @listener.handler(~filters.private, 2)
     async def on_message_in(self, event: Message) -> None:
@@ -75,7 +75,7 @@ class Afk(Module):
                     FROM afk;
                     """
                 )
-                msg = await event.reply(
+                msg = await event.reply_text(
                     fmtstr(
                         "Away from Keyboard",
                         {
@@ -149,9 +149,9 @@ class Afk(Module):
                     reply_markup=ikm(("Close", b"0")),
                 )
 
-        await self.respon(event)
+        await self.respond(event)
 
-    async def respon(self, event: Message | ChosenInlineResult) -> None:
+    async def respond(self, event: Message | ChosenInlineResult) -> None:
         text: str
         edit: callable
 
@@ -196,10 +196,8 @@ class Afk(Module):
                     """
                 ),
             )
-
-        self.afk = not self.afk
-        await asyncio.gather(
-            self.client.db.execute(
+        else:
+            await self.client.db.execute(
                 """
                 INSERT INTO afk (status, reason, since)
                 VALUES ($1, $2, $3);
@@ -207,13 +205,14 @@ class Afk(Module):
                 self.afk,
                 reason,
                 now,
+            )
+
+        self.afk = not self.afk
+        await edit(
+            fmtstr(
+                "Away from Keyboard",
+                {"Status": self.afk, "Reason": reason},
+                fmtsec(now),
             ),
-            edit(
-                fmtstr(
-                    "Away from Keyboard",
-                    {"Status": self.afk, "Reason": reason},
-                    fmtsec(now),
-                ),
-                reply_markup=ikm(("Close", b"0")),
-            ),
+            reply_markup=ikm(("Close", b"0")),
         )
