@@ -241,6 +241,9 @@ class Call(Module):
                     join_as,
                 )
 
+            if isinstance(event, Message):
+                text["msgs"] = f"/del_{event.id}"
+
             await edit(
                 fmtstr(**text, foot=fmtsec(now)), reply_markup=ikm(("Close", b"0"))
             )

@@ -214,6 +214,7 @@ class Afk(Module):
                 "Away from Keyboard",
                 {"Status": self.afk, "Reason": reason},
                 fmtsec(now),
+                f"/del_{event.id}" if isinstance(event, Message) else None,
             ),
             reply_markup=ikm(("Close", b"0")),
         )

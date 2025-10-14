@@ -241,7 +241,7 @@ class Debug(Module):
             ).text.strip()
             ikb.insert(0, [("Output", "url", url)])
             if isinstance(event, Message):
-                rtt = f"<a href={url}>{rtt}</a>"
+                rtt = f"<a href={url}>{rtt}</a>\n\n/del_{event.id}"
 
             out = f"{out[:512]}..."
 
