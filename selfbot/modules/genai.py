@@ -89,7 +89,8 @@ class GenAI(Module):
         await self.respond(event)
 
     async def gemini(self, model: str = "gemini-2.5-flash") -> any:
-        payload = {"contents": list(self.data), "tools": [{"google_search": {}}]}
+        async with self.lock:
+            payload = {"contents": list(self.data), "tools": [{"google_search": {}}]}
 
         text = None
         try:
@@ -105,7 +106,8 @@ class GenAI(Module):
             return text["parts"][0]["text"]
         finally:
             if text:
-                self.data.append(text)
+                async with self.lock:
+                    self.data.append(text)
 
     async def respond(self, event: Update) -> None:
         text: str
@@ -150,21 +152,22 @@ class GenAI(Module):
         now = datetime.datetime.now()
         async with self.lock:
             self.data.append({"role": "user", "parts": [{"text": query}]})
-            res = await self.gemini()
-            rtt = fmtsec(now)
-            if len(res) > 2048:
-                link = (
-                    await self.client.http.post("https://paste.rs", data=res.encode())
-                ).text.strip()
-                if isinstance(event, ChosenInlineResult):
-                    ikb[0].insert(0, [("Output", "url", f"{link}.markdown")])
-                    res = f"{res[:1024]}... `[TRUNCATED]`"
-                else:
-                    rtt = f"[{rtt}]({link}.markdown)"
-                    res = f"{res[:1024]}... `[TRUNCATED]`\n\n`@{self.client.bot.me.username} ask `"
 
-                await edit(
-                    f"{question}{res}\n\n**{rtt}**",
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=ikm(ikb),
-                )
+        res = await self.gemini()
+        rtt = fmtsec(now)
+        if len(res) > 2048:
+            link = (
+                await self.client.http.post("https://paste.rs", data=res.encode())
+            ).text.strip()
+            if isinstance(event, ChosenInlineResult):
+                ikb[0].insert(0, [("Output", "url", f"{link}.markdown")])
+                res = f"{res[:1024]}... `[TRUNCATED]`"
+            else:
+                rtt = f"[{rtt}]({link}.markdown)"
+                res = f"{res[:1024]}... `[TRUNCATED]`\n\n`@{self.client.bot.me.username} ask `"
+
+            await edit(
+                f"{question}{res}\n\n**{rtt}**",
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=ikm(ikb),
+            )
