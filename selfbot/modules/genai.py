@@ -12,6 +12,7 @@ from pyrogram.types import (
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
     Message,
+    Update,
 )
 
 from selfbot import listener
@@ -139,6 +140,8 @@ class GenAI(Module):
                 return await event.edit(
                     f"<code>Reply to Content or Give a Text</code>\n\n<b><blockquote>/del_{event.id}</blockquote></b>"
                 )
+
+            await edit("...")
         else:
             question = f"```Query\n{query}```\n"
             await edit(question, parse_mode=ParseMode.MARKDOWN)
