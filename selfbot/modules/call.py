@@ -72,6 +72,15 @@ class Call(Module):
         self.client.tgc = PyTgCalls(self.client.app, 1, 15)
         await self.client.tgc.start()
 
+        for group in list(self.client.app.dispatcher.groups.keys()):
+            if group == -1:
+                continue
+
+            for handler in self.client.app.dispatcher.groups[group]:
+                await asyncio.to_thread(self.client.app.remove_handler, handler, group)
+
+            self.client.app.dispatcher.groups.pop(group, None)
+
         await self.client.db.execute(QUERY)
         rows = await self.client.db.fetch(
             """
