@@ -7,7 +7,7 @@ from pyrogram.types import Message
 from selfbot import listener
 from selfbot.module import Module
 
-pattern = re.compile(r"^(?:/)?d(?:el)?(?:_(\d{1,10}))$")
+pattern = re.compile(r"^(?:/)?d(?:el)?(?:_(\d{1,10}))?$")
 
 
 class Delete(Module):
