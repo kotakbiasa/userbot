@@ -3,7 +3,7 @@ import datetime
 import re
 
 from pyrogram import Client, filters
-from pyrogram.raw.functions import Ping
+from pyrogram.raw.functions import PingDelayDisconnect
 from pyrogram.types import (
     CallbackQuery,
     ChosenInlineResult,
@@ -55,6 +55,11 @@ class Ping(Module):
 
         await self.respond(event)
 
+    async def ping(self, client: Client) -> str:
+        now = datetime.datetime.now()
+        await client.invoke(PingDelayDisconnect(ping_id=0, disconnect_delay=0))
+        return fmtsec(now, 1)
+
     async def respond(self, event: Update) -> None:
         edit: callable
         if isinstance(event, Message):
@@ -62,7 +67,13 @@ class Ping(Module):
         else:
             edit = event.edit_message_text
 
-        await edit("Ping...")
+        if isinstance(event, Message):
+            await edit("...")
+        else:
+            await event.edit_message_reply_markup(
+                ikm(("...", "user_id", event._client.me.id))
+            )
+
         now, (app, bot) = datetime.datetime.now(), await asyncio.gather(
             self.ping(self.client.app), self.ping(event._client)
         )
@@ -70,8 +81,3 @@ class Ping(Module):
             fmtstr("Pong!", {"App": app, "Bot": bot}, fmtsec(now)),
             reply_markup=ikm([[("Ping!", b"ping")], [("Close", b"0")]]),
         )
-
-    async def ping(self, client: Client) -> str:
-        now = datetime.datetime.now()
-        await client.invoke(Ping(ping_id=0))
-        return fmtsec(now, 1)
