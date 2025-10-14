@@ -165,16 +165,16 @@ class Afk(Module):
         now, (reason,) = datetime.datetime.now(), pattern.match(text).groups()
         if self.afk:
             now, res = await asyncio.gather(
-                self.client.db.fetch(
-                    """
-                    SELECT chat_id, msg_id
-                    FROM afk_ids;
-                    """
-                ),
                 self.client.db.fetchval(
                     """
                     SELECT since
                     FROM afk;
+                    """
+                ),
+                self.client.db.fetch(
+                    """
+                    SELECT chat_id, msg_id
+                    FROM afk_ids;
                     """
                 ),
             )
