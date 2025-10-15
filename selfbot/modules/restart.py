@@ -67,7 +67,7 @@ class Restart(Module):
             ).removesuffix(".git")
             branch = self.client.config.get("branch", "staging")
 
-            ensure_remote(repo, remote_url)
+            ensure(repo, remote_url)
             repo.git.reset("--hard", f"origin/{branch}")
 
             old = repo.head.commit.hexsha
