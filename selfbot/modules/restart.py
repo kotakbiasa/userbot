@@ -62,15 +62,16 @@ class Restart(Module):
 
         def check():
             repo = git.Repo(".") if os.path.isdir(".git") else git.Repo.init(".")
-            remote = self.client.config.get(
+            remote_url = self.client.config.get(
                 "remote", "https://github.com/DeltaUniverse/selfbot"
             ).removesuffix(".git")
             branch = self.client.config.get("branch", "staging")
 
-            ensure(repo, remote)
-            old = repo.head.commit.hexsha
+            ensure_remote(repo, remote_url)
             repo.git.reset("--hard", f"origin/{branch}")
-            new = repo.head.commit.hexsha
+
+            old = repo.head.commit.hexsha
+            new = repo.commit(f"origin/{branch}").hexsha
 
             if old == new:
                 return False
@@ -89,19 +90,19 @@ class Restart(Module):
         if changed:
             await event.edit("<code>Update Deps...</code>")
 
-            def pip_update():
+            def update():
                 try:
-                    from pip._internal.cli.main import main as pip_main
+                    from pip._internal.cli.main import main as pip
 
-                    pip_main(["install", "--upgrade", "pip", "setuptools", "wheel"])
+                    pip(["install", "--upgrade", "pip", "setuptools", "wheel"])
                     if os.path.exists("requirements.txt"):
-                        pip_main(["install", "-r", "requirements.txt"])
+                        pip(["install", "-r", "requirements.txt"])
                     elif os.path.exists("pyproject.toml"):
-                        pip_main(["install", "."])
+                        pip(["install", "."])
                 except Exception:
                     pass
 
-            await asyncio.to_thread(pip_update)
+            await asyncio.to_thread(update)
 
         await event.edit("<code>Restarting...</code>")
         with open(self.file, "w") as f:
