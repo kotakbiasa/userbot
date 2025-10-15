@@ -70,9 +70,5 @@ class Graph(Module):
             await event.edit_text(fmtstr(e.__class__.__name__, str(e), fmtsec(now)))
         else:
             await event.edit_text(
-                fmtstr(
-                    "Graph Created",
-                    {"Title": title or "Untitled", "URL": url},
-                    fmtsec(now),
-                )
+                fmtstr("Graph", {"Title": title or "Untitled", "URL": url}, fmtsec(now))
             )

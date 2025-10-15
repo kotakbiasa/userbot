@@ -202,5 +202,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Telegram session
-selfbot/storage/*
+# Restart
+r.json
