@@ -20,7 +20,7 @@ class Restart(Module):
     cmds = "r"
     desc = "Update and Restart System"
 
-    file = "r.json"
+    file = "/tmp/r.json"
 
     async def on_starting(self) -> None:
         if not os.path.exists(self.file):
