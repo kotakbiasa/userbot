@@ -74,6 +74,5 @@ class Graph(Module):
                     "Graph Created",
                     {"Title": title or "Untitled", "URL": url},
                     fmtsec(now),
-                    url,
                 )
             )

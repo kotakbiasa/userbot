@@ -46,7 +46,7 @@ def fmtstr(head: str, data: any = None, foot: str = None, msgs: str = None) -> s
     if isinstance(data, dict):
         padd = max((len(str(k)) for k in data.keys()), default=0)
         body = "\n".join(
-            f"  <code>{html.escape(str(k)).ljust(padd)}</code>: <code>{html.escape(str(v))}</code>"
+            f"  <code>{html.escape(str(k)).ljust(padd)}</code> : <code>{html.escape(str(v))}</code>"
             for k, v in data.items()
         )
     elif isinstance(data, list):
