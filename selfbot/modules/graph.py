@@ -14,7 +14,6 @@ pattern = re.compile(
 )
 spoiler = re.compile(r"</?spoiler\b[^>]*>")
 emojiid = re.compile(r"<emoji id=\"\d+\">(.*?)</emoji>")
-htmltag = re.compile(r"<.*?>")
 mention = re.compile(r"(?<!\S)@([a-zA-Z0-9_]{5,32})(?!\S)")
 
 
@@ -71,5 +70,10 @@ class Graph(Module):
             await event.edit_text(fmtstr(e.__class__.__name__, str(e), fmtsec(now)))
         else:
             await event.edit_text(
-                fmtstr("Graph Created", title or "Untitled", fmtsec(now), url)
+                fmtstr(
+                    "Graph Created",
+                    {"Title": title or "Untitled", "URL": url},
+                    fmtsec(now),
+                    url,
+                )
             )
