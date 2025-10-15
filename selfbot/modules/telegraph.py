@@ -11,7 +11,7 @@ from pyrogram.types import (
     Message,
     ReplyParameters,
 )
-from telegraph.aio import Telegraph as Graph
+from telegraph.aio import Telegraph
 
 from selfbot import listener
 from selfbot.module import Module
@@ -26,8 +26,8 @@ htmltag = re.compile(r"<.*?>")
 mention = re.compile(r"(?<!\S)@([a-zA-Z0-9_]{5,32})(?!\S)")
 
 
-class Telegraph(Module):
-    name = "Telegraph"
+class Graph(Module):
+    name = "Graph"
 
     cmds = "graph {content} (-t {title})?"
     desc = {
@@ -37,7 +37,7 @@ class Telegraph(Module):
         "e.g.": "graph Hello, World! -t Untitled",
     }
 
-    graph: Graph
+    graph: Telegraph
 
     async def on_starting(self) -> None:
         self.data = asyncio.Queue()

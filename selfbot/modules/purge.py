@@ -58,7 +58,7 @@ class Purge(Module):
 
         res, now = 0, datetime.datetime.now()
         for chunk in [ids[i : i + 100] for i in range(0, len(ids), 100)]:
-            res += await self.client.app.delete_messages(cid, chunk)
+            res += await self.client.app.delete_messages(event.chat.id, chunk)
             if res % 100 == 0:
                 await asyncio.sleep(2.5)
 
