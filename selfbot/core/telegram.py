@@ -42,7 +42,7 @@ class Telegram(abc.ABC):
             raise RuntimeError("Selfbot Running")
 
         self.logger.info(
-            f"{'Restart' if os.path.exists('r.txt') else 'Start'}ing Client..."
+            f"{'Restart' if os.path.exists('/tmp/r.json') else 'Start'}ing Client..."
         )
         try:
             await self.start()
