@@ -4,18 +4,11 @@ import re
 
 from pyrogram import filters
 from pyrogram.enums import ChatType
-from pyrogram.types import (
-    ChosenInlineResult,
-    InlineQuery,
-    InlineQueryResultCachedSticker,
-    InputTextMessageContent,
-    Message,
-    ReplyParameters,
-)
+from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, ids, ikm
+from selfbot.utils import fmtsec, fmtstr
 
 pattern = re.compile(r"^purge(me)?(\s(\d{1,3}))?$")
 
@@ -30,19 +23,16 @@ class Purge(Module):
         "e.g.": "purgeme 99",
     }
 
-    async def on_starting(self) -> None:
-        self.data = asyncio.Queue()
-        self.lock = asyncio.Lock()
-
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
+        await event.edit_text("<code>...</code>")
         match, limit = pattern.match(event.content), 0
         if match.group(2):
             limit = int(match.group(3))
 
-        mid = []
+        ids = []
         if match.group(1):
-            mid = [
+            ids = [
                 m.id
                 async for m in event._client.search_messages(
                     event.chat.id,
@@ -54,66 +44,24 @@ class Purge(Module):
             ]
         else:
             if event.chat.type not in [ChatType.SUPERGROUP, ChatType.CHANNEL]:
-                return await event.edit(f"<code>Unsupported {event.chat.type}</code>")
+                return
             elif event.reply_to_message_id:
                 if limit:
-                    mid = range(
+                    ids = range(
                         event.reply_to_message_id, event.reply_to_message_id + limit
                     )
                 else:
-                    mid = range(event.reply_to_message_id, event.id)
+                    ids = range(event.reply_to_message_id, event.id)
             else:
                 end = limit or 100
-                mid = range(event.id - 1, event.id - (end + 1), -1)
-
-        async with self.lock:
-            await self.data.put((event.chat.id, mid))
-
-        res = await event._client.get_inline_bot_results(self.client.bot.me.id, "purge")
-        await asyncio.gather(
-            event.reply_inline_bot_result(
-                res.query_id,
-                res.results[0].id,
-                reply_parameters=ReplyParameters(
-                    message_id=event.reply_to_message_id or event.id
-                ),
-            ),
-            event.delete(True),
-        )
-
-    @listener.handler(filters.regex(pattern), 2)
-    async def on_inline_query(self, event: InlineQuery) -> None:
-        await event.answer(
-            [
-                InlineQueryResultCachedSticker(
-                    sticker_file_id=self.client.config["sticker_file_id"],
-                    reply_markup=ikm((">_", "user_id", event._client.me.id)),
-                    input_message_content=InputTextMessageContent(
-                        "<code>Purge Message...</code>"
-                    ),
-                )
-            ],
-            cache_time=0,
-        )
-
-    @listener.handler(filters.regex(pattern), 3)
-    async def on_inline_result(self, event: ChosenInlineResult) -> None:
-        if self.data.empty():
-            return await self.client.app.delete_messages(
-                *ids(event.inline_message_id), True
-            )
-
-        async with self.lock:
-            cid, mid = await self.data.get()
+                ids = range(event.id - 1, event.id - (end + 1), -1)
 
         res, now = 0, datetime.datetime.now()
-        for chunk in [mid[i : i + 100] for i in range(0, len(mid), 100)]:
+        for chunk in [ids[i : i + 100] for i in range(0, len(ids), 100)]:
             res += await self.client.app.delete_messages(cid, chunk)
             if res % 100 == 0:
-                await asyncio.sleep(5)
+                await asyncio.sleep(2.5)
 
-        await event.edit_message_text(
-            f"<code>{res} Message{'' if res == 1 else 's'} Purged</code>"
-            f"\n\n<b>{fmtsec(now)}</b>",
-            reply_markup=ikm(("Close", b"0")),
+        await event.edit_text(
+            fmtstr("Purge", f"{res} Message{'' if res == 1 else 's'}", fmtsec(now))
         )
