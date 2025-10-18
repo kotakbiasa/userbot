@@ -278,7 +278,7 @@ class PostgreStorage(Storage):
         await self.pool.execute(
             f"UPDATE storage.sessions SET {attr} = $1 WHERE name = $2;",
             value,
-            self.session,
+            self.name,
         )
 
     async def _value(self, attr: str, value: any = Object) -> any:
