@@ -254,7 +254,7 @@ class PostgreStorage(Storage):
         res = await self._value("auth_key", value)
         return res if value is Object else None
 
-    async def date(self, value: any = None) -> int | None:
+    async def date(self, value: any = Object) -> int | None:
         res = await self._value("date", value)
         return res if value is Object else None
 
