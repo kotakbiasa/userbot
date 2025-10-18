@@ -5,6 +5,7 @@ from pyrogram import raw, utils
 from pyrogram.raw.base import InputPeer
 from pyrogram.storage import Storage
 
+Object = object()
 schema = """
 CREATE SCHEMA IF NOT EXISTS storage;
 CREATE TABLE IF NOT EXISTS storage.sessions (
@@ -46,7 +47,6 @@ CREATE TABLE IF NOT EXISTS storage.update_state (
 CREATE INDEX IF NOT EXISTS idx_peers_phone_number
     ON storage.peers (name, phone_number);
 """
-Object = object()
 
 
 def get_input_peer(peer_id: int, access_hash: int, peer_type: str) -> InputPeer:
@@ -136,7 +136,7 @@ class PostgreStorage(Storage):
 
     async def update_state(self, value: any = Object) -> list | None:
         if value is Object:
-            rows = await self.pool.fetch(
+            res = await self.pool.fetch(
                 """
                 SELECT
                     id,
@@ -149,7 +149,7 @@ class PostgreStorage(Storage):
                 """,
                 self.name,
             )
-            return [tuple(r) for r in rows]
+            return [tuple(i) for i in res]
 
         if value is None:
             await self.pool.execute(
@@ -195,7 +195,6 @@ class PostgreStorage(Storage):
             self.name,
             peer_id_int,
         )
-
         if not res:
             raise KeyError(f"Peer ID not found: {peer_id_int}")
 
@@ -215,7 +214,6 @@ class PostgreStorage(Storage):
             self.name,
             username,
         )
-
         if not res:
             raise KeyError(f"Username not found: {username}")
 
@@ -232,39 +230,52 @@ class PostgreStorage(Storage):
             self.name,
             phone_number,
         )
-
         if not res:
             raise KeyError(f"Phone number not found: {phone_number}")
 
         return get_input_peer(*res)
 
     async def dc_id(self, value: any = Object) -> int | None:
-        res = await self._value("dc_id", value)
-        return res if value is Object else None
+        if value is Object:
+            return await self._value("dc_id", value)
+
+        return None
 
     async def api_id(self, value: any = Object) -> int | None:
-        res = await self._value("api_id", value)
-        return res if value is Object else None
+        if value is Object:
+            return await self._value("api_id", value)
+
+        return None
 
     async def test_mode(self, value: any = Object) -> bool | None:
-        res = await self._value("test_mode", value)
-        return res if value is Object else None
+        if value is Object:
+            return await self._value("test_mode", value)
+
+        return None
 
     async def auth_key(self, value: any = Object) -> bytes | None:
-        res = await self._value("auth_key", value)
-        return res if value is Object else None
+        if value is Object:
+            return await self._value("auth_key", value)
 
-    async def date(self, value: any = None) -> int | None:
-        res = await self._value("date", value)
-        return res if value is Object else None
+        return None
+
+    async def date(self, value: any = Object) -> int | None:
+        if value is Object:
+            return await self._value("date", value)
+
+        return None
 
     async def user_id(self, value: any = Object) -> int | None:
-        res = await self._value("user_id", value)
-        return res if value is Object else None
+        if value is Object:
+            return await self._value("user_id", value)
+
+        return None
 
     async def is_bot(self, value: any = Object) -> bool | None:
-        res = await self._value("is_bot", value)
-        return res if value is Object else None
+        if value is Object:
+            return await self._value("is_bot", value)
+
+        return None
 
     async def _value(self, attr: str, value: any = Object) -> any:
         if value is Object:
