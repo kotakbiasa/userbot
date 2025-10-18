@@ -1,6 +1,7 @@
+import asyncio
 import time
 
-import asyncpg
+from asyncpg import Pool
 from pyrogram import raw, utils
 from pyrogram.raw.base import InputPeer
 from pyrogram.storage import Storage
@@ -64,16 +65,13 @@ def get_input_peer(peer_id: int, access_hash: int, peer_type: str) -> InputPeer:
 
 
 class PostgreStorage(Storage):
-    def __init__(self, name: str, pool: asyncpg.Pool) -> None:
+    def __init__(self, pool: Pool) -> None:
         super().__init__(name)
         self.name = name
         self.pool = pool
 
-    @staticmethod
-    async def create_schema(pool: asyncpg.Pool) -> None:
-        await pool.execute(schema)
-
     async def open(self) -> None:
+        await self.pool.execute(schema)
         await self.pool.execute(
             """
             INSERT INTO storage.sessions (name)
@@ -90,17 +88,7 @@ class PostgreStorage(Storage):
         pass
 
     async def delete(self) -> None:
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
-                await conn.execute(
-                    "DELETE FROM storage.peers WHERE name = $1;", self.name
-                )
-                await conn.execute(
-                    "DELETE FROM storage.update_state WHERE name = $1;", self.name
-                )
-                await conn.execute(
-                    "DELETE FROM storage.sessions WHERE name = $1;", self.name
-                )
+        await self.pool.execute("DROP SCHEMA IF EXISTS storage CASCADE;")
 
     async def update_peers(self, peers: list | None = None) -> None:
         if not peers:
@@ -113,36 +101,39 @@ class PostgreStorage(Storage):
                 (self.name, p_id, p_access_hash, p_type, p_phone_number)
             )
             if p_usernames:
-                for uname in p_usernames:
-                    username_records.append((self.name, p_id, uname))
+                username_records.extend(
+                    (self.name, p_id, uname) for uname in p_usernames
+                )
 
-        await self.pool.executemany(
-            """
-            INSERT INTO storage.peers (
-                name,
-                id,
-                access_hash,
-                type,
-                phone_number
-            )
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (name, id) DO UPDATE SET
-                access_hash = EXCLUDED.access_hash,
-                type = EXCLUDED.type,
-                phone_number = EXCLUDED.phone_number;
-            """,
-            peer_records,
-        )
-        if username_records:
-            await self.pool.executemany(
+        tasks = [
+            self.pool.executemany(
                 """
-                INSERT INTO storage.usernames (name, id, username)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (name, username) DO UPDATE SET
-                    id = EXCLUDED.id;
+                INSERT INTO storage.peers (
+                    name, id, access_hash, type, phone_number
+                )
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (name, id) DO UPDATE SET
+                    access_hash = EXCLUDED.access_hash,
+                    type = EXCLUDED.type,
+                    phone_number = EXCLUDED.phone_number;
                 """,
-                username_records,
+                peer_records,
             )
+        ]
+        if username_records:
+            tasks.append(
+                self.pool.executemany(
+                    """
+                    INSERT INTO storage.usernames (name, id, username)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (name, username) DO UPDATE SET
+                        id = EXCLUDED.id;
+                    """,
+                    username_records,
+                )
+            )
+
+        await asyncio.gather(*tasks)
 
     async def update_state(self, value: any = None) -> list | None:
         if not value:
@@ -232,13 +223,34 @@ class PostgreStorage(Storage):
 
         return get_input_peer(*res)
 
-    async def _get(self, attr: str) -> any:
-        return await self.pool.fetchval(
-            f"SELECT {attr} FROM storage.sessions WHERE name = $1;", self.name
-        )
+    async def dc_id(self, value: any = None) -> int | None:
+        return await self._value("dc_id", value)
 
-    async def _set(self, attr: str, value: int) -> None:
-        if attr in ("is_bot", "test_mode") and isinstance(value, int):
+    async def api_id(self, value: any = None) -> int | None:
+        return await self._value("api_id", value)
+
+    async def test_mode(self, value: any = None) -> bool | None:
+        return await self._value("test_mode", value)
+
+    async def auth_key(self, value: any = None) -> bytes | None:
+        return await self._value("auth_key", value)
+
+    async def date(self, value: any = None) -> int | None:
+        return await self._value("date", value)
+
+    async def user_id(self, value: any = None) -> int | None:
+        return await self._value("user_id", value)
+
+    async def is_bot(self, value: any = None) -> bool | None:
+        return await self._value("is_bot", value)
+
+    async def _value(self, attr: str, value: any = None) -> any:
+        if not value:
+            return await self.pool.fetchval(
+                f"SELECT {attr} FROM storage.sessions WHERE name = $1;", self.name
+            )
+
+        if attr in ["is_bot", "test_mode"] and not isinstance(value, bool):
             value = bool(value)
 
         await self.pool.execute(
@@ -246,27 +258,3 @@ class PostgreStorage(Storage):
             value,
             self.name,
         )
-
-    async def _accessor(self, attr: str, value: any = None) -> any:
-        return await self._get(attr) if not value else await self._set(attr, value)
-
-    async def dc_id(self, value: any = None) -> int | None:
-        return await self._accessor("dc_id", value)
-
-    async def api_id(self, value: any = None) -> int | None:
-        return await self._accessor("api_id", value)
-
-    async def test_mode(self, value: any = None) -> bool | None:
-        return await self._accessor("test_mode", value)
-
-    async def auth_key(self, value: any = None) -> bytes | None:
-        return await self._accessor("auth_key", value)
-
-    async def date(self, value: any = None) -> int | None:
-        return await self._accessor("date", value)
-
-    async def user_id(self, value: any = None) -> int | None:
-        return await self._accessor("user_id", value)
-
-    async def is_bot(self, value: any = None) -> bool | None:
-        return await self._accessor("is_bot", value)

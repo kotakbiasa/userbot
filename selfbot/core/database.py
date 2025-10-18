@@ -1,8 +1,6 @@
 import abc
 
-import asyncpg
-
-from .storage import PostgreStorage
+from asyncpg import create_pool
 
 
 class Database(abc.ABC):
@@ -11,5 +9,4 @@ class Database(abc.ABC):
         super().__init__(**kwargs)
 
     async def database(self) -> None:
-        self.db = await asyncpg.create_pool(self.config["database_url"])
-        await PostgreStorage.create_schema(self.db)
+        self.db = await create_pool(self.config["database_url"])
