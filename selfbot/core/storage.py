@@ -162,7 +162,7 @@ class PostgreStorage(Storage):
                 *value,
             )
 
-            return None
+        return None
 
     async def get_peer_by_id(self, peer_id: int | str) -> InputPeer:
         try:
