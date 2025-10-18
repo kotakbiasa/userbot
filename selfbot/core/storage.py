@@ -9,11 +9,11 @@ schema = """
 CREATE SCHEMA IF NOT EXISTS storage;
 CREATE TABLE IF NOT EXISTS storage.sessions (
     name        TEXT    PRIMARY KEY,
-    dc_id       INTEGER NOT NULL DEFAULT 2,
+    dc_id       INTEGER NOT NULL,
     api_id      INTEGER,
     test_mode   BOOLEAN,
     auth_key    BYTEA,
-    date        BIGINT  NOT NULL DEFAULT 0,
+    date        BIGINT  NOT NULL,
     user_id     BIGINT,
     is_bot      BOOLEAN
 );
@@ -74,11 +74,13 @@ class PostgreStorage(Storage):
         await self.pool.execute(schema)
         await self.pool.execute(
             """
-            INSERT INTO storage.sessions (name)
-            VALUES ($1)
+            INSERT INTO storage.sessions (name, dc_id, date)
+            VALUES ($1, $2, $3)
             ON CONFLICT (name) DO NOTHING;
             """,
             self.name,
+            2,
+            0,
         )
 
     async def save(self) -> None:
