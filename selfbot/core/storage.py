@@ -134,7 +134,7 @@ class PostgreStorage(Storage):
                 username_records,
             )
 
-    async def update_state(self, value=Object) -> list | None:
+    async def update_state(self, value: any = Object) -> list | None:
         if value is Object:
             rows = await self.pool.fetch(
                 """
