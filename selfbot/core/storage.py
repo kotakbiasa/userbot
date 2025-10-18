@@ -65,8 +65,9 @@ def get_input_peer(peer_id: int, access_hash: int, peer_type: str) -> InputPeer:
 
 
 class PostgreStorage(Storage):
-    def __init__(self, pool: asyncpg.Pool) -> None:
+    def __init__(self, name: str, pool: asyncpg.Pool) -> None:
         super().__init__(self)
+        self.name = name
         self.pool = pool
 
     @staticmethod
