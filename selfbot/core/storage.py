@@ -250,7 +250,7 @@ class PostgreStorage(Storage):
         )
 
     async def _accessor(self, attr: str, value: any = None) -> any:
-        return await self._get(attr) if value else await self._set(attr, value)
+        return await self._get(attr) if not value else await self._set(attr, value)
 
     async def dc_id(self, value: any = None) -> int | None:
         return await self._accessor("dc_id", value)
