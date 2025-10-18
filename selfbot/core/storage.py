@@ -81,7 +81,7 @@ class PostgreStorage(Storage):
         )
 
     async def save(self) -> None:
-        await self.date(int(time.monotonic()))
+        await self.date(int(time.time()))
 
     async def close(self) -> None:
         pass
