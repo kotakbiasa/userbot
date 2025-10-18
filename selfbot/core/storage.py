@@ -283,7 +283,7 @@ class PostgreStorage(Storage):
                 f"SELECT {attr} FROM storage.sessions WHERE name = $1;", self.name
             )
 
-        if attr in ("is_bot", "test_mode") and not isinstance(value, bool):
+        if attr in ["is_bot", "test_mode"] and not isinstance(value, bool):
             value = bool(value)
 
         await self.pool.execute(
