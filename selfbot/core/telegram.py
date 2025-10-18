@@ -188,7 +188,7 @@ class Telegram(abc.ABC):
             max_message_cache_size=0,
             link_preview_options=LinkPreviewOptions(is_disabled=True),
             no_joined_notifications=True,
-            storage_engine=PostgreStorage(name, self.db),
+            storage_engine=PostgreStorage(self.db),
         )
         if updates:
             client.dispatcher.update_parsers = {
