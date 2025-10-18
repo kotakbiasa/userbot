@@ -238,38 +238,50 @@ class PostgreStorage(Storage):
 
         return get_input_peer(*res)
 
-    async def dc_id(self, value: any = None) -> int | None:
-        return await self._value("dc_id", value)
+    async def dc_id(self, value: any = Object) -> int | None:
+        res = await self._value("dc_id", value)
+        return res if value is Object else None
 
-    async def api_id(self, value: any = None) -> int | None:
-        return await self._value("api_id", value)
+    async def api_id(self, value: any = Object) -> int | None:
+        res = await self._value("api_id", value)
+        return res if value is Object else None
 
-    async def test_mode(self, value: any = None) -> bool | None:
-        return await self._value("test_mode", value)
+    async def test_mode(self, value: any = Object) -> bool | None:
+        res = await self._value("test_mode", value)
+        return res if value is Object else None
 
-    async def auth_key(self, value: any = None) -> bytes | None:
-        return await self._value("auth_key", value)
+    async def auth_key(self, value: any = Object) -> bytes | None:
+        res = await self._value("auth_key", value)
+        return res if value is Object else None
 
     async def date(self, value: any = None) -> int | None:
-        return await self._value("date", value)
+        res = await self._value("date", value)
+        return res if value is Object else None
 
-    async def user_id(self, value: any = None) -> int | None:
-        return await self._value("user_id", value)
+    async def user_id(self, value: any = Object) -> int | None:
+        res = await self._value("user_id", value)
+        return res if value is Object else None
 
-    async def is_bot(self, value: any = None) -> bool | None:
-        return await self._value("is_bot", value)
+    async def is_bot(self, value: any = Object) -> bool | None:
+        res = await self._value("is_bot", value)
+        return res if value is Object else None
 
-    async def _value(self, attr: str, value: any = None) -> any:
-        if not value:
-            return await self.pool.fetchval(
-                f"SELECT {attr} FROM storage.sessions WHERE name = $1;", self.name
-            )
+    async def _get(self, attr: str) -> any:
+        return await self.pool.fetchval(
+            f"SELECT {attr} FROM storage.sessions WHERE name = $1;", self.name
+        )
 
-        if attr in ["is_bot", "test_mode"] and not isinstance(value, bool):
+    async def _set(self, attr: str, value: any) -> None:
+        if attr in ("is_bot", "test_mode") and not isinstance(value, bool):
             value = bool(value)
 
         await self.pool.execute(
             f"UPDATE storage.sessions SET {attr} = $1 WHERE name = $2;",
             value,
-            self.name,
+            self.session,
+        )
+
+    async def _value(self, attr: str, value: any = Object) -> any:
+        return (
+            await self._get(attr) if value is Object else await self._set(attr, value)
         )
