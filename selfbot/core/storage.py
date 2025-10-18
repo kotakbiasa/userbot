@@ -76,13 +76,11 @@ class PostgreStorage(Storage):
     async def open(self) -> None:
         await self.pool.execute(
             """
-            INSERT INTO storage.sessions (name, dc_id, date)
-            VALUES ($1, $2, $3)
+            INSERT INTO storage.sessions (name)
+            VALUES ($1)
             ON CONFLICT (name) DO NOTHING;
             """,
             self.name,
-            2,
-            0,
         )
 
     async def save(self) -> None:
