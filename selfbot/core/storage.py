@@ -9,11 +9,11 @@ schema = """
 CREATE SCHEMA IF NOT EXISTS storage;
 CREATE TABLE IF NOT EXISTS storage.sessions (
     name        TEXT    PRIMARY KEY,
-    dc_id       INTEGER NOT NULL,
+    dc_id       INTEGER NOT NULL DEFAULT 2,
     api_id      INTEGER,
     test_mode   BOOLEAN,
     auth_key    BYTEA,
-    date        BIGINT  NOT NULL,
+    date        BIGINT  NOT NULL DEFAULT 0,
     user_id     BIGINT,
     is_bot      BOOLEAN
 );
