@@ -16,7 +16,6 @@ from pyrogram.handlers import (
     InlineQueryHandler,
     MessageHandler,
 )
-from pyrogram.handlers.handler import Handler
 from pyrogram.raw.types import (
     UpdateBotInlineQuery,
     UpdateBotInlineSend,
@@ -27,20 +26,20 @@ from pyrogram.raw.types import (
 from pyrogram.types import LinkPreviewOptions, Update
 
 from selfbot import __version__
-from selfbot.core.storage import PostgresStorage
+from selfbot.core.storage import PostgreStorage
 from selfbot.utils import fmtsec, fmtstr, ikm
 
 
 class Telegram(abc.ABC):
     def __init__(self, **kwargs) -> None:
-        self.app: Client = None
-        self.bot: Client = None
-        self.__event__: asyncio.Event = None
-        self.handlers: dict[str, Handler] = {}
+        self.app = None
+        self.bot = None
+        self.__idle__ = None
+        self.handlers = {}
         super().__init__(**kwargs)
 
     async def run(self) -> None:
-        if self.__event__ and not self.__event__.is_set():
+        if self.__idle__ and not self.__idle__.is_set():
             raise RuntimeError("Selfbot Running")
 
         tmp = os.path.exists("/tmp/r.json")
@@ -101,16 +100,13 @@ class Telegram(abc.ABC):
             asyncio.to_thread(self.loads),
             asyncio.to_thread(self.conf),
         )
-        msg = None
         try:
             await self.bot.send_chat_action(self.app.me.id, ChatAction.TYPING)
         except PeerIdInvalid:
             msg = await self.app.send_message(self.bot.me.id, "/start")
+            await msg.delete()
         except UserIsBlocked:
             await self.app.unblock_user(self.bot.me.id)
-        finally:
-            if msg:
-                await msg.delete()
 
         self.logger.info("Dispatch On Start...")
         await self.dispatch("starting")
@@ -118,23 +114,23 @@ class Telegram(abc.ABC):
         self.logger.info("On Start Dispatched")
 
     async def idle(self) -> None:
-        if self.__event__ and not self.__event__.is_set():
+        if self.__idle__ and not self.__idle__.is_set():
             raise RuntimeError("Selfbot Idling")
 
         signames = (signal.SIGINT, signal.SIGTERM, signal.SIGABRT)
 
         def sighandler(signum: int) -> None:
-            if self.__event__:
-                self.__event__.set()
+            if self.__idle__:
+                self.__idle__.set()
 
         for signame in signames:
             asyncio.get_running_loop().add_signal_handler(
                 signame, functools.partial(sighandler, signame)
             )
 
-        self.__event__ = asyncio.Event()
+        self.__idle__ = asyncio.Event()
         try:
-            await self.__event__.wait()
+            await self.__idle__.wait()
         finally:
             for signame in signames:
                 with contextlib.suppress(Exception):
@@ -192,7 +188,7 @@ class Telegram(abc.ABC):
             max_message_cache_size=0,
             link_preview_options=LinkPreviewOptions(is_disabled=True),
             no_joined_notifications=True,
-            storage_engine=PostgresStorage(name, self.db),
+            storage_engine=PostgreStorage(self.db),
         )
         if updates:
             client.dispatcher.update_parsers = {

@@ -103,8 +103,8 @@ class GenAI(Module):
                 self.data.append(text)
 
     async def respond(self, event: Update) -> None:
-        text: str
-        edit: callable
+        text = ""
+        edit = None
         if isinstance(event, ChosenInlineResult):
             text = event.query
             edit = event.edit_message_text

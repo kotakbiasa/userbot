@@ -27,7 +27,7 @@ class Graph(Module):
         "?": "Optional",
         "e.g.": "graph Hello, World! -t Untitled",
     }
-    graph: Telegraph
+    graph = None
 
     async def on_starting(self) -> None:
         self.graph = Telegraph(access_token=None, domain="graph.org")

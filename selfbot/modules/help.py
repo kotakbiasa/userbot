@@ -27,9 +27,9 @@ class Help(Module):
         "?": "Optional",
         "e.g.": "help/debug",
     }
-    mods: dict[str, int] = {}
-    maps: dict[str, str] = {}
-    ikbs: list[list] = []
+    mods = {}
+    maps = {}
+    ikbs = []
 
     async def on_started(self) -> None:
         mods = [mod for mod in self.client.modules.values()]

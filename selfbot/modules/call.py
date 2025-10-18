@@ -125,9 +125,9 @@ class Call(Module):
             else:
                 chat_id = chat.id
 
-        func: callable
-        text = {"data": {"Chat ID": chat_id}}
+        func = None
         args = {"chat_id": chat_id}
+        text = {"data": {"Chat ID": chat_id}}
         if action == "join":
             func = self.client.tgc.play
             text["head"] = "Joined Call"

@@ -30,9 +30,8 @@ class AFK(Module):
     name = "AFK"
     cmds = "afk {reason}?"
     desc = {"reason": "String", "?": "Optional", "e.g.": "afk Busy!"}
-    status: bool
-    reason: str
-    since: datetime.datetime | None
+
+    status, reason, since = False, "", None
 
     async def on_starting(self) -> None:
         self.lock = asyncio.Lock()
@@ -42,8 +41,6 @@ class AFK(Module):
         )
         if data:
             self.status, self.reason, self.since = data
-        else:
-            self.status, self.reason, self.since = False, "", None
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
