@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS storage.update_state (
 CREATE INDEX IF NOT EXISTS idx_peers_phone_number
     ON storage.peers (name, phone_number);
 """
+Object = object()
 
 
 def get_input_peer(peer_id: int, access_hash: int, peer_type: str) -> InputPeer:
@@ -131,8 +132,24 @@ class PostgreStorage(Storage):
                 username_records,
             )
 
-    async def update_state(self, value: any = None) -> list | None:
-        if not value:
+    async def update_state(self, value=Object) -> list | None:
+        if value is Object:
+            rows = await self.pool.fetch(
+                """
+                SELECT
+                    id,
+                    pts,
+                    qts,
+                    date,
+                    seq
+                FROM storage.update_state
+                WHERE name = $1;
+                """,
+                self.name,
+            )
+            return [tuple(r) for r in rows]
+
+        if value is None:
             await self.pool.execute(
                 "DELETE FROM storage.update_state WHERE name = $1;", self.name
             )
