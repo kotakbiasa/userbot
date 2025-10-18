@@ -1,4 +1,3 @@
-import asyncio
 import time
 
 from asyncpg import Pool
@@ -101,39 +100,36 @@ class PostgreStorage(Storage):
                 (self.name, p_id, p_access_hash, p_type, p_phone_number)
             )
             if p_usernames:
-                username_records.extend(
-                    (self.name, p_id, uname) for uname in p_usernames
-                )
+                for uname in p_usernames:
+                    username_records.append((self.name, p_id, uname))
 
-        tasks = [
-            self.pool.executemany(
-                """
-                INSERT INTO storage.peers (
-                    name, id, access_hash, type, phone_number
-                )
-                VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT (name, id) DO UPDATE SET
-                    access_hash = EXCLUDED.access_hash,
-                    type = EXCLUDED.type,
-                    phone_number = EXCLUDED.phone_number;
-                """,
-                peer_records,
+        await self.pool.executemany(
+            """
+            INSERT INTO storage.peers (
+                name,
+                id,
+                access_hash,
+                type,
+                phone_number
             )
-        ]
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (name, id) DO UPDATE SET
+                access_hash = EXCLUDED.access_hash,
+                type = EXCLUDED.type,
+                phone_number = EXCLUDED.phone_number;
+            """,
+            peer_records,
+        )
         if username_records:
-            tasks.append(
-                self.pool.executemany(
-                    """
-                    INSERT INTO storage.usernames (name, id, username)
-                    VALUES ($1, $2, $3)
-                    ON CONFLICT (name, username) DO UPDATE SET
-                        id = EXCLUDED.id;
-                    """,
-                    username_records,
-                )
+            await self.pool.executemany(
+                """
+                INSERT INTO storage.usernames (name, id, username)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (name, username) DO UPDATE SET
+                    id = EXCLUDED.id;
+                """,
+                username_records,
             )
-
-        await asyncio.gather(*tasks)
 
     async def update_state(self, value: any = None) -> list | None:
         if not value:
