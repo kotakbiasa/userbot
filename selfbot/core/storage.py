@@ -137,7 +137,7 @@ class PostgreStorage(Storage):
                 "DELETE FROM storage.update_state WHERE name = $1;", self.name
             )
         else:
-            await conn.execute(
+            await self.pool.execute(
                 """
                 INSERT INTO storage.update_state (
                     name,
