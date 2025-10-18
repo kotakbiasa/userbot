@@ -266,12 +266,12 @@ class PostgreStorage(Storage):
         res = await self._value("is_bot", value)
         return res if value is Object else None
 
-    async def _get(self, attr: str) -> any:
-        return await self.pool.fetchval(
-            f"SELECT {attr} FROM storage.sessions WHERE name = $1;", self.name
-        )
+    async def _value(self, attr: str, value: any = Object) -> any:
+        if value is Object:
+            return await self.pool.fetchval(
+                f"SELECT {attr} FROM storage.sessions WHERE name = $1;", self.name
+            )
 
-    async def _set(self, attr: str, value: any) -> None:
         if attr in ("is_bot", "test_mode") and not isinstance(value, bool):
             value = bool(value)
 
@@ -279,9 +279,4 @@ class PostgreStorage(Storage):
             f"UPDATE storage.sessions SET {attr} = $1 WHERE name = $2;",
             value,
             self.name,
-        )
-
-    async def _value(self, attr: str, value: any = Object) -> any:
-        return (
-            await self._get(attr) if value is Object else await self._set(attr, value)
         )
