@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS storage.sessions (
     api_id      INTEGER,
     test_mode   BOOLEAN,
     auth_key    BYTEA,
-    date        BIGINT  NOT NULL,,
+    date        BIGINT  NOT NULL,
     user_id     BIGINT,
     is_bot      BOOLEAN
 );
