@@ -5,16 +5,15 @@ from pyrogram import raw, utils
 from pyrogram.raw.base import InputPeer
 from pyrogram.storage import Storage
 
-Object = object()
 schema = """
 CREATE SCHEMA IF NOT EXISTS storage;
 CREATE TABLE IF NOT EXISTS storage.sessions (
     name        TEXT    PRIMARY KEY,
-    dc_id       INTEGER NOT NULL DEFAULT 2,
+    dc_id       INTEGER NOT NULL,
     api_id      INTEGER,
     test_mode   BOOLEAN,
     auth_key    BYTEA,
-    date        BIGINT  NOT NULL DEFAULT 0,
+    date        BIGINT  NOT NULL,,
     user_id     BIGINT,
     is_bot      BOOLEAN
 );
@@ -66,7 +65,7 @@ def get_input_peer(peer_id: int, access_hash: int, peer_type: str) -> InputPeer:
 
 class PostgreStorage(Storage):
     def __init__(self, name: str, pool: asyncpg.Pool) -> None:
-        super().__init__(self)
+        super().__init__(name)
         self.name = name
         self.pool = pool
 
@@ -77,11 +76,13 @@ class PostgreStorage(Storage):
     async def open(self) -> None:
         await self.pool.execute(
             """
-            INSERT INTO storage.sessions (name)
-            VALUES ($1)
+            INSERT INTO storage.sessions (name, dc_id, date)
+            VALUES ($1, $2, $3)
             ON CONFLICT (name) DO NOTHING;
             """,
             self.name,
+            2,
+            0,
         )
 
     async def save(self) -> None:
@@ -119,7 +120,7 @@ class PostgreStorage(Storage):
 
         await self.pool.executemany(
             """
-            INSERT INTO peers (
+            INSERT INTO storage.peers (
                 name,
                 id,
                 access_hash,
@@ -137,7 +138,7 @@ class PostgreStorage(Storage):
         if username_records:
             await self.pool.executemany(
                 """
-                INSERT INTO usernames (name, id, username)
+                INSERT INTO storage.usernames (name, id, username)
                 VALUES ($1, $2, $3)
                 ON CONFLICT (name, username) DO UPDATE SET
                     id = EXCLUDED.id;
