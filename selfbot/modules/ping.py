@@ -23,7 +23,6 @@ pattern = re.compile(r"^p(?:ing)?$")
 
 class Ping(Module):
     name = "Ping"
-
     cmds = "p(ing)?"
     desc = {"?": "Optional", "e.g.": "ping"}
 

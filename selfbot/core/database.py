@@ -8,7 +8,6 @@ from .storage import PostgresStorage
 class Database(abc.ABC):
     def __init__(self, **kwargs: any) -> None:
         self.db: asyncpg.Pool = None
-
         super().__init__(**kwargs)
 
     async def database(self) -> None:

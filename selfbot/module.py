@@ -8,7 +8,6 @@ if TYPE_CHECKING:
 class Module:
     name: str = ""
     cmds: str = ""
-
     desc: any = None
 
     def __init__(self, client: "Selfbot") -> None:
@@ -24,5 +23,4 @@ class ModuleExists(ModuleError):
     def __init__(self, old: "Module", new: "Module") -> None:
         self.old = old
         self.new = new
-
         super().__init__(f"'{self.old.name}' Exists")

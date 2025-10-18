@@ -8,9 +8,7 @@ def fmtsec(now: datetime.datetime, part: int = 3) -> str:
     delta = datetime.datetime.now(datetime.UTC) - now
     total = int(delta.total_seconds())
     micro = delta.microseconds
-
     parts = []
-
     w, r = divmod(total, 7 * 24 * 3600)
     if w:
         parts.append(f"{w} Week{'s' if w != 1 else ''}")

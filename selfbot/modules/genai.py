@@ -25,7 +25,6 @@ pattern = re.compile(r"^(.*)?(?:\!\?)$", flags=re.DOTALL)
 
 class GenAI(Module):
     name = "GenAI"
-
     cmds = "{query} !?"
     desc = {
         "query": "String or <Reply or Quote to Content>",
@@ -45,7 +44,6 @@ class GenAI(Module):
             },
             timeout=45,
         )
-
         self.lock = asyncio.Lock()
         self.data = collections.deque(maxlen=32)
 
@@ -59,12 +57,11 @@ class GenAI(Module):
             len(event.content.split()) == 2
             and event.content.split()[1].strip() == "clear"
         ):
-            resp = await event.reply_text(
-                "<code>...</code>",
+            resp = await event.reply_sticker(
+                self.client.config["sticker_file_id"],
                 quote=True,
-                reply_markup=ikm(("Ask", "switch_inline_query", "")),
+                reply_markup=ikm(("GenAI", "switch_inline_query", "")),
             )
-
             async with self.lock:
                 self.data.clear()
 
@@ -108,7 +105,6 @@ class GenAI(Module):
     async def respond(self, event: Update) -> None:
         text: str
         edit: callable
-
         if isinstance(event, ChosenInlineResult):
             text = event.query
             edit = event.edit_message_text
@@ -121,10 +117,10 @@ class GenAI(Module):
         if not query:
             if isinstance(event, ChosenInlineResult):
                 return await edit(
-                    "<code>Give Query with Suffix '!?'</code>",
+                    "<code>Give a Query with Suffix '!?'</code>",
                     reply_markup=ikm(
                         [
-                            ("Ask", "switch_inline_query_current_chat", ""),
+                            ("GenAI", "switch_inline_query_current_chat", ""),
                             ("Close", b"0"),
                         ]
                     ),
@@ -144,7 +140,7 @@ class GenAI(Module):
             question = f"```Query\n{query}```\n\n"
             await edit(question, parse_mode=ParseMode.MARKDOWN)
 
-        ikb = [[("Ask", "switch_inline_query_current_chat", "ask "), ("Close", b"0")]]
+        ikb = [[("GenAI", "switch_inline_query_current_chat", ""), ("Close", b"0")]]
         now = datetime.datetime.now(datetime.UTC)
         async with self.lock:
             self.data.append({"role": "user", "parts": [{"text": query}]})

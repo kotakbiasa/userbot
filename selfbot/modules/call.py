@@ -24,14 +24,12 @@ from selfbot.utils import fmtsec, fmtstr
 
 schema = """
 CREATE SCHEMA IF NOT EXISTS call;
-
 CREATE TABLE IF NOT EXISTS call.chats (
     chat_id BIGINT  PRIMARY KEY,
     join_as BIGINT,
     mute    BOOLEAN DEFAULT FALSE
 );
 """
-
 pattern = re.compile(
     r"^"
     r"(?P<action>(?:start|end|join|leave)?)call"
@@ -45,7 +43,6 @@ pattern = re.compile(
 
 class Call(Module):
     name = "Call"
-
     cmds = "{action}?call {chat}? (-as {peer})? (-m)? (-t {title})?"
     desc = {
         "action": "(join|leave|start|end)",
@@ -64,7 +61,6 @@ class Call(Module):
 
         self.client.tgc = PyTgCalls(self.client.app, 1, 15)
         await self.client.tgc.start()
-
         for group in list(self.client.app.dispatcher.groups.keys()):
             if group == -1:
                 continue
@@ -130,7 +126,6 @@ class Call(Module):
                 chat_id = chat.id
 
         func: callable
-
         text = {"data": {"Chat ID": chat_id}}
         args = {"chat_id": chat_id}
         if action == "join":

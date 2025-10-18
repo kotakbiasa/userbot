@@ -29,7 +29,6 @@ pattern = re.compile(r"^(?:e\s+.+|.+#|#)$", flags=re.DOTALL)
 
 class Debug(Module):
     name = "Debug"
-
     cmds = "e? {code} #?"
     desc = {
         "e": "Prefix for No Inline (Suffix '#' No Needed)",
@@ -38,7 +37,6 @@ class Debug(Module):
         "?": "Optional",
         "e.g.": 'print("Hello, World!")#',
     }
-
     args = {
         "asyncio": asyncio,
         "dt": datetime,
@@ -155,7 +153,6 @@ class Debug(Module):
                 return await cmd.delete()
 
             btn, msg = True, cmd
-
         elif len(event.query) > 1:
             btn, msg = True, cmd
 

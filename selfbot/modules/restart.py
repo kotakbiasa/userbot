@@ -16,10 +16,8 @@ pattern = re.compile(r"^(?:r)$")
 
 class Restart(Module):
     name = "Restart"
-
     cmds = "r"
     desc = "Restart Selfbot"
-
     file = "/tmp/r.json"
 
     async def on_started(self) -> None:
@@ -65,13 +63,10 @@ class Restart(Module):
                 "remote", "https://github.com/DeltaUniverse/selfbot"
             ).removesuffix(".git")
             branch = self.client.config.get("branch", "staging")
-
             fetch(repo, remote)
             repo.git.reset("--hard", f"origin/{branch}")
-
             old = repo.head.commit.hexsha
             new = repo.commit(f"origin/{branch}").hexsha
-
             if old == new:
                 return False
 

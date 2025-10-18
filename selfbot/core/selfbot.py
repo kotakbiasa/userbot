@@ -13,14 +13,11 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
     def __init__(self, config: dict) -> None:
         self.logger = logging.getLogger("Selfbot")
         self.config = config
-
         self.http: AsyncClient = None
-
         super().__init__()
 
     @classmethod
     async def launch(cls, config: dict) -> "Selfbot":
-
         selfbot = cls(config)
         try:
             selfbot.http = AsyncClient()

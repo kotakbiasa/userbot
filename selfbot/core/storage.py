@@ -8,14 +8,11 @@ from pyrogram.storage import Storage
 InputPeer: TypeAlias = Union[
     raw.types.InputPeerUser, raw.types.InputPeerChat, raw.types.InputPeerChannel
 ]
-
 Object = object()
-
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS version (
     number  INTEGER PRIMARY KEY
 );
-
 CREATE TABLE IF NOT EXISTS sessions (
     session     TEXT    PRIMARY KEY,
     dc_id       INTEGER NOT NULL,
@@ -26,7 +23,6 @@ CREATE TABLE IF NOT EXISTS sessions (
     user_id     BIGINT,
     is_bot      BOOLEAN
 );
-
 CREATE TABLE IF NOT EXISTS peers (
     session         TEXT    NOT NULL,
     id              BIGINT  NOT NULL,
@@ -36,7 +32,6 @@ CREATE TABLE IF NOT EXISTS peers (
     last_update_on  BIGINT  NOT NULL DEFAULT (EXTRACT(epoch FROM now())),
     PRIMARY KEY (session, id)
 );
-
 CREATE TABLE IF NOT EXISTS usernames (
     session     TEXT    NOT NULL,
     id          BIGINT  NOT NULL,
@@ -46,7 +41,6 @@ CREATE TABLE IF NOT EXISTS usernames (
         REFERENCES peers (session, id)
         ON DELETE CASCADE
 );
-
 CREATE TABLE IF NOT EXISTS update_state (
     session TEXT    NOT NULL,
     id      INTEGER NOT NULL,
@@ -56,13 +50,10 @@ CREATE TABLE IF NOT EXISTS update_state (
     seq     BIGINT,
     PRIMARY KEY (session, id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_peers_session_id
     ON peers (session, id);
-
 CREATE INDEX IF NOT EXISTS idx_peers_phone_number
     ON peers (session, phone_number);
-
 CREATE INDEX IF NOT EXISTS idx_usernames_username
     ON usernames (session, username);
 """
@@ -143,7 +134,6 @@ class PostgresStorage(Storage):
 
         peer_records = []
         username_records = []
-
         for p_id, p_access_hash, p_type, p_usernames, p_phone_number in peers:
             peer_records.append(
                 (self.session, p_id, p_access_hash, p_type, p_phone_number)

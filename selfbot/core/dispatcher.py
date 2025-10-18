@@ -13,7 +13,6 @@ from selfbot.module import Module
 class Dispatcher(abc.ABC):
     def __init__(self, **kwargs) -> None:
         self.listeners: dict[str, list[Listener]] = {}
-
         super().__init__(**kwargs)
 
     async def dispatch(self, event: str, *args: any, **kwargs: any) -> None:
@@ -24,10 +23,8 @@ class Dispatcher(abc.ABC):
                         continue
 
                 await listener.func(*args, **kwargs)
-
             except (MessageNotModified, QueryIdInvalid):
                 continue
-
             except (FloodWait, SlowmodeWait) as e:
                 if e.value <= 30:
                     await asyncio.sleep(e.value)
@@ -35,7 +32,6 @@ class Dispatcher(abc.ABC):
                         await listener.func(*args, **kwargs)
                 else:
                     continue
-
             except Exception as e:
                 tb = e.__traceback__
                 while tb and tb.tb_next:
@@ -43,7 +39,6 @@ class Dispatcher(abc.ABC):
 
                 fn = tb.tb_frame.f_code.co_filename if tb else "N/A"
                 ln = tb.tb_lineno if tb else "N/A"
-
                 with contextlib.suppress(Exception):
                     await self.bot.send_message(
                         self.app.me.id,
