@@ -126,7 +126,7 @@ class GenAI(Module):
                 self.data.append(text)
 
     async def respond(self, event: Update) -> None:
-        text, edit = "", None
+        edit = None
         if isinstance(event, ChosenInlineResult):
             text, edit = event.query, event.edit_message_text
         else:
