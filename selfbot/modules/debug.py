@@ -18,7 +18,6 @@ from pyrogram.types import (
     Update,
 )
 
-import selfbot
 from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import aexec, fmtexc, fmtsec, ids, ikm, shell
