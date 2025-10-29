@@ -274,3 +274,4 @@ class PostgreStorage(Storage):
             value,
             self.name,
         )
+        return None
