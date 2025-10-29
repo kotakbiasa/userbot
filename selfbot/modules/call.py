@@ -111,11 +111,12 @@ class Call(Module):
             pattern.match(event.content).groupdict().values(),
         )
         if not action:
-            return await event.edit_text(
+            await event.edit_text(
                 fmtstr(
                     "Joined Call IDs", list(await self.client.call.calls), fmtsec(now)
                 )
             )
+            return
 
         if not chat_id:
             chat_id = event.chat.id
@@ -123,9 +124,10 @@ class Call(Module):
             try:
                 chat = await event._client.get_chat(chat_id, False)
             except RPCError as e:
-                return await event.edit_text(
+                await event.edit_text(
                     fmtstr(
                         e.__class__.__name__,
+                return
                         e.MESSAGE.format(value=e.value),
                         fmtsec(now),
                     )
