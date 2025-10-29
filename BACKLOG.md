@@ -1,184 +1,52 @@
-# Backlog
+# Backlog — DeltaUniverse/selfbot
 
-> **Note:** Items in this backlog are **intentionally deferred**. They are improvements, not urgent fixes.
->
-> **Priority:** Focus on new features first. Only work on backlog items during:
->
-> * Downtime between features
-> * When specifically needed for new functionality
-> * Learning/practice sessions
+This backlog lists deferred improvements and maintenance tasks. Items are non-urgent and should be worked on only when they block active development, are requested, or during scheduled maintenance.
 
----
+## Priority rules
+- New features take precedence.
+- Work on backlog only if it blocks current work, repeats 3+ times, is requested, or during downtime.
 
-## 🔧 Code Quality (Low Priority)
+## Summary
+- Items: 40+
+- Estimated effort: 30–40 hours
+- Last updated: 2025-10-19
+- Next review: 2025-11-19
 
-### Type Hints
+## Code quality (low priority)
+- Add type hints for core classes (Selfbot, Module, Listener). — 2–4h
+- Add docstrings for public APIs. — 2–4h
+- Extract repeated error handling into a decorator/context manager. — 2–3h
+- Standardize handler naming (on_*, cmd_*, handle_*). — 1–2h
 
-* [ ] Add consistent type hints across all modules
-* [ ] Add return type annotations to all functions
-* [ ] Type hint `**kwargs` parameters properly
-* **Impact:** Better IDE support, not blocking functionality
-* **Effort:** ~2–3 hours
-* **Do when:** Onboarding new developers or Python 3.12+ migration
+## Testing (medium)
+- Unit tests for database operations and core utils. — 8–12h
+- Listener lifecycle tests (register/unregister, dispatch). — 3–5h
+- Integration tests for module loading and DB connections. — 6–8h
 
-### Documentation
+## Features (deferred)
+- Command aliases, hot-reload modules, rate limiting, admin-only decorator, logging config. Estimates: 1–10h each depending on complexity.
+- Suggested modules: stats, scheduler, auto-reply, media-group support, DB backup/restore.
 
-* [ ] Add docstrings to core classes (Selfbot, Module, Listener)
-* [ ] Document public methods in modules
-* [ ] Create inline comments for complex logic
-* **Impact:** Easier maintenance, not urgent
-* **Effort:** ~4–5 hours
-* **Do when:** Project reaches 10+ modules or open-sourcing
+## Security (review before public)
+- Audit DB queries and parameterization. — 2–4h
+- Review eval/exec in debug module; add safeguards. — 2–3h
+- Sanitize telegraph HTML/markup inputs. — 1–2h
+- Design simple permission model. — 3–5h
 
-### Code Organization
+## Infrastructure
+- Docker multi-arch, health checks, image size optimization. — 3–6h
+- DB migrations (Alembic), backups, connection pooling. — 4–8h
+- CI/CD pipeline with lint and tests. — 3–6h
 
-* [ ] Extract duplicate error handling patterns into decorator
-* [ ] Consider splitting large modules (e.g., `debug.py` is 200+ lines)
-* [ ] Standardize naming: `on_*` vs `cmd_*` vs handlers
-* **Impact:** Slight readability improvement
-* **Effort:** ~3–4 hours
-* **Do when:** Code duplication reaches 3+ instances
+## Known issues
+- Long-running eval may time out.
+- Large purge operations need batching.
+- Telegraph module needs better HTML edge-case handling.
 
----
+## Promotion checklist (backlog → active)
+1. Create an issue with acceptance criteria and tests.
+2. Assign milestone and owner.
+3. Implement in a PR with tests for critical changes.
 
-## 🧞 Testing (Nice to Have)
-
-### Unit Tests
-
-* [ ] Add tests for critical paths (database operations)
-* [ ] Test listener registration/unregistration
-* [ ] Mock Telegram API responses
-* **Impact:** Prevent regressions
-* **Effort:** ~8–10 hours
-* **Do when:** After 5+ modules are stable or before v1.0 release
-
-### Integration Tests
-
-* [ ] Test module loading/unloading
-* [ ] Test event dispatching flow
-* [ ] Test database connection handling
-* **Impact:** Confidence in deployments
-* **Effort:** ~6–8 hours
-* **Do when:** Team grows or CI/CD is set up
-
----
-
-## 🚀 Features (Someday/Maybe)
-
-### Core Enhancements
-
-* [ ] Add command aliases (e.g., `p` and `ping` both work)
-* [ ] Implement module hot-reload without restart
-* [ ] Add rate limiting per command
-* [ ] Create admin-only command decorator
-* [ ] Add logging levels configuration
-
-### New Modules
-
-* [ ] Stats module (message count, uptime, etc.)
-* [ ] Reminder/scheduler module
-* [ ] Auto-reply module with patterns
-* [ ] Media group support in handlers
-* [ ] Backup/restore database command
-
-### User Experience
-
-* [ ] Better error messages for users
-* [ ] Command autocomplete hints
-* [ ] Inline help with examples
-* [ ] Multi-language support
-
----
-
-## 🔒 Security (Review Later)
-
-* [ ] Audit database query injection points
-* [ ] Review eval/exec usage in debug module (already safe with aexec, but double-check)
-* [ ] Add command permission system
-* [ ] Sanitize user inputs in telegraph module
-* **Do when:** Before making repo public or adding contributors
-
----
-
-## 📦 Infrastructure
-
-### Docker
-
-* [ ] Multi-platform build (arm64 support)
-* [ ] Health check endpoint
-* [ ] Optimize image size (currently ~200 MB, could be smaller)
-* **Do when:** Deploying to ARM servers or optimizing costs
-
-### Database
-
-* [ ] Add database migration system (Alembic)
-* [ ] Database backup automation
-* [ ] Connection pool optimization
-* **Do when:** Schema changes become frequent
-
-### Deployment
-
-* [ ] CI/CD pipeline (GitHub Actions)
-* [ ] Automated testing on PR
-* [ ] Release automation
-* **Do when:** Multiple contributors join
-
----
-
-## 🐛 Known Issues (Non-Critical)
-
-* [ ] Long-running eval commands (>15 min) might timeout
-* [ ] Large purge operations (>1000 messages) need better batching
-* [ ] Telegraph module doesn’t handle all HTML edge cases
-* **Impact:** Edge cases, not common usage
-* **Fix when:** User reports or when working on related features
-
----
-
-## 📚 Documentation (External)
-
-* [ ] README with setup instructions
-* [ ] Module development guide
-* [ ] Configuration examples
-* [ ] FAQ for common issues
-* [ ] Architecture overview diagram
-* **Do when:** Open-sourcing or team expansion
-
----
-
-## 🎯 Decision Rules
-
-### ✅ Work on Backlog Item If:
-
-1. It’s blocking a new feature you’re building **right now**
-2. The same issue appeared 3+ times in different places
-3. A user explicitly requested it
-4. You have genuine downtime (no active features in progress)
-
-### ❌ Don’t Work on Backlog If:
-
-1. “It would be nice to have…”
-2. “Maybe someday we’ll need…”
-3. “This could be cleaner…”
-4. You’re in the middle of implementing a feature
-
----
-
-## 📊 Backlog Stats
-
-* **Total Items:** 40+
-* **Estimated Total Effort:** 30–40 hours
-* **Current Priority:** **NEW FEATURES > Backlog**
-
----
-
-## 🛠️ Review Schedule
-
-* Review backlog: **Monthly** (or when 10+ new features are added)
-* Promote to “Now”: Only if blocking current work
-* Archive completed: Move to `CHANGELOG.md`
-
----
-
-**Last Updated:** 2025-10-19
-**Next Review:** 2025-11-19
+Last updated: 2025-10-19
+Next review: 2025-11-19
