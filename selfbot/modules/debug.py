@@ -24,6 +24,7 @@ from selfbot.utils import aexec, fmtexc, fmtsec, ids, ikm, shell
 
 pattern = re.compile(r"^(?:e\s+.+|.+#|#)$", flags=re.DOTALL)
 
+OUTPUT_TRUNCATE_LENGTH = 512
 
 class Debug(Module):
     name = "Debug"
@@ -260,7 +261,7 @@ class Debug(Module):
             if isinstance(event, Message):
                 rtt = f"<a href={url}>{rtt}</a>"
 
-            out = f"{out[:512]}..."
+            out = f"{out[:OUTPUT_TRUNCATE_LENGTH]}..."
 
         await edit(
             f"<code>{html.escape(out)}</code>\n\n<b><blockquote>{rtt}</blockquote></b>",
