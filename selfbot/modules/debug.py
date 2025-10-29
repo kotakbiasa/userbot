@@ -87,9 +87,10 @@ class Debug(Module):
                     html.escape(event.content.markdown).removesuffix("#").rstrip()
                 ),
             )
-            return await event.reply_inline_bot_result(
+            await event.reply_inline_bot_result(
                 res.query_id, res.results[0].id, quote=True
             )
+            return
 
         cmd, msg = await asyncio.gather(
             event.edit_text(
