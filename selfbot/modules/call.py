@@ -51,7 +51,8 @@ class Call(Module):
     async def on_starting(self) -> None:
         if not load:
             self.logger.warning("PyTgCalls None")
-            return self.client.unload(self)
+            self.client.unload(self)
+            return
 
         self.client.call = PyTgCalls(self.client.app, 1, 15)
         self.logger.info("Starting PyTgCalls...")
