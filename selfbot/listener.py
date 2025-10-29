@@ -16,14 +16,14 @@ class Listener:
         self.priority = priority
 
     def __lt__(self, other: "Listener") -> bool:
-        if not isinstance(other, Listener):
             return NotImplemented
 
-        return self.priority < other.priority
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Listener):
             return NotImplemented
         return self.priority == other.priority
+
 
 
 
