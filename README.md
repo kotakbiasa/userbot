@@ -1,81 +1,87 @@
 # Telegram Selfbot
 
-A modular Telegram selfbot built with [PyroTgFork](https://github.com/TelegramPlayground/pyrogram) (Pyrogram fork) and PostgreSQL.
+A modular Telegram selfbot built with PyroTgFork (a Pyrogram fork) and PostgreSQL for persistent storage. This repository provides an event-driven framework for automating a Telegram user account (selfbot). Use responsibly — selfbots violate Telegram Terms of Service and may result in account restrictions.
 
-## Features
+Version: 2025-10-27  
+Python: 3.11+ | Database: PostgreSQL | Framework: PyroTgFork
 
-- 🔌 **Modular Architecture** - Easy to add/remove features
-- 🗄️ **PostgreSQL Storage** - Persistent sessions and data
-- 🎯 **Event-Driven** - Priority-based listener system
-- 🔄 **Hot Reload** - Update code without losing sessions
-- 🐳 **Docker Ready** - Deploy anywhere with containers
-- ⚡ **Async/Await** - Fast and efficient operations
+## Key Features
+
+- Modular architecture for easy extension and removal of features
+- PostgreSQL storage for persistent sessions and state
+- Event-driven design with a priority-based listener system
+- Hot reload to update code without losing sessions
+- Docker-ready for containerized deployments
+- Async/await for efficient, non-blocking operations
 
 ## Built-in Modules
 
-| Module | Command | Description |
-|--------|---------|-------------|
-| **AFK** | `afk [reason]` | Auto-reply when mentioned |
-| **Call** | `[action]call [options]` | Join/manage voice chats |
-| **Debug** | `code#` or `e code` | Execute Python code |
-| **Delete** | `d` or `del` | Delete messages |
-| **GenAI** | `query !?` | Chat with Gemini AI |
-| **Graph** | `graph [text] -t [title]` | Create Telegraph pages |
-| **Help** | `help[/module]` | Show available commands |
-| **Ping** | `p` or `ping` | Check bot latency |
-| **Purge** | `purge[me] [limit]` | Bulk delete messages |
-| **Restart** | `r` | Restart and update bot |
+| Module  | Command                      | Description                         |
+|--------:|------------------------------|-------------------------------------|
+| AFK     | `afk` / `afk -r [reason]`    | Toggle AFK status; use `-r` to set a reason |
+| Call    | `[action]call [options]`     | Join and manage voice chats         |
+| Debug   | `code#` or `e code`          | Execute Python code                 |
+| Delete  | `d` or `del`                 | Delete messages                     |
+| GenAI   | `query !?`                   | Chat with Gemini AI (GenAI module)  |
+| Graph   | `graph [text] -t [title]`    | Create Telegraph pages              |
+| Help    | `help[/module]`              | Show available commands             |
+| Ping    | `p` or `ping`                | Check latency                       |
+| Purge   | `purge[me] [limit]`          | Bulk delete messages                |
+| Restart | `r`                          | Restart and update the application  |
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.11 or newer
 - PostgreSQL database
-- Telegram API credentials ([get here](https://my.telegram.org))
-- Bot token from [@BotFather](https://t.me/BotFather)
+- Telegram API credentials (get from https://my.telegram.org)
+- Bot token from @BotFather (if using bot account features)
+- Optional: Gemini API key for the GenAI module
 
-### Installation
+### Local installation
 
-1. **Clone the repository**
+1. Clone the repository
    ```bash
    git clone https://github.com/DeltaUniverse/selfbot.git
    cd selfbot
    ```
 
-2. **Install dependencies**
+2. Install dependencies (Poetry recommended)
    ```bash
    pip install poetry
    poetry install
    ```
 
-3. **Configure environment**
+3. Configure environment
    ```bash
    cp .env.example .env
-   # Edit .env with your credentials
+   # Edit .env and add API_ID, API_HASH, DATABASE_URL, etc.
    ```
 
-4. **Run the bot**
+4. Run the application
    ```bash
    poetry run python -m selfbot
    ```
 
-### Docker Setup
+### Docker
 
+Build and run with docker-compose:
 ```bash
-# Build and run with docker-compose
 docker-compose up -d
-
-# View logs
 docker-compose logs -f selfbot
-
-# Stop
 docker-compose down
 ```
 
-## Configuration
+Production image:
+```bash
+docker build -t selfbot:latest .
+docker run -d --env-file .env selfbot:latest
+```
 
-Create a `.env` file in the root directory:
+## Configuration (.env)
+
+Create a `.env` file in the repository root and set the required variables:
 
 ```env
 # Required
@@ -84,74 +90,75 @@ API_HASH=your_api_hash
 DATABASE_URL=postgresql://user:pass@host:5432/dbname
 
 # Optional
-GEMINI_API_KEY=your_gemini_key  # For GenAI module
-STICKER_FILE_ID=file_id         # Custom inline sticker
+GEMINI_API_KEY=your_gemini_api_key
+STICKER_FILE_ID=file_id
 REMOTE=https://github.com/YourRepo/selfbot
 BRANCH=main
 ```
 
 ## Usage Examples
 
-### Basic Commands
+Basic commands:
 ```
 # Check bot status
 ping
 
-# Get help
+# Show help
 help
 help/debug
 
-# Delete messages
+# Delete a message (reply to the message)
 <reply to message> d
+
+# Purge messages (reply to a starting message)
 <reply to start> purge 50
 
-# Execute code
+# Execute Python code
 print("Hello")#
 e await app.send_message("me", "Test")
 ```
 
-### AFK Mode
+AFK mode:
 ```
-# Set AFK with reason
-afk Working on something
+# Set AFK with a reason (use -r to provide a reason)
+afk -r Working on something
 
-# Remove AFK (same command)
+# Remove AFK (call the command without -r)
 afk
 ```
 
-### AI Chat
+GenAI (Gemini) chat:
 ```
 # Ask Gemini
 What is Telegram MTProto? !?
 
-# With context (reply/quote to message)
+# With context (reply to a message)
 <reply to message> Explain this !?
 ```
 
-### Telegraph Pages
+Create Telegraph pages:
 ```
-# Create page
-graph Hello, World! -t My Page
+# Create page from inline text
+graph Hello, World! -t "My Page"
 
-# From replied message
-<reply to message> graph -t Article Title
+# Create page from a replied message
+<reply to message> graph -t "Article Title"
 ```
 
 ## Development
 
-### Project Structure
+Project structure:
 ```
 selfbot/
 ├── core/           # Core components (database, dispatcher, etc.)
 ├── modules/        # Feature modules
-├── utils/          # Helper functions
+├── utils/          # Helper utilities
 ├── __init__.py
 ├── __main__.py
 └── main.py         # Entry point
 ```
 
-### Creating a Module
-
+Creating a module (example):
 ```python
 from pyrogram import filters
 from pyrogram.types import Message
@@ -171,18 +178,8 @@ class MyModule(Module):
 
 ## Deployment
 
-### Using Docker
-
-```bash
-# Production build
-docker build -t selfbot:latest .
-docker run -d --env-file .env selfbot:latest
-```
-
-### Using systemd
-
+systemd service example:
 Create `/etc/systemd/system/selfbot.service`:
-
 ```ini
 [Unit]
 Description=Telegram Selfbot
@@ -199,67 +196,63 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 ```
-
 Enable and start:
 ```bash
 sudo systemctl enable selfbot
 sudo systemctl start selfbot
 ```
 
+Docker and docker-compose instructions are provided above for containerized deployments.
+
 ## Troubleshooting
 
-### Common Issues
+Common issues and suggestions:
 
-**"Database connection failed"**
-- Check `DATABASE_URL` format
-- Ensure PostgreSQL is running
-- Verify credentials and database exists
+- Database connection failed
+  - Verify DATABASE_URL format and credentials
+  - Ensure PostgreSQL is running and reachable
 
-**"API_ID/API_HASH invalid"**
-- Get new credentials from https://my.telegram.org
-- Check for typos in `.env`
+- Invalid API_ID/API_HASH
+  - Obtain fresh credentials at https://my.telegram.org
+  - Double-check for typos in `.env`
 
-**"Module not loading"**
-- Check module syntax and imports
-- View logs: `docker-compose logs -f` or check console
+- Module not loading
+  - Check module syntax and imports
+  - Inspect logs: `docker-compose logs -f` or application console
 
-**"Flood wait errors"**
-- Telegram rate limits apply
-- Bot auto-sleeps for small waits (<30s)
-- For large operations, use `purge` with limits
+- Flood-wait errors
+  - Telegram rate limits apply; the application will back off for small waits (<30s)
+  - Use `purge` with safe limits for large operations
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+We welcome contributions. Suggested workflow:
+1. Fork the repository.
+2. Create a feature branch (for example, feature/my-feature or fix/issue-123).
+3. Make changes and add tests where appropriate.
+4. Run linting and tests.
+5. Open a pull request with a clear description of the change.
 
-**Note:** Focus on working features over perfect code. See `BACKLOG.md` for improvement ideas.
+Focus on functional improvements and tests. See BACKLOG.md for ideas.
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) file for details.
+This project is released under the MIT License. See the LICENSE file for details.
 
-## Disclaimer
+## Disclaimer and Responsible Use
 
-This is a **selfbot** (user account automation), which is against [Telegram's Terms of Service](https://telegram.org/tos). Use at your own risk.
+This repository implements a selfbot (automating a user account), which is against Telegram's Terms of Service. Use at your own risk.
 
-- ⚠️ Your account may be banned
-- 🔒 Keep your credentials secure
-- 🚫 Don't spam or abuse the API
-- 👤 Use responsibly and ethically
+- Your account may be banned.
+- Keep your credentials secure.
+- Do not spam or abuse the API.
+- Use ethically and responsibly.
 
-**For educational purposes only.**
+This project is provided for educational purposes only.
 
 ## Support
 
-- 📖 Documentation: Check module docstrings and `help` command
-- 🐛 Issues: [GitHub Issues](https://github.com/YourUsername/selfbot/issues)
-- 💬 Discussions: [Telegram Discussions](https://t.me/deltaDiscuss)
-
----
-
-**Version:** 2025.10.19
-**Python:** 3.11+ | **Database:** PostgreSQL | **Framework:** PyroTgFork
+- Documentation: check module docstrings and the in-app `help` command
+- Issues: use GitHub Issues for bug reports and feature requests
+- Discussions: use the project's Telegram group or discussion channels if available
+- 
