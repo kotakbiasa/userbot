@@ -38,5 +38,4 @@ pytgcalls = ["py-tgcalls (>=2.2.8,<3.0.0)"]
 requires = ["poetry-core>=2.2.1,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry]
-requires-poetry = ">=2.0"
+
