@@ -22,7 +22,8 @@ dependencies = [
 ]
 
 [[project.authors]]
-name = "DeltaUniverse <deltauniverse@github.org>"
+name = "DeltaUniverse"
+email = "deltauniverse@github.org"
 
 [project.scripts]
 selfbot = "selfbot.main:run"
