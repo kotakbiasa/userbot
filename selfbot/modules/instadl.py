@@ -54,15 +54,16 @@ class InstaDL(Module):
         self.session_file = Path(".instaloader_session")
         self.ig_user = self.client.config.get("instagram_username")
         self.ig_pass = self.client.config.get("instagram_password")
-        self._session_state = "uninitialized"
-        # Schedule initialization in the background
-        asyncio.create_task(self.initialize_loader())
+        self._session_state = "uninitialized"        
 
-    async def initialize_loader(self):
+    async def on_starting(self):
         """Initializes the Instaloader instance and logs in."""
         self.logger.info("Initializing Instaloader...")
         self.downloads_dir.mkdir(parents=True, exist_ok=True)
 
+        if self.loader: # Already initialized
+            return
+            
         self.loader = instaloader.Instaloader(
             download_videos=True,
             download_video_thumbnails=False,
