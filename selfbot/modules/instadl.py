@@ -5,6 +5,7 @@ import re
 
 from pyrogram import filters
 from pyrogram.types import Message
+from pyrogram.types import InputMediaVideo, InputMediaPhoto
 
 from selfbot import listener
 from selfbot.module import Module
@@ -29,14 +30,11 @@ class InstaDL(Module):
 
     def _build_caption(self, metadata: dict, rtt: str) -> str:
         """Membangun caption untuk media yang diunduh."""
-        title = html.escape(metadata.get("title", "No caption."))
-        source = metadata.get("source") # URL asli Instagram
+        caption_text = html.escape(metadata.get("caption", "No caption."))
 
         caption_parts = [
-            f"<blockquote>{title}</blockquote>"
+            f"<blockquote>{caption_text}</blockquote>"
         ]
-        if source:
-            caption_parts.append(f"<a href='{source}'>Source</a>")
 
         caption_parts.append(f"<b><blockquote>{rtt}</blockquote></b>")
         return "\n".join(caption_parts)
@@ -44,49 +42,44 @@ class InstaDL(Module):
     async def _process_download(self, event: Message, url: str):
         """Memproses URL, mengunduh media, dan mengirimkannya."""
         now = datetime.datetime.now(datetime.UTC)
-        api_url = "https://api.ferdev.my.id/downloader/instagram"
-        # Saran: Pindahkan API Key ke environment variable untuk keamanan.
-        # Contoh: INSTADL_API_KEY="key_anda"
-        api_key = self.client.config.get("instadl_api_key", "key_iOPE5w")
-        if api_key == "key_iOPE5w":
-            self.logger.warning("Using a hardcoded API key for the InstaDL module. Please set INSTADL_API_KEY.")
-        params = {"link": url, "apikey": api_key}
+        api_url = "https://api.maher-zubair.tech/download/instagram"
+        params = {"url": url}
         
         try:
             resp = await self.client.http.get(api_url, params=params, timeout=40)
             resp.raise_for_status()
             data = resp.json()
 
-            if not data.get("success") or "data" not in data:
-                error_message = data.get("message", "Unknown API error.")
+            if data.get("status") != 200 or "result" not in data:
+                error_message = data.get("message", "Unknown API error. The API might be down.")
                 raise ValueError(error_message)
 
-            media_data = data["data"]
-            download_info = media_data.get("download", [])
+            result_data = data["result"]
+            media_files = result_data.get("data", [])
 
-            if not download_info:
+            if not media_files:
                 raise ValueError("No media found in the API response.")
 
-            caption = self._build_caption(media_data, fmtsec(now))
+            caption = self._build_caption(result_data, fmtsec(now))
 
-            if len(download_info) > 1:
+            if len(media_files) > 1:
                 # Handle album/carousel
                 media_group = []
-                for i, item in enumerate(download_info):
+                for i, item in enumerate(media_files):
                     media_url = item["url"]
-                    media_ext = item.get("ext", "").lower()
+                    media_type = item.get("type", "image")
                     item_caption = caption if i == 0 else None  # Caption hanya di item pertama
-                    if media_ext == "mp4":
+                    if media_type == "video":
                         media_group.append(InputMediaVideo(media_url, caption=item_caption))
                     else:
                         media_group.append(InputMediaPhoto(media_url, caption=item_caption))
                 await event.reply_media_group(media_group)
             else:
                 # Handle single media
-                first_media = download_info[0]
+                first_media = media_files[0]
                 download_url = first_media["url"]
-                media_ext = first_media.get("ext", "").lower()
-                if media_ext == "mp4":
+                media_type = first_media.get("type", "image")
+                if media_type == "video":
                     await event.reply_video(video=download_url, caption=caption)
                 else:
                     await event.reply_photo(photo=download_url, caption=caption)
