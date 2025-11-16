@@ -4,11 +4,16 @@ import re
 
 from pyrogram import filters
 from pyrogram.enums import ChatType
-from pyrogram.errors import NoActiveGroupCall, UserAlreadyParticipant
 from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
+
+try:
+    from pytgcalls.exceptions import NoActiveGroupCall, UserAlreadyParticipant
+except ImportError:
+    # These will be None if pytgcalls is not installed.
+    NoActiveGroupCall = UserAlreadyParticipant = None
 
 # Pola Regex untuk perintah vcall
 pattern = re.compile(r"^(join|leave)$")
@@ -29,7 +34,7 @@ class VCall(Module):
         self.is_vcall_active = False
         self.active_chat_id = None
         # Pastikan klien asisten telah diinisialisasi di core selfbot
-        if not self.client.assistant:
+        if not self.client.assistant or not NoActiveGroupCall:
             self.log.warning("Assistant client is not initialized. VCall module will be disabled.")
             # Menonaktifkan handler jika asisten tidak ada
             listener.remove_handler(self.on_vcall_command)
