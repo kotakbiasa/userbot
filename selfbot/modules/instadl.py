@@ -4,6 +4,7 @@ import re
 import shutil
 import tempfile
 import random
+import datetime
 import time
 from pathlib import Path
 
@@ -131,23 +132,24 @@ class InstaDL(Module):
 
     async def _download_post(self, shortcode: str):
         """Downloads a post and returns file paths and caption."""
-        temp_dir_path = self.downloads_dir / f"instagram_{shortcode}"
-        await asyncio.to_thread(temp_dir_path.mkdir, parents=True, exist_ok=True)
-        self.loader.dirname_pattern = str(temp_dir_path)
-
         post = await asyncio.to_thread(
             instaloader.Post.from_shortcode, self.loader.context, shortcode
         )
+
+        # The target directory will be named after the profile
+        target_profile = post.owner_username
+        temp_dir_path = self.downloads_dir / target_profile
 
         caption = post.caption or ""
         if caption:
             caption = f"<blockquote>{html.escape(caption)}</blockquote>"
 
-        await asyncio.to_thread(self.loader.download_post, post, target="")
+        # Let instaloader handle the download and directory creation
+        await asyncio.to_thread(self.loader.download_post, post, target=target_profile)
 
         media_files = [
             f
-            for f in temp_dir_path.glob("*")
+            for f in temp_dir_path.glob(f"{post.date_utc.strftime('%Y-%m-%d_%H-%M-%S')}_UTC*")
             if f.suffix.lower() in {".mp4", ".jpg", ".jpeg", ".png"}
         ]
         if not media_files:
@@ -176,7 +178,7 @@ class InstaDL(Module):
     @listener.handler(filters.regex(pattern), priority=1)
     async def on_message_out(self, event: Message):
         """Handles the .instadl command."""
-        start_time = time.time()
+        start_time = datetime.datetime.now(datetime.UTC)
         url = event.matches[0].group(1).strip()
         if not url:
             await event.edit_text("<code>Please provide an Instagram URL.</code>")
@@ -197,12 +199,22 @@ class InstaDL(Module):
                     files, caption, temp_dir = await self._download_post(shortcode)
                     media_files = files
                     media_types = ["video" if f.suffix.lower() == ".mp4" else "image" for f in media_files]
-                except instaloader.exceptions.LoginRequiredException:
+                except instaloader.exceptions.LoginRequiredException as e:
                     self.logger.error("Instaloader: Login is required. Session might be invalid. Deleting session file.")
                     if self.session_file.exists():
                         self.session_file.unlink()
-                    await event.edit_text("<b>Error:</b> Instagram session is invalid. Please restart the bot to log in again.")
-                    return # Stop execution
+                    raise ConnectionError("Instagram session is invalid. Please restart the bot to log in again.") from e
+                except (instaloader.exceptions.PrivateProfileNotFollowedException, instaloader.exceptions.ProfileNotExistsException) as e:
+                    self.logger.warning(f"Instaloader: Cannot access profile. {e}")
+                    raise ValueError(f"Cannot access profile: {e}") from e
+                except instaloader.exceptions.TwoFactorAuthRequiredException as e:
+                    self.logger.error("Instaloader: Two-factor authentication is required. Cannot log in.")
+                    raise ConnectionError("Instagram login failed: 2FA is required. Please handle this manually.") from e
+                except instaloader.exceptions.BadCredentialsException as e:
+                    self.logger.error(f"Instaloader: Bad credentials. {e}")
+                    if self.session_file.exists():
+                        self.session_file.unlink()
+                    raise ConnectionError("Bad Instagram credentials. Please check your config.") from e
                 except Exception as e: # Catch other instaloader/network errors
                     self.logger.warning(f"Instaloader failed: {e}. Falling back to API.")
                     media_files = [] # Reset to trigger fallback
