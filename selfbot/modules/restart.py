@@ -38,7 +38,7 @@ class Restart(Module):
         def check() -> bool:
             repo = git.Repo(".") if os.path.isdir(".git") else git.Repo.init(".")
             remote, branch = self.client.config.get(
-                "remote", "https://github.com/DeltaUniverse/selfbot"
+                "remote", "https://github.com/kotakbiasa/userbot"
             ).removesuffix(".git"), self.client.config.get("branch", "staging")
             fetch(repo, remote)
             repo.git.reset("--hard", f"origin/{branch}")
