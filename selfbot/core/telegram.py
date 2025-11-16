@@ -260,6 +260,7 @@ class Telegram(abc.ABC):
                 "GEMINI_API_KEY",
                 "GEMINI_MODEL",
                 "STICKER_FILE_ID",
+                "ASSISTANT_SESSION",
             ):
                 self.config[key.lower()] = os.environ[key]
 
