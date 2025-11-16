@@ -24,9 +24,10 @@ class Stats(Module):
 
     async def on_starting(self) -> None:
         """Create the stats table if it doesn't exist."""
+        await self.client.db.execute("CREATE SCHEMA IF NOT EXISTS stats;")
         await self.client.db.execute(
             """
-            CREATE TABLE IF NOT EXISTS stats (
+            CREATE TABLE IF NOT EXISTS stats.stats (
                 key TEXT PRIMARY KEY,
                 value BIGINT NOT NULL DEFAULT 0
             );
@@ -42,14 +43,14 @@ class Stats(Module):
     async def get_stat(self, key: str) -> int:
         """Gets a statistic value from the database."""
         return await self.client.db.fetchval(
-            "SELECT value FROM stats WHERE key = $1", key
+            "SELECT value FROM stats.stats WHERE key = $1", key
         )
 
     async def set_stat(self, key: str, value: int) -> None:
         """Sets or updates a statistic value."""
         await self.client.db.execute(
             """
-            INSERT INTO stats (key, value) VALUES ($1, $2)
+            INSERT INTO stats.stats (key, value) VALUES ($1, $2)
             ON CONFLICT (key) DO UPDATE SET value = $2;
             """,
             key,
@@ -60,8 +61,8 @@ class Stats(Module):
         """Increments a statistic value."""
         await self.client.db.execute(
             """
-            INSERT INTO stats (key, value) VALUES ($1, $2)
-            ON CONFLICT (key) DO UPDATE SET value = stats.value + $2;
+            INSERT INTO stats.stats (key, value) VALUES ($1, $2)
+            ON CONFLICT (key) DO UPDATE SET value = stats.stats.value + $2;
             """,
             key,
             amount,
@@ -98,7 +99,7 @@ class Stats(Module):
 
         if reset_arg == "reset":
             await event.edit_text("<code>Resetting stats...</code>")
-            await self.client.db.execute("TRUNCATE TABLE stats;")
+            await self.client.db.execute("TRUNCATE TABLE stats.stats;")
             await self.set_stat(
                 "start_time_utc", int(self.client.start_time_utc.timestamp())
             )
@@ -108,10 +109,15 @@ class Stats(Module):
         await event.edit_text("<code>Calculating stats...</code>")
 
         start_timestamp = await self.get_stat("start_time_utc")
-        start_time = datetime.datetime.fromtimestamp(
-            start_timestamp, tz=datetime.timezone.utc
-        )
-        uptime_delta = now - start_time
+        if start_timestamp:
+            start_time = datetime.datetime.fromtimestamp(
+                start_timestamp, tz=datetime.timezone.utc
+            )
+            uptime_delta = now - start_time
+        else:
+            # Jika tidak ada timestamp, uptime dianggap nol
+            start_time = now
+            uptime_delta = datetime.timedelta(seconds=0)
 
         sent = await self.get_stat("sent") or 0
         sent_stickers = await self.get_stat("sent_stickers") or 0
@@ -121,7 +127,7 @@ class Stats(Module):
 
         # Helper functions for calculations
         def _calc_pct(num1: int, num2: int) -> str:
-            return f"{(num1 / num2) * 100:.1f}" if num2 else "0"
+            return f"{(num1 / num2) * 100:.1f}" if num1 and num2 else "0"
 
         def _calc_ph(stat: int) -> str:
             up_hr = max(1, uptime_delta.total_seconds()) / 3600
