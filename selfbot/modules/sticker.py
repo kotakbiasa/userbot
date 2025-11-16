@@ -1,6 +1,7 @@
 import asyncio
 import io
 import os
+import datetime
 import random
 import re
 import shutil
@@ -21,7 +22,7 @@ from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import shell
+from selfbot.utils import shell, fmtsec
 
 EMOJIS = ("☕", "🤡", "🙂", "🤔", "🔪", "😂", "💀")
 
@@ -49,12 +50,14 @@ class Sticker(Module):
             return
 
         response = await event.edit_text("<code>Processing...</code>")
+        now = datetime.datetime.now(datetime.UTC)
 
         try:
             file_id, emoji = await media_func(self, message=replied_msg, ff="-f" in event.text)
             stickers = await self._kang_sticker(event._client, file_id, emoji, user=event.from_user)
             await response.edit(
-                f"Success: <a href='t.me/addstickers/{stickers.set.short_name}'>here</a>",
+                f"<b>Success:</b> <a href='t.me/addstickers/{stickers.set.short_name}'>here</a>\n"
+                f"<b><blockquote>{fmtsec(now)}</blockquote></b>",
                 disable_web_page_preview=True,
             )
         except Exception as e:
