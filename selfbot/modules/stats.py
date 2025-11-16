@@ -109,7 +109,7 @@ class Stats(Module):
 
         start_timestamp = await self.get_stat("start_time_utc")
         start_time = datetime.datetime.fromtimestamp(
-            start_timestamp, tz=datetime.UTC
+            start_timestamp, tz=datetime.timezone.utc
         )
         uptime_delta = now - start_time
 
