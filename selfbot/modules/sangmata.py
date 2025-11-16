@@ -12,6 +12,7 @@ from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
+from selfbot.utils import fmtsec
 
 pattern = re.compile(r"^sg(?: (.+))?$")
 
@@ -27,6 +28,7 @@ class SangMata(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_sg_command(self, event: Message) -> None:
         """Handles the .sg command to get user history via @SangMata_bot."""
+        now = datetime.datetime.now(datetime.UTC)
         response_msg = await event.edit_text("<code>Processing...</code>")
 
         target_identifier = None
@@ -73,8 +75,8 @@ class SangMata(Module):
                     break
 
             if bot_reply and bot_reply.text:
-                # The bot's response might contain markdown, so we send it as is.
-                await response_msg.edit_text(bot_reply.text)
+                # The bot's response might contain markdown, so we send it as is, with a timestamp.
+                await response_msg.edit_text(f"{bot_reply.text}\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>")
             else:
                 await response_msg.edit_text(f"❌ <b>{sangmata_bot} did not respond.</b>")
 
