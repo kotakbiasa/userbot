@@ -251,7 +251,7 @@ class AnimePic(Module):
         (tag,) = event.matches[0].groups()
 
         try:
-            await event.answer("Searching for the next image...")
+            await event.answer("Refreshing...")
             now = datetime.datetime.now(datetime.UTC)
             new_result = await self.get_image_url(tag)
             rtt = fmtsec(now)
@@ -455,7 +455,7 @@ class AnimePic(Module):
 
     def build_keyboard(self, tag: str) -> ikm:
         """Membangun inline keyboard."""
-        return ikm([[("Next", f"animepic/next/{tag}"), ("Close", b"0")]])
+        return ikm([[("Refresh", f"animepic/next/{tag}"), ("Close", b"0")]])
 
     def build_caption(
         self,
