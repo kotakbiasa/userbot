@@ -3,6 +3,7 @@ import html
 import re
 import shutil
 import tempfile
+import random
 import time
 from pathlib import Path
 
@@ -17,18 +18,20 @@ from selfbot.module import Module
 class SimpleRateController(instaloader.RateController):
     """A simple rate controller for Instaloader to avoid blocking."""
 
-    def __init__(self, context, sleep_time=2):
+    def __init__(self, context):
         super().__init__(context)
-        self.sleep_time = sleep_time
+        self.min_sleep = 2
+        self.max_sleep = 5
 
     def sleep(self, secs):
         time.sleep(secs)
 
     def query_waittime(self, query_type, current_time, untracked_queries=False):
-        return self.sleep_time
+        """Introduce random jitter to sleep times to mimic human behavior."""
+        return random.uniform(self.min_sleep, self.max_sleep)
 
     def handle_429(self, query_type):
-        self.sleep(self.query_waittime(query_type, time.time()))
+        self.sleep(random.uniform(10, 20)) # Sleep longer on a 429 error
 
     def count_per_sliding_window(self, query_type):
         return 1
@@ -65,6 +68,7 @@ class InstaDL(Module):
             return
             
         self.loader = instaloader.Instaloader(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
             download_videos=True,
             download_video_thumbnails=False,
             download_geotags=False,
@@ -74,7 +78,7 @@ class InstaDL(Module):
             post_metadata_txt_pattern="",
             max_connection_attempts=3,
             request_timeout=30,
-            rate_controller=lambda ctx: SimpleRateController(ctx, 2),
+            rate_controller=lambda ctx: SimpleRateController(ctx),
             quiet=True,
         )
 
@@ -93,6 +97,9 @@ class InstaDL(Module):
                 return
             except Exception as e:
                 self.logger.warning(f"Instagram: Session file invalid, logging in fresh. Error: {e}")
+                # Delete the invalid session file to force a new login
+                if self.session_file.exists():
+                    self.session_file.unlink()
 
         try:
             await asyncio.to_thread(self.loader.login, self.ig_user, self.ig_pass)
@@ -188,7 +195,13 @@ class InstaDL(Module):
                     files, caption, temp_dir = await self._download_post(shortcode)
                     media_files = files
                     media_types = ["video" if f.suffix.lower() == ".mp4" else "image" for f in media_files]
-                except Exception as e:
+                except instaloader.exceptions.LoginRequiredException:
+                    self.logger.error("Instaloader: Login is required. Session might be invalid. Deleting session file.")
+                    if self.session_file.exists():
+                        self.session_file.unlink()
+                    await event.edit_text("<b>Error:</b> Instagram session is invalid. Please restart the bot to log in again.")
+                    return # Stop execution
+                except Exception as e: # Catch other instaloader/network errors
                     self.logger.warning(f"Instaloader failed: {e}. Falling back to API.")
                     media_files = [] # Reset to trigger fallback
 
