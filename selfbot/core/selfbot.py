@@ -25,20 +25,20 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
         self.logger = logging.getLogger(self.__class__.__name__)
 
         # --- Inisialisasi Klien Asisten ---
-        self.assistant = None
+        self.assistant_client = None
+        self.assistant_calls = None
         assistant_session = self.config.get("assistant_session")
 
         if PyTgCalls and assistant_session:
             self.logger.info("Assistant session found, initializing assistant client...")
-            assistant_client = Client(
+            self.assistant_client = Client(
                 name="assistant",
                 session_string=assistant_session,
                 api_id=self.config.get("api_id"),
                 api_hash=self.config.get("api_hash"),
                 in_memory=True
             )
-            # The assistant client is passed to PyTgCalls
-            self.assistant = PyTgCalls(assistant_client)
+            self.assistant_calls = PyTgCalls(self.assistant_client)
         else:
             if not assistant_session:
                 self.logger.warning("ASSISTANT_SESSION not set. Voice call features will be disabled.")
@@ -53,9 +53,9 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
         selfbot = cls(config)
         try:
             selfbot.http = AsyncClient(timeout=900)
-            if selfbot.assistant:
-                await selfbot.assistant.client.start()
-                await selfbot.assistant.start()
+            if selfbot.assistant_client:
+                await selfbot.assistant_client.start()
+                await selfbot.assistant_calls.start()
             await selfbot.run()
         finally:
             loop = asyncio.get_running_loop()
@@ -73,7 +73,7 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
                     self.app.stop(),
                     self.bot.stop(),
                     self.http.aclose(),
-                    *( (self.assistant.stop(), self.assistant.client.stop()) if self.assistant else (asyncio.sleep(0),) ),
+                    *( (self.assistant_calls.stop(), self.assistant_client.stop()) if self.assistant_client else (asyncio.sleep(0),) ),
                 ],
                 return_exceptions=True,
             )
