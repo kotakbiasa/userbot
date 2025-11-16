@@ -47,18 +47,26 @@ class Sysinfo(Module):
     def get_os_info(self) -> str:
         """Gets more descriptive OS information."""
         system = platform.system()
+        
+        def format_with_code(name, version):
+            return f"{name} <code>({version})</code>"
+
         if system == "Linux":
             try:
                 # Use freedesktop_os_release for a better distro name (Python 3.10+)
-                return platform.freedesktop_os_release().get(
-                    "PRETTY_NAME", f"{system} {platform.release()}"
-                )
+                release_info = platform.freedesktop_os_release()
+                pretty_name = release_info.get('PRETTY_NAME', f"{system} {platform.release()}")
+                # Extract version part if possible
+                match = re.match(r"([^(\s]+)\s+\(?(.*?)\)?$", pretty_name)
+                if match:
+                    return format_with_code(match.group(1), match.group(2))
+                return pretty_name
             except (FileNotFoundError, AttributeError):
-                return f"{system} {platform.release()}"  # Fallback
+                return format_with_code(system, platform.release())  # Fallback
         elif system == "Darwin":
-            return f"macOS {platform.mac_ver()[0]}"
+            return format_with_code("macOS", platform.mac_ver()[0])
 
-        return f"{system} {platform.release()}"
+        return format_with_code(system, platform.release())
 
     async def get_system_info(self) -> dict:
         """Gathers system information."""
