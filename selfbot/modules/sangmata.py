@@ -6,8 +6,8 @@ import re
 
 from pyrogram import filters
 from pyrogram.errors import RPCError
-from pyrogram.raw.functions.contacts import Unblock
-from pyrogram.raw.functions.messages import GetHistory, DeleteHistory
+from pyrogram.raw.functions.contacts import Unblock, Block
+from pyrogram.raw.functions.messages import DeleteHistory, GetHistory
 from pyrogram.types import Message
 
 from selfbot import listener
@@ -55,39 +55,37 @@ class SangMata(Module):
         bot_peer = await event._client.resolve_peer(sangmata_bot)
 
         try:
-            # Unblock the bot to ensure we can send messages
-            await event._client.invoke(Unblock(id=bot_peer))
-
             # Send the user ID to the bot
             txt = await event._client.send_message(sangmata_bot, str(user_id))
 
             # Wait for the bot's response
             bot_reply = None
-            for _ in range(15):  # Try for up to 15 seconds
+            for _ in range(10):  # Try for up to 10 seconds
                 await asyncio.sleep(1)
-                history = await event._client.invoke(
-                    GetHistory(
-                        peer=bot_peer,
-                        offset_id=0,
-                        offset_date=0,
-                        add_offset=0,
-                        limit=1,
-                        max_id=0,
-                        min_id=txt.id, # Only get messages after our request
-                        hash=0,
-                    )
-                )
-                if history.messages:
-                    bot_reply = history.messages[0]
+                # We check the history for a message that is a reply to our request
+                async for message in event._client.get_chat_history(sangmata_bot, limit=1):
+                    # The bot should reply, but some bots just send a new message.
+                    # We check if the message is from the bot and sent after our request.
+                    if message.from_user.username == sangmata_bot.lstrip('@') and message.date > txt.date:
+                        bot_reply = message
+                        break
+                if bot_reply:
                     break
-            
-            if bot_reply and hasattr(bot_reply, 'message') and bot_reply.message:
-                await response_msg.edit_text(html.escape(bot_reply.message))
+
+            if bot_reply and bot_reply.text:
+                # The bot's response might contain markdown, so we send it as is.
+                await response_msg.edit_text(bot_reply.text)
             else:
                 await response_msg.edit_text(f"❌ <b>{sangmata_bot} did not respond.</b>")
 
             # Clean up conversation with the bot
-            await event._client.invoke(DeleteHistory(peer=bot_peer, max_id=0, revoke=True))
+            # A short sleep to ensure messages are processed before deletion
+            await asyncio.sleep(1)
+            try:
+                await event._client.invoke(DeleteHistory(peer=bot_peer, max_id=0, revoke=True))
+            except RPCError:
+                # If deletion fails, just block the bot to hide the chat
+                await event._client.invoke(Block(id=bot_peer))
 
         except Exception as e:
             await response_msg.edit_text(f"<b>SangMata Error:</b> <code>{html.escape(str(e))}</code>")
