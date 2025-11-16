@@ -20,6 +20,8 @@ from .telegram import Telegram
 class Selfbot(Database, Dispatcher, Extender, Telegram):
     def __init__(self, config: dict) -> None:
         self.config = config
+        self.conf()  # Pindahkan pemuatan konfigurasi ke sini
+
         self.logger = logging.getLogger(self.__class__.__name__)
 
         # --- Inisialisasi Klien Asisten ---
@@ -90,5 +92,23 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
                 return str(cwd)
 
             cwd = cwd.parent
+
+        return str(pathlib.Path.cwd())
+
+    def conf(self) -> None:
+        """Loads configuration from environment variables."""
+        self.config.update(os.environ)  # Muat semua environment variables
+        # Konversi kunci tertentu ke huruf kecil untuk konsistensi
+        for key in os.environ:
+            if key in (
+                "BRANCH",
+                "REMOTE",
+                "DATABASE_URL",
+                "GEMINI_API_KEY",
+                "GEMINI_MODEL",
+                "STICKER_FILE_ID",
+                "ASSISTANT_SESSION",
+            ):
+                self.config[key.lower()] = os.environ[key]
 
         return str(pathlib.Path.cwd())
