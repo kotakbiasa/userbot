@@ -68,7 +68,7 @@ class Stats(Module):
         )
 
     # --- Event Listeners for Stat Collection ---
-    @listener.handler(filters.outgoing, group=-100, priority=3)
+    @listener.handler(filters.outgoing, 3)
     async def on_message_out_stat(self, msg: Message) -> None:
         """Log outgoing messages."""
         await self.inc_stat("sent")
@@ -76,12 +76,12 @@ class Stats(Module):
             await self.inc_stat("sent_stickers")
         # Check if it's a command by checking if it matches any module's pattern
         if any(
-            mod.name != self.name and hasattr(mod, "pattern") and mod.pattern.match(msg.text or "")
+            mod.name != self.name and hasattr(mod, "pattern") and getattr(mod, "pattern", None) and mod.pattern.match(msg.text or "")
             for mod in self.client.modules.values()
         ):
             await self.inc_stat("processed")
 
-    @listener.handler(filters.incoming, group=-100, priority=3)
+    @listener.handler(filters.incoming, 3)
     async def on_message_in_stat(self, msg: Message) -> None:
         """Log incoming messages."""
         await self.inc_stat("received")
