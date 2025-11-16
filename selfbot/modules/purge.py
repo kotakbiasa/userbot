@@ -65,12 +65,16 @@ class Purge(Module):
                 last = limit or 100
                 mids = range(event.id - 1, event.id - (last + 1), -1)
 
+        if not mids:
+            await event.edit_text("<code>No messages found to purge.</code>")
+            return
+
         res, now = 0, datetime.datetime.now(datetime.UTC)
         for chunk in (mids[i : i + 100] for i in range(0, len(mids), 100)):
             res += await event._client.delete_messages(event.chat.id, chunk)
             if res % 100 == 0:
                 await asyncio.sleep(2.5)
-
+ 
         await event.edit_text(
             fmtstr(
                 f"Purge{'me' if me else ''}",
