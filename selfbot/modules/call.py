@@ -117,10 +117,10 @@ class Call(Module):
             )
             return
 
-        if not chat_id:
-            chat_id = event.chat.id
-        else:
-            try:
+        try:
+            if not chat_id:
+                chat_id = event.chat.id
+            else:
                 chat = await event._client.get_chat(chat_id, False)
             except RPCError as e:
                 await event.edit_text(

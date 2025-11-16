@@ -71,8 +71,7 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
                     self.app.stop(),
                     self.bot.stop(),
                     self.http.aclose(),
-                    self.assistant.stop() if self.assistant else asyncio.sleep(0),
-                    self.assistant.client.stop() if self.assistant else asyncio.sleep(0),
+                    *( (self.assistant.stop(), self.assistant.client.stop()) if self.assistant else (asyncio.sleep(0),) ),
                 ],
                 return_exceptions=True,
             )

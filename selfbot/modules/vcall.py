@@ -32,12 +32,10 @@ class VCall(Module):
     async def on_starting(self):
         """Inisialisasi saat startup."""
         # Pastikan klien asisten telah diinisialisasi di core selfbot
-        if not self.client.assistant or not UserAlreadyParticipant:
-            self.log.warning("Assistant client not configured or pytgcalls not installed. Module will be unloaded.")
+        if not self.client.assistant:
+            self.logger.warning("Assistant client not configured or pytgcalls not installed. Module will be unloaded.")
             self.client.unload(self)
             return
-        self.is_vcall_active = False
-        self.active_chat_id = None
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_vcall_command(self, event: Message) -> None:
@@ -56,51 +54,45 @@ class VCall(Module):
 
     async def _join_call(self, event: Message):
         """Logika untuk bergabung ke panggilan suara."""
-        if self.is_vcall_active:
+        # Periksa apakah asisten sudah dalam panggilan di grup ini
+        if any(call.chat_id == event.chat.id for call in self.client.assistant.calls):
             await self._edit_and_delete(event, "<code>Assistant is already in a voice call.</code>")
             return
 
         await event.edit_text("<code>Assistant is joining the voice call...</code>")
 
         try:
+            # Bergabung dengan panggilan suara di grup saat ini
             await self.client.assistant.join_group_call(event.chat.id)
-            self.is_vcall_active = True
-            self.active_chat_id = event.chat.id
             await event.edit_text("<b>Assistant has joined the voice call.</b>")
 
         except UserAlreadyParticipant:
-            self.is_vcall_active = True
-            self.active_chat_id = event.chat.id
             await self._edit_and_delete(event, "<code>Assistant is already in this voice call.</code>")
         except NoActiveGroupCall:
             await self._edit_and_delete(event, "<code>There is no active voice call in this group.</code>")
         except Exception as e:
+            # Tangani error lain yang mungkin terjadi
             await event.edit_text(f"<b>Error joining call:</b>\n<code>{html.escape(str(e))}</code>")
 
     async def _leave_call(self, event: Message):
         """Logika untuk meninggalkan panggilan suara."""
-        if not self.is_vcall_active:
+        # Periksa apakah asisten sedang dalam panggilan di grup ini
+        if not any(call.chat_id == event.chat.id for call in self.client.assistant.calls):
             await self._edit_and_delete(event, "<code>Assistant is not in any voice call.</code>")
-            return
-
-        # Jika perintah leave dijalankan di chat yang berbeda dari call aktif
-        if event.chat.id != self.active_chat_id:
-            await self._edit_and_delete(event, "<code>Use the 'leave' command in the group where the call is active.</code>")
             return
 
         await event.edit_text("<code>Assistant is leaving the voice call...</code>")
 
         try:
+            # Perintahkan asisten untuk meninggalkan panggilan
             await self.client.assistant.leave_group_call(event.chat.id)
-            self.is_vcall_active = False
-            self.active_chat_id = None
             await event.edit_text("<b>Assistant has left the voice call.</b>")
 
         except NoActiveGroupCall:
-            self.is_vcall_active = False
-            self.active_chat_id = None
+            # Jika tidak ada panggilan aktif untuk ditinggalkan
             await self._edit_and_delete(event, "<code>There is no active voice call to leave.</code>")
         except Exception as e:
+            # Tangani error lain yang mungkin terjadi
             await event.edit_text(f"<b>Error leaving call:</b>\n<code>{html.escape(str(e))}</code>")
 
     async def _edit_and_delete(self, message: Message, text: str, duration: int = 8):
