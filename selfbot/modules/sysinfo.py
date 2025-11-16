@@ -85,6 +85,7 @@ class Sysinfo(Module):
             "OS": self.get_os_info(),
             "Kernel": platform.release(),
             "CPU": cpu_info_str,
+            "Processor": platform.processor(),
             "Architecture": platform.machine(),
         }
 
