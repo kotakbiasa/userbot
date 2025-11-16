@@ -1,144 +1,113 @@
+import asyncio
 import datetime
-import html
 import re
 
+import psutil
 from pyrogram import filters
+from pyrogram.enums import MessageMediaType
 from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import fmtsec, fmtstr
 
-pattern = re.compile(r"^stats(?:\s+(reset))?$")
+pattern = re.compile(r"^stats$")
+kang_pattern = re.compile(r"^kang(\s-f)?$")
 
 
 class Stats(Module):
     name = "Stats"
-    cmds = "stats (reset)?"
-    desc = {
-        "Info": "Shows usage statistics of your userbot.",
-        "reset": "Resets all collected statistics.",
-        "?": "Optional",
-        "e.g.": "stats",
-    }
+    cmds = "stats"
+    desc = "Displays usage statistics for your userbot."
 
     async def on_starting(self) -> None:
-        """Create the stats table if it doesn't exist."""
-        await self.client.db.execute("CREATE SCHEMA IF NOT EXISTS stats;")
+        """Initialize the module, create DB table, and set start time."""
+        self.start_time = datetime.datetime.now(datetime.UTC)
+        self.logger.info("Initializing stats table...")
         await self.client.db.execute(
             """
-            CREATE TABLE IF NOT EXISTS stats.stats (
+            CREATE TABLE IF NOT EXISTS stats (
                 key TEXT PRIMARY KEY,
                 value BIGINT NOT NULL DEFAULT 0
             );
             """
         )
-        # Initialize start time if it's a fresh start
-        if not await self.get_stat("start_time_utc"):
-            await self.set_stat(
-                "start_time_utc", int(self.client.start_time_utc.timestamp())
+        # Pastikan semua kunci statistik ada di database
+        stats_keys = [
+            "messages_sent",
+            "messages_received",
+            "stickers_sent",
+            "stickers_kanged",
+        ]
+        for key in stats_keys:
+            await self.client.db.execute(
+                """
+                INSERT INTO stats (key, value) VALUES ($1, 0)
+                ON CONFLICT (key) DO NOTHING;
+                """,
+                key,
             )
+        self.logger.info("Stats module initialized.")
 
-    # --- Database Helpers ---
-    async def get_stat(self, key: str) -> int:
-        """Gets a statistic value from the database."""
-        return await self.client.db.fetchval(
-            "SELECT value FROM stats.stats WHERE key = $1", key
-        )
-
-    async def set_stat(self, key: str, value: int) -> None:
-        """Sets or updates a statistic value."""
+    async def _increment_stat(self, key: str, amount: int = 1):
+        """Helper function to increment a statistic in the database."""
         await self.client.db.execute(
-            """
-            INSERT INTO stats.stats (key, value) VALUES ($1, $2)
-            ON CONFLICT (key) DO UPDATE SET value = $2;
-            """,
-            key,
-            value,
+            "UPDATE stats SET value = value + $1 WHERE key = $2", amount, key
         )
 
-    async def inc_stat(self, key: str, amount: int = 1) -> None:
-        """Increments a statistic value."""
-        await self.client.db.execute(
-            """
-            INSERT INTO stats.stats (key, value) VALUES ($1, $2)
-            ON CONFLICT (key) DO UPDATE SET value = stats.stats.value + $2;
-            """,
-            key,
-            amount,
-        )
-
-    # --- Event Listeners for Stat Collection ---
-    @listener.handler(filters.outgoing, 3)
-    async def on_message_out_stat(self, msg: Message) -> None:
-        """Log outgoing messages."""
-        await self.inc_stat("sent")
-        if msg.sticker:
-            await self.inc_stat("sent_stickers")
-        # Check if it's a command by checking if it matches any module's pattern
-        if any(
-            mod.name != self.name and hasattr(mod, "pattern") and getattr(mod, "pattern", None) and mod.pattern.match(msg.text or "")
-            for mod in self.client.modules.values()
-        ):
-            await self.inc_stat("processed")
-
-    @listener.handler(filters.incoming, 3)
-    async def on_message_in_stat(self, msg: Message) -> None:
-        """Log incoming messages."""
-        await self.inc_stat("received")
-        if msg.sticker:
-            await self.inc_stat("received_stickers")
-
-    # --- Command Handler ---
-    @listener.handler(filters.regex(pattern) & ~listener.fltrep, priority=1)
-    async def cmd_stats(self, event: Message) -> None:
-        """Handles the .stats command."""
-        now = datetime.datetime.now(datetime.UTC)
-        match = pattern.match(event.text)
-        reset_arg = match.group(1)
-
-        if reset_arg == "reset":
-            await event.edit_text("<code>Resetting stats...</code>")
-            await self.client.db.execute("TRUNCATE TABLE stats.stats;")
-            await self.set_stat(
-                "start_time_utc", int(self.client.start_time_utc.timestamp())
-            )
-            await event.edit_text("✅ <b>Stats have been reset.</b>")
+    @listener.handler(filters.outgoing, group=99, priority=3)
+    async def on_outgoing_message(self, event: Message):
+        """Catches all outgoing messages to increment stats."""
+        if event.text and (
+            event.text.startswith(".") or event.text.startswith("/")
+        ):  # Abaikan command
             return
 
-        await event.edit_text("<code>Calculating stats...</code>")
+        await self._increment_stat("messages_sent")
+        if event.media == MessageMediaType.STICKER:
+            await self._increment_stat("stickers_sent")
 
-        start_timestamp = await self.get_stat("start_time_utc")
-        if start_timestamp:
-            start_time = datetime.datetime.fromtimestamp(
-                start_timestamp, tz=datetime.timezone.utc
-            )
-            uptime_delta = now - start_time
-        else:
-            # Jika tidak ada timestamp, uptime dianggap nol
-            start_time = now
-            uptime_delta = datetime.timedelta(seconds=0)
+    @listener.handler(filters.incoming, group=99, priority=3)
+    async def on_incoming_message(self, _: Message):
+        """Catches all incoming messages to increment stats."""
+        await self._increment_stat("messages_received")
 
-        sent = await self.get_stat("sent") or 0
-        sent_stickers = await self.get_stat("sent_stickers") or 0
-        received = await self.get_stat("received") or 0
-        received_stickers = await self.get_stat("received_stickers") or 0
-        processed = await self.get_stat("processed") or 0
+    @listener.handler(filters.regex(kang_pattern) & listener.fltrep, group=98, priority=3)
+    async def on_kang_command(self, _: Message):
+        """Catches the .kang command."""
+        await self._increment_stat("stickers_kanged")
 
-        # Helper functions for calculations
-        def _calc_pct(num1: int, num2: int) -> str:
-            return f"{(num1 / num2) * 100:.1f}" if num1 and num2 else "0"
+    @listener.handler(filters.regex(pattern) & ~listener.fltrep, priority=1)
+    async def on_stats_command(self, event: Message) -> None:
+        """Handles the .stats command."""
+        await event.edit_text("<code>Gathering stats...</code>")
+        now = datetime.datetime.now(datetime.UTC)
 
-        def _calc_ph(stat: int) -> str:
-            up_hr = max(1, uptime_delta.total_seconds()) / 3600
-            return f"{stat / up_hr:.1f}"
+        # Ambil semua statistik dari database
+        rows = await self.client.db.fetch("SELECT key, value FROM stats;")
+        stats_data = {row["key"]: row["value"] for row in rows}
 
-        # Formatting the output
-        stats_data = {
-            "Uptime": str(uptime_delta).split(".")[0],
-            "Msgs Received": f"{received} ({_calc_ph(received)}/h) • {_calc_pct(received_stickers, received)}% stickers",
-            "Msgs Sent": f"{sent} ({_calc_ph(sent)}/h) • {_calc_pct(sent_stickers, sent)}% stickers",
-            "Commands Processed": f"{processed} ({_calc_ph(processed)}/h) • {_calc_pct(processed, sent)}% of sent",
+        # Hitung uptime
+        uptime = now - self.start_time
+        uptime_str = str(uptime).split(".")[0]
+
+        # Format output
+        display_data = {
+            "Messages Sent": stats_data.get("messages_sent", 0),
+            "Messages Received": stats_data.get("messages_received", 0),
+            "Stickers Sent": stats_data.get("stickers_sent", 0),
+            "Stickers Kanged": stats_data.get("stickers_kanged", 0),
+            "Uptime": uptime_str,
         }
 
-        await event.edit_text(fmtstr("Userbot Stats", stats_data, fmtsec(now)))
+        await event.edit_text(fmtstr("Userbot Stats", display_data, fmtsec(now)))
+
+
+# Helper untuk memastikan modul ini dimuat ulang dengan benar saat restart
+def __getattr__(name):
+    if name == "Stats":
+        return Stats
+    raise AttributeError(f"module {__name__} has no attribute {name}")
+
+def __dir__():
+    return ["Stats"]

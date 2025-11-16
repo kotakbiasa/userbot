@@ -55,7 +55,7 @@ class Telegram(abc.ABC):
         row = await self.db.fetchrow("SELECT chat_id, message_id FROM restart.msg;")
         res = "Res" if row else "S"
         self.logger.info(f"{res}tarting {self.__class__.__name__}...")
-        self.start_time_utc = datetime.datetime.now(datetime.UTC)
+        now = datetime.datetime.now(datetime.UTC)
         try:
             await self.start()
             try:
@@ -66,7 +66,7 @@ class Telegram(abc.ABC):
                         "Listeners": len(self.listeners),
                         "Modules": len(self.modules),
                     },
-                    fmtsec(self.start_time_utc),
+                    fmtsec(now),
                 )
                 if row:
                     await asyncio.gather(
