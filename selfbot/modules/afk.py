@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import re
 
 from pyrogram import filters
@@ -17,106 +18,105 @@ class AFK(Module):
     name = "AFK"
     cmds = "afk (-r {reason})?"
     desc = {"reason": "String", "?": "Optional", "e.g.": "afk -r Reason"}
+    status, reason, since = False, "", None
+
+    async def on_starting(self) -> None:
+        row = await self.client.db.fetchrow("SELECT reason, since FROM afk.meta;")
+        if row:
+            self.status = True
+            self.reason, self.since = row["reason"], row["since"]
+
+        self.lock = asyncio.Lock()
 
     @listener.handler(filters.regex(pattern) & ~listener.fltrep, 1)
     async def on_message_out(self, event: Message) -> None:
-        if not event.chat or event.chat.type == "private":
-            await event.edit_text("<code>AFK command can only be used in groups.</code>")
-            return
-
         await event.edit_text("<code>...</code>")
-        now, (reason,) = (
+        since, (reason,) = (
             datetime.datetime.now(datetime.UTC),
-            pattern.match(event.text).groups(),
+            pattern.match(event.content).groups(),
         )
-
-        chat_id = event.chat.id
-        is_afk = await self.client.db.fetchval(
-            "SELECT 1 FROM afk.meta WHERE chat_id = $1;", chat_id
-        )
-
-        if is_afk:
-            # Menonaktifkan AFK untuk grup ini
-            await self.client.db.execute("DELETE FROM afk.meta WHERE chat_id = $1;", chat_id)
-            status_text = "AFK status turned OFF for this group."
-            reason_text = None
-        else:
-            # Mengaktifkan AFK untuk grup ini
-            await self.client.db.execute(
-                """
-                INSERT INTO afk.meta (chat_id, reason, since)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (chat_id) DO UPDATE SET
-                reason = EXCLUDED.reason, since = EXCLUDED.since;
-                """,
-                chat_id,
-                reason,
-                now,
+        if self.status:
+            since, rows = await asyncio.gather(
+                self.client.db.fetchval("SELECT since FROM afk.meta;"),
+                self.client.db.fetch("SELECT chat_id, message_id FROM afk.msgs;"),
             )
-            status_text = "AFK status turned ON for this group."
-            reason_text = reason
+            for row in rows:
+                try:
+                    await event._client.delete_messages(
+                        row["chat_id"], row["message_id"]
+                    )
+                except RPCError:
+                    continue
+
+            await self.client.db.execute("TRUNCATE afk.meta, afk.msgs;"),
+            self.status, self.reason, self.since = False, "", None
+        else:
+            await self.client.db.execute(
+                "INSERT INTO afk.meta (reason, since) VALUES ($1, $2);", reason, since
+            )
+            self.status, self.reason, self.since = True, reason, since
 
         await event.edit_text(
             fmtstr(
                 "Away from Keyboard",
-                {"Status": status_text, "Reason": reason_text} if reason_text else status_text,
-                fmtsec(now),
+                {"Status": self.status, "Reason": reason},
+                fmtsec(since),
             )
         )
 
     @listener.handler(~filters.private, 2)
     async def on_message_in(self, event: Message) -> None:
-        # Cek apakah AFK aktif untuk grup ini
-        afk_data = await self.client.db.fetchrow(
-            "SELECT reason, since FROM afk.meta WHERE chat_id = $1;", event.chat.id
-        )
-
-        if not afk_data:
+        if not self.status:
             return
 
-        # Cek apakah pesan adalah mention atau balasan ke pesan Anda
-        is_mentioned = event.mentioned
-        is_reply_to_you = (
-            event.reply_to_message and event.reply_to_message.from_user and event.reply_to_message.from_user.is_self
-        )
-
-        if not (is_mentioned or is_reply_to_you):
-            return
-
-        reason = afk_data["reason"]
-        since = afk_data["since"]
-
-        wib = since.astimezone(datetime.timezone(datetime.timedelta(hours=7)))
-        
-        # Hapus pesan AFK lama jika ada
-        old_msg_id = await self.client.db.fetchval(
-            "SELECT message_id FROM afk.msgs WHERE chat_id = $1;", event.chat.id
-        )
-        if old_msg_id:
-            try:
-                await event._client.delete_messages(event.chat.id, old_msg_id)
-            except RPCError:
-                pass # Abaikan jika pesan sudah tidak ada
-
-        # Kirim pesan AFK baru
-        new_msg = await event.reply_text(
-            fmtstr(
-                "Away from Keyboard",
-                {
-                    "Since": wib.strftime("%B %-d, %-I:%M %p"),
-                    "Timezone": "UTC+7\n",
-                    "Reason": reason or "No reason provided.",
-                },
-                fmtsec(since),
+        async with self.lock:
+            wib = self.since.astimezone(datetime.timezone(datetime.timedelta(hours=7)))
+            new, old = await asyncio.gather(
+                event.reply_text(
+                    fmtstr(
+                        "Away from Keyboard",
+                        {
+                            "Since": wib.strftime("%B %-d, %-I:%M %p"),
+                            "Timezone": "UTC+7\n",
+                            "Reason": self.reason,
+                        },
+                        fmtsec(self.since),
+                    )
+                ),
+                self.client.db.fetchval(
+                    "SELECT message_id FROM afk.msgs WHERE chat_id = $1;", event.chat.id
+                ),
             )
-        )
+            if old:
+                await asyncio.gather(
+                    event._client.delete_messages(event.chat.id, old),
+                    self.client.db.execute(
+                        "UPDATE afk.msgs SET message_id = $1 WHERE chat_id = $2;",
+                        new.id,
+                        event.chat.id,
+                    ),
+                )
+            else:
+                await self.client.db.execute(
+                    "INSERT INTO afk.msgs (chat_id, message_id) VALUES ($1, $2);",
+                    event.chat.id,
+                    new.id,
+                )
 
-        # Simpan ID pesan AFK yang baru
-        await self.client.db.execute(
-            """
-            INSERT INTO afk.msgs (chat_id, message_id) VALUES ($1, $2)
-            ON CONFLICT (chat_id) DO UPDATE SET message_id = EXCLUDED.message_id;
-            """,
-            event.chat.id,
-            new_msg.id,
+        peer = await event._client.resolve_peer(event.chat.id)
+        chat = getattr(peer, "channel_id", None) or getattr(peer, "chat_id", None)
+        await asyncio.gather(
+            event._client.invoke(ReadMentions(peer=peer)),
+            self.client.bot.send_sticker(
+                event._client.me.id,
+                self.client.config["sticker_file_id"],
+                disable_notification=True,
+                reply_markup=ikm(
+                    (
+                        "Mention",
+                        "url",
+                        f"tg://openmessage?chat_id={chat}&message_id={event.id}",
+                    )
+                ),
+            ),
         )
