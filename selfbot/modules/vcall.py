@@ -32,7 +32,7 @@ class VCall(Module):
     async def on_starting(self):
         """Inisialisasi saat startup."""
         # Pastikan klien asisten telah diinisialisasi di core selfbot
-        if not self.client.assistant:
+        if not self.client.assistant_calls:
             self.logger.warning("Assistant client not configured or pytgcalls not installed. Module will be unloaded.")
             self.client.unload(self)
             return
@@ -55,15 +55,15 @@ class VCall(Module):
     async def _join_call(self, event: Message):
         """Logika untuk bergabung ke panggilan suara."""
         # Periksa apakah asisten sudah dalam panggilan di grup ini
-        if any(call.chat_id == event.chat.id for call in self.client.assistant.calls):
+        if any(call.chat_id == event.chat.id for call in self.client.assistant_calls.calls):
             await self._edit_and_delete(event, "<code>Assistant is already in a voice call.</code>")
             return
 
         await event.edit_text("<code>Assistant is joining the voice call...</code>")
 
         try:
-            # Bergabung dengan panggilan suara di grup saat ini
-            await self.client.assistant.join_group_call(event.chat.id)
+            # Bergabung dengan panggilan suara di grup saat ini            
+            await self.client.assistant_calls.join_group_call(event.chat.id)
             await event.edit_text("<b>Assistant has joined the voice call.</b>")
 
         except UserAlreadyParticipant:
@@ -77,7 +77,7 @@ class VCall(Module):
     async def _leave_call(self, event: Message):
         """Logika untuk meninggalkan panggilan suara."""
         # Periksa apakah asisten sedang dalam panggilan di grup ini
-        if not any(call.chat_id == event.chat.id for call in self.client.assistant.calls):
+        if not any(call.chat_id == event.chat.id for call in self.client.assistant_calls.calls):
             await self._edit_and_delete(event, "<code>Assistant is not in any voice call.</code>")
             return
 
@@ -85,7 +85,7 @@ class VCall(Module):
 
         try:
             # Perintahkan asisten untuk meninggalkan panggilan
-            await self.client.assistant.leave_group_call(event.chat.id)
+            await self.client.assistant_calls.leave_group_call(event.chat.id)
             await event.edit_text("<b>Assistant has left the voice call.</b>")
 
         except NoActiveGroupCall:

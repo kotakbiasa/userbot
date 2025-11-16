@@ -67,16 +67,17 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
     async def stop(self) -> None:
         self.logger.info(f"Stopping {self.__class__.__name__}...")
         try:
-            await asyncio.gather(
-                *[
-                    self.dispatch("stopping"),
-                    self.app.stop(),
-                    self.bot.stop(),
-                    self.http.aclose(),
-                    *( (self.assistant_calls.stop(), self.assistant_client.stop()) if self.assistant_client else (asyncio.sleep(0),) ),
-                ],
-                return_exceptions=True,
-            )
+            tasks = [
+                self.dispatch("stopping"),
+                self.app.stop(),
+                self.bot.stop(),
+                self.http.aclose(),
+            ]
+            if self.assistant_client:
+                tasks.append(self.assistant_calls.stop())
+                tasks.append(self.assistant_client.stop())
+            
+            await asyncio.gather(*tasks, return_exceptions=True)
             try:
                 await self.db.close()
             except Exception:
