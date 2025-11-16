@@ -58,7 +58,7 @@ class Sticker(Module):
             url = f"https://t.me/addstickers/{stickers.set.short_name}"
             await asyncio.gather(
                 response.edit(
-                    f"<b><blockquote>{fmtsec(now)}</blockquote></b>",
+                    f"<b>Success</b>\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>",
                     link_preview_options=LinkPreviewOptions(
                         url=url, show_above_text=True
                     ),
