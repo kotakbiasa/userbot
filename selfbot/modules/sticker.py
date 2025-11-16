@@ -58,10 +58,9 @@ class Sticker(Module):
             url = f"https://t.me/addstickers/{stickers.set.short_name}"
             await asyncio.gather(
                 response.edit(
-                    f"<b>Sticker Added</b>\n{url}\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>",
+                    f"<b><blockquote>{fmtsec(now)}</blockquote></b>",
                     link_preview_options=LinkPreviewOptions(
-                        is_disabled=False,
-                        show_above_text=False
+                        url=url, show_above_text=True
                     )
                 ),
                 temp_msg.delete() if temp_msg else asyncio.sleep(0) # Hapus pesan sementara
