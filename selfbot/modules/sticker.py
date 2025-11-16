@@ -14,7 +14,7 @@ from pyrogram.errors import StickersetInvalid
 from pyrogram.raw import functions
 from pyrogram.raw import types as raw_types
 from pyrogram.raw.base.messages import StickerSet
-from pyrogram.types import User
+from pyrogram.types import LinkPreviewOptions, Message, User
 from pyrogram.utils import FileId
 from PIL import Image
 from pyrogram import filters
@@ -55,11 +55,13 @@ class Sticker(Module):
         try:
             file_id, emoji, temp_msg = await media_func(self, message=replied_msg, ff="-f" in event.text)
             stickers: StickerSet = await self._kang_sticker(event._client, file_id, emoji, user=event.from_user)
+            url = f"https://t.me/addstickers/{stickers.set.short_name}"
             await asyncio.gather(
                 response.edit(
-                    f"<b>Success:</b> <a href='t.me/addstickers/{stickers.set.short_name}'>here</a>\n"
                     f"<b><blockquote>{fmtsec(now)}</blockquote></b>",
-                    disable_web_page_preview=True,
+                    link_preview_options=LinkPreviewOptions(
+                        url=url, show_above_text=True
+                    ),
                 ),
                 temp_msg.delete() if temp_msg else asyncio.sleep(0) # Hapus pesan sementara
             )
