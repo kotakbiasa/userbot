@@ -16,13 +16,13 @@ pattern = re.compile(r"^info(.*)$", flags=re.DOTALL)
 
 class Info(Module):
     name = "Info"
-    cmds = "info {user_id|username}?"
+    cmds = "info {user_id|username}? (-f|-full)?"
     desc = {
         "user_id|username": "User ID or username of the target.",
         "?": "Optional. Reply to a message or get self info.",
-        "-full": "Get detailed information.",
+        "-f|-full": "Get detailed information.",
         "e.g.": "info @username",
-        "e.g. (full)": "info -full @username",
+        "e.g. (full)": "info -f @username",
     }
 
     @listener.handler(filters.regex(pattern), 1)
@@ -34,8 +34,9 @@ class Info(Module):
         match = pattern.match(event.text)
         input_str = match.group(1).strip()
 
-        is_full_mode = "-full" in input_str.split()
-        target_identifier = input_str.replace("-full", "").strip()
+        args = input_str.split()
+        is_full_mode = "-full" in args or "-f" in args
+        target_identifier = input_str.replace("-full", "").replace("-f", "").strip()
 
         if not target_identifier:
             if event.reply_to_message and event.reply_to_message.from_user:
