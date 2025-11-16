@@ -3,8 +3,6 @@ import html
 import re
 import shutil
 import tempfile
-import random
-import datetime
 import time
 from pathlib import Path
 
@@ -14,26 +12,23 @@ from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec
 
 
 class SimpleRateController(instaloader.RateController):
     """A simple rate controller for Instaloader to avoid blocking."""
 
-    def __init__(self, context):
+    def __init__(self, context, sleep_time=2):
         super().__init__(context)
-        self.min_sleep = 2
-        self.max_sleep = 5
+        self.sleep_time = sleep_time
 
     def sleep(self, secs):
         time.sleep(secs)
 
     def query_waittime(self, query_type, current_time, untracked_queries=False):
-        """Introduce random jitter to sleep times to mimic human behavior."""
-        return random.uniform(self.min_sleep, self.max_sleep)
+        return self.sleep_time
 
     def handle_429(self, query_type):
-        self.sleep(random.uniform(10, 20)) # Sleep longer on a 429 error
+        self.sleep(self.query_waittime(query_type, time.time()))
 
     def count_per_sliding_window(self, query_type):
         return 1
@@ -70,7 +65,6 @@ class InstaDL(Module):
             return
             
         self.loader = instaloader.Instaloader(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
             download_videos=True,
             download_video_thumbnails=False,
             download_geotags=False,
@@ -80,7 +74,7 @@ class InstaDL(Module):
             post_metadata_txt_pattern="",
             max_connection_attempts=3,
             request_timeout=30,
-            rate_controller=lambda ctx: SimpleRateController(ctx),
+            rate_controller=lambda ctx: SimpleRateController(ctx, 2),
             quiet=True,
         )
 
@@ -99,9 +93,6 @@ class InstaDL(Module):
                 return
             except Exception as e:
                 self.logger.warning(f"Instagram: Session file invalid, logging in fresh. Error: {e}")
-                # Delete the invalid session file to force a new login
-                if self.session_file.exists():
-                    self.session_file.unlink()
 
         try:
             await asyncio.to_thread(self.loader.login, self.ig_user, self.ig_pass)
@@ -132,24 +123,23 @@ class InstaDL(Module):
 
     async def _download_post(self, shortcode: str):
         """Downloads a post and returns file paths and caption."""
+        temp_dir_path = self.downloads_dir / f"instagram_{shortcode}"
+        await asyncio.to_thread(temp_dir_path.mkdir, parents=True, exist_ok=True)
+        self.loader.dirname_pattern = str(temp_dir_path)
+
         post = await asyncio.to_thread(
             instaloader.Post.from_shortcode, self.loader.context, shortcode
         )
-
-        # The target directory will be named after the profile
-        target_profile = post.owner_username
-        temp_dir_path = self.downloads_dir / target_profile
 
         caption = post.caption or ""
         if caption:
             caption = f"<blockquote>{html.escape(caption)}</blockquote>"
 
-        # Let instaloader handle the download and directory creation
-        await asyncio.to_thread(self.loader.download_post, post, target=target_profile)
+        await asyncio.to_thread(self.loader.download_post, post, target="")
 
         media_files = [
             f
-            for f in temp_dir_path.glob(f"{post.date_utc.strftime('%Y-%m-%d_%H-%M-%S')}_UTC*")
+            for f in temp_dir_path.glob("*")
             if f.suffix.lower() in {".mp4", ".jpg", ".jpeg", ".png"}
         ]
         if not media_files:
@@ -178,7 +168,6 @@ class InstaDL(Module):
     @listener.handler(filters.regex(pattern), priority=1)
     async def on_message_out(self, event: Message):
         """Handles the .instadl command."""
-        start_time = datetime.datetime.now(datetime.UTC)
         url = event.matches[0].group(1).strip()
         if not url:
             await event.edit_text("<code>Please provide an Instagram URL.</code>")
@@ -199,23 +188,7 @@ class InstaDL(Module):
                     files, caption, temp_dir = await self._download_post(shortcode)
                     media_files = files
                     media_types = ["video" if f.suffix.lower() == ".mp4" else "image" for f in media_files]
-                except instaloader.exceptions.LoginRequiredException as e:
-                    self.logger.error("Instaloader: Login is required. Session might be invalid. Deleting session file.")
-                    if self.session_file.exists():
-                        self.session_file.unlink()
-                    raise ConnectionError("Instagram session is invalid. Please restart the bot to log in again.") from e
-                except (instaloader.exceptions.PrivateProfileNotFollowedException, instaloader.exceptions.ProfileNotExistsException) as e:
-                    self.logger.warning(f"Instaloader: Cannot access profile. {e}")
-                    raise ValueError(f"Cannot access profile: {e}") from e
-                except instaloader.exceptions.TwoFactorAuthRequiredException as e:
-                    self.logger.error("Instaloader: Two-factor authentication is required. Cannot log in.")
-                    raise ConnectionError("Instagram login failed: 2FA is required. Please handle this manually.") from e
-                except instaloader.exceptions.BadCredentialsException as e:
-                    self.logger.error(f"Instaloader: Bad credentials. {e}")
-                    if self.session_file.exists():
-                        self.session_file.unlink()
-                    raise ConnectionError("Bad Instagram credentials. Please check your config.") from e
-                except Exception as e: # Catch other instaloader/network errors
+                except Exception as e:
                     self.logger.warning(f"Instaloader failed: {e}. Falling back to API.")
                     media_files = [] # Reset to trigger fallback
 
@@ -255,9 +228,6 @@ class InstaDL(Module):
 
                 if api_data[0].get("caption"):
                     caption = f"<blockquote>{html.escape(api_data[0]['caption'])}</blockquote>"
-
-            # Add execution time to caption
-            caption += f"\n\n<pre>time: {fmtsec(start_time)}</pre>"
 
             if not media_files:
                 raise ValueError("Failed to download media from all sources.")
