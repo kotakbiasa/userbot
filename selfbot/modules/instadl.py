@@ -11,8 +11,9 @@ import instaloader
 from pyrogram import filters
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 
-from selfbot import listener, fmtsec, ikm
+from selfbot import listener
 from selfbot.module import Module
+from selfbot.utils import fmtsec
 
 
 class SimpleRateController(instaloader.RateController):
