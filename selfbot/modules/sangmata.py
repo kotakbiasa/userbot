@@ -31,14 +31,14 @@ class SangMata(Module):
 
         target_identifier = None
         match = pattern.match(event.text)
-        if match and match.group(1):
-            target_identifier = match.group(1).strip()
-        elif event.reply_to_message and event.reply_to_message.from_user:
+        if event.reply_to_message and event.reply_to_message.from_user:
             target_identifier = event.reply_to_message.from_user.id
+        elif match and match.group(1):
+            target_identifier = match.group(1).strip()
 
         if not target_identifier:
             await response_msg.edit_text(
-                f"<b>Usage:</b> <code>{self.cmds}</code>"
+                f"<b>Usage: </b><code>{self.cmds}</code>"
             )
             return
 
@@ -46,26 +46,24 @@ class SangMata(Module):
             user = await event._client.get_users(target_identifier)
             user_id = user.id
         except Exception as e:
-            await response_msg.edit_text(f"<b>Error:</b> <code>{html.escape(str(e))}</code>")
+            await response_msg.edit_text(f"<i>Error: {html.escape(str(e))}</i>")
             return
 
         bot_username = "@SangMata_beta_bot"
         try:
-            async with Conversation(event._client, bot_username, timeout=20) as conv:
+            async with Conversation(event._client, bot_username, timeout=15) as conv:
                 await conv.send_message(str(user_id))
-                response = await conv.get_response()
+                response = await conv.get_response(timeout=10)
 
                 if "you have used up your quota" in response.text:
                     await response_msg.edit(response.text.splitlines()[0])
                     return
 
-                await response_msg.edit(
-                    f"{response.text}\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
-                )
+                return await response_msg.edit(response.text)
 
         except YouBlockedUser:
-            await response_msg.edit(f"<i>Please unblock {bot_username} first.</i>")
+            await response_msg.edit(f"<i>Please unblock @SangMata_beta_bot first.</i>")
         except asyncio.TimeoutError:
             await response_msg.edit("<i>No response from bot within the timeout period.</i>")
         except Exception as e:
-            await response_msg.edit(f"<b>Error:</b> <code>{html.escape(str(e))}</code>")
+            await response_msg.edit(f"<i>Error: {html.escape(str(e))}</i>")
