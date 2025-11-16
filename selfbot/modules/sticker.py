@@ -13,7 +13,7 @@ from pyrogram.enums import MessageMediaType
 from pyrogram.errors import StickersetInvalid
 from pyrogram.raw import functions
 from pyrogram.raw import types as raw_types
-from pyrogram.raw.base.messages import StickerSet as BaseStickerSet
+from pyrogram.raw.base.messages import StickerSet
 from pyrogram.types import User
 from pyrogram.utils import FileId
 from PIL import Image
@@ -53,22 +53,25 @@ class Sticker(Module):
         now = datetime.datetime.now(datetime.UTC)
 
         try:
-            file_id, emoji = await media_func(self, message=replied_msg, ff="-f" in event.text)
-            stickers = await self._kang_sticker(event._client, file_id, emoji, user=event.from_user)
-            await response.edit(
-                f"<b>Success:</b> <a href='t.me/addstickers/{stickers.set.short_name}'>here</a>\n"
-                f"<b><blockquote>{fmtsec(now)}</blockquote></b>",
-                disable_web_page_preview=True,
+            file_id, emoji, temp_msg = await media_func(self, message=replied_msg, ff="-f" in event.text)
+            stickers: StickerSet = await self._kang_sticker(event._client, file_id, emoji, user=event.from_user)
+            await asyncio.gather(
+                response.edit(
+                    f"<b>Success:</b> <a href='t.me/addstickers/{stickers.set.short_name}'>here</a>\n"
+                    f"<b><blockquote>{fmtsec(now)}</blockquote></b>",
+                    disable_web_page_preview=True,
+                ),
+                temp_msg.delete() if temp_msg else asyncio.sleep(0) # Hapus pesan sementara
             )
         except Exception as e:
             await response.edit(f"<b>Error:</b>\n<code>{e}</code>")
 
-    async def _save_sticker(self, file: Path | BytesIO) -> str:
+    async def _save_sticker(self, file: Path | BytesIO) -> Message:
         """Uploads a file to saved messages to get a file_id."""
         sent_file = await self.client.app.send_document(chat_id="me", document=file)
         if isinstance(file, Path) and file.is_file():
             shutil.rmtree(file.parent, ignore_errors=True)
-        return sent_file.document.file_id
+        return sent_file
 
     def _resize_photo(self, input_file: BytesIO) -> BytesIO:
         """Resizes a photo to sticker dimensions."""
@@ -82,13 +85,14 @@ class Sticker(Module):
         image.save(resized_photo, format="PNG")
         return resized_photo
 
-    async def _photo_kang(self, message: Message, **_) -> tuple[str, None]:
+    async def _photo_kang(self, message: Message, **_) -> tuple[str, None, Message]:
         file = await message.download(in_memory=True)
         file.seek(0)
         resized_file = await asyncio.to_thread(self._resize_photo, file)
-        return await self._save_sticker(resized_file), None
+        temp_msg = await self._save_sticker(resized_file)
+        return temp_msg.document.file_id, None, temp_msg
 
-    async def _video_kang(self, message: Message, ff=False) -> tuple[str, None]:
+    async def _video_kang(self, message: Message, ff=False) -> tuple[str, None, Message]:
         video = message.video or message.animation or message.document
         if video.file_size > 5242880:
             raise MemoryError("File size exceeds 5MB.")
@@ -102,7 +106,8 @@ class Sticker(Module):
         duration = getattr(video, "duration", 3)
 
         await self._resize_video(input_file=input_file, output_file=output_file, duration=duration, ff=ff)
-        return await self._save_sticker(output_file), None
+        temp_msg = await self._save_sticker(output_file)
+        return temp_msg.document.file_id, None, temp_msg
 
     async def _resize_video(self, input_file: Path | str, output_file: Path | str, duration: int, ff: bool = False):
         cmd = f"ffmpeg -hide_banner -loglevel error -i '{input_file}' -vf "
@@ -114,7 +119,7 @@ class Sticker(Module):
             cmd += f"-ss 0 -t {min(duration, 3)} -r 30 -an -c:v libvpx-vp9 -b:v 256k -fs 256k "
         await shell(f"{cmd}'{output_file}'")
 
-    async def _document_kang(self, message: Message, ff: bool = False) -> tuple[str, None]:
+    async def _document_kang(self, message: Message, ff: bool = False) -> tuple[str, None, Message]:
         file_name = getattr(message.document, 'file_name', '')
         if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
             return await self._photo_kang(message)
@@ -122,15 +127,15 @@ class Sticker(Module):
             return await self._video_kang(message=message, ff=ff)
         raise TypeError("Unsupported document type.")
 
-    async def _sticker_kang(self, message: Message, **_) -> tuple[str, str]:
+    async def _sticker_kang(self, message: Message, **_) -> tuple[str, str, Message | None]:
         sticker = message.sticker
         if sticker.is_video:
             return await self._video_kang(message)
         if sticker.is_animated:
             raise TypeError("Lottie animated stickers (.tgs) are not supported.")
-        return sticker.file_id, sticker.emoji
+        return sticker.file_id, sticker.emoji, None
 
-    async def _get_sticker_set(self, client, user: User) -> tuple[str, str, bool, raw_types.StickerSet | None]:
+    async def _get_sticker_set(self, client, user: User) -> tuple[str, str, bool, StickerSet | None]:
         count = 0
         create_new = False
         suffix = f"_by_{self.client.app.me.username}"
@@ -138,24 +143,24 @@ class Sticker(Module):
         while True:
             shortname = f"kang_{user.id}_{count}{suffix}"
             try:
-                sticker_set: BaseStickerSet = await client.invoke(
+                sticker_set_raw: BaseStickerSet = await client.invoke(
                     functions.messages.GetStickerSet(
                         stickerset=raw_types.InputStickerSetShortName(short_name=shortname), hash=0
                     )
                 )
-                sticker_set = sticker_set.set
+                sticker_set = sticker_set_raw.set
                 if sticker_set.count < 120:
                     break
                 count += 1
             except StickersetInvalid:
                 create_new = True
-                sticker_set: BaseStickerSet | None = None
+                sticker_set: StickerSet | None = None
                 break
 
         pack_title = f"{user.first_name}'s Kang Pack Vol. {count + 1}"
         return shortname, pack_title, create_new, sticker_set
 
-    async def _kang_sticker(self, client, media_file_id: str, emoji: str = None, user: User = None) -> BaseStickerSet:
+    async def _kang_sticker(self, client, media_file_id: str, emoji: str = None, user: User = None) -> StickerSet:
         shortname, pack_title, create_new, sticker_set = await self._get_sticker_set(client, user)
         file_id = FileId.decode(media_file_id)
 
