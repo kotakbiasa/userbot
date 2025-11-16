@@ -11,7 +11,7 @@ import instaloader
 from pyrogram import filters
 from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 
-from selfbot import listener
+from selfbot import listener, fmtsec, ikm
 from selfbot.module import Module
 
 
@@ -175,6 +175,7 @@ class InstaDL(Module):
     @listener.handler(filters.regex(pattern), priority=1)
     async def on_message_out(self, event: Message):
         """Handles the .instadl command."""
+        start_time = time.time()
         url = event.matches[0].group(1).strip()
         if not url:
             await event.edit_text("<code>Please provide an Instagram URL.</code>")
@@ -241,6 +242,9 @@ class InstaDL(Module):
 
                 if api_data[0].get("caption"):
                     caption = f"<blockquote>{html.escape(api_data[0]['caption'])}</blockquote>"
+
+            # Add execution time to caption
+            caption += f"\n\n<pre>time: {fmtsec(start_time)}</pre>"
 
             if not media_files:
                 raise ValueError("Failed to download media from all sources.")
