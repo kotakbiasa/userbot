@@ -23,24 +23,25 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
         self.logger = logging.getLogger(self.__class__.__name__)
 
         # --- Inisialisasi Klien Asisten ---
-        self.assistant_client = None
         self.assistant = None
         assistant_session = self.config.get("assistant_session")
 
         if PyTgCalls and assistant_session:
             self.logger.info("Assistant session found, initializing assistant client...")
-            self.assistant_client = Client(
+            assistant_client = Client(
                 name="assistant",
                 session_string=assistant_session,
                 api_id=self.config.get("api_id"),
                 api_hash=self.config.get("api_hash"),
                 in_memory=True
             )
-            self.assistant = PyTgCalls(self.assistant_client)
-        elif not assistant_session:
-            self.logger.warning("ASSISTANT_SESSION not set. VCall module will be disabled.")
+            # The assistant client is passed to PyTgCalls
+            self.assistant = PyTgCalls(assistant_client)
         else:
-            self.logger.error("py-tgcalls is not installed. VCall module will be disabled.")
+            if not assistant_session:
+                self.logger.warning("ASSISTANT_SESSION not set. Voice call features will be disabled.")
+            if not PyTgCalls:
+                self.logger.warning("py-tgcalls is not installed. Voice call features will be disabled.")
         # --- Akhir Inisialisasi ---
 
         super().__init__()
@@ -50,9 +51,8 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
         selfbot = cls(config)
         try:
             selfbot.http = AsyncClient(timeout=900)
-            if selfbot.assistant_client:
-                await selfbot.assistant_client.start()
             if selfbot.assistant:
+                await selfbot.assistant.client.start()
                 await selfbot.assistant.start()
             await selfbot.run()
         finally:
@@ -72,9 +72,7 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
                     self.bot.stop(),
                     self.http.aclose(),
                     self.assistant.stop() if self.assistant else asyncio.sleep(0),
-                    self.assistant_client.stop()
-                    if self.assistant_client
-                    else asyncio.sleep(0),
+                    self.assistant.client.stop() if self.assistant else asyncio.sleep(0),
                 ],
                 return_exceptions=True,
             )

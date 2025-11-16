@@ -29,15 +29,15 @@ class VCall(Module):
         "e.g.": "join",
     }
 
-    async def on_init(self):
+    async def on_starting(self):
         """Inisialisasi saat startup."""
+        # Pastikan klien asisten telah diinisialisasi di core selfbot
+        if not self.client.assistant or not UserAlreadyParticipant:
+            self.log.warning("Assistant client not configured or pytgcalls not installed. Module will be unloaded.")
+            self.client.unload(self)
+            return
         self.is_vcall_active = False
         self.active_chat_id = None
-        # Pastikan klien asisten telah diinisialisasi di core selfbot
-        if not self.client.assistant or not NoActiveGroupCall:
-            self.log.warning("Assistant client is not initialized. VCall module will be disabled.")
-            # Menonaktifkan handler jika asisten tidak ada
-            listener.remove_handler(self.on_vcall_command)
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_vcall_command(self, event: Message) -> None:
