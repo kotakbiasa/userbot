@@ -185,7 +185,6 @@ class Telegram(abc.ABC):
                     await msg.delete()
                 except UserIsBlocked:
                     await self.app.unblock_user(self.bot.me.id)
-                self.logger.info(f"{self.bot.name.title()} Initialized")
 
                 self.logger.info("Dispatch Start...")
                 await self.dispatch("starting")
@@ -250,6 +249,19 @@ class Telegram(abc.ABC):
                     client.add_handler(*dispatcher)
                 finally:
                     self.handlers[name] = dispatcher
+
+    def conf(self) -> None:
+        self.config.clear()
+        for key in os.environ:
+            if key in (
+                "BRANCH",
+                "REMOTE",
+                "DATABASE_URL",
+                "GEMINI_API_KEY",
+                "GEMINI_MODEL",
+                "STICKER_FILE_ID",
+            ):
+                self.config[key.lower()] = os.environ[key]
 
     def build(self, name: str, updates: tuple = (), **kwargs) -> Client:
         client = Client(
