@@ -110,7 +110,7 @@ class Stats(Module):
 
     # --- Listeners untuk melacak statistik ---
 
-    @listener.handler(filters.outgoing & ~filters.via_bot, group=100)
+    @listener.handler(filters.outgoing & ~filters.via_bot, priority=100)
     async def track_sent_messages(self, event: Message) -> None:
         """Melacak pesan terkirim."""
         await self.client.db.execute(
@@ -121,7 +121,7 @@ class Stats(Module):
                 "UPDATE stats.messages SET count = count + 1 WHERE type = 'stickers_sent';"
             )
 
-    @listener.handler(filters.incoming & ~filters.via_bot, group=100)
+    @listener.handler(filters.incoming & ~filters.via_bot, priority=100)
     async def track_received_messages(self, _: Message) -> None:
         """Melacak pesan diterima."""
         await self.client.db.execute(
