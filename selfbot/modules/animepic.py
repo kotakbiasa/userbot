@@ -114,7 +114,7 @@ class AnimePic(Module):
     nekos_moe_tags = ["moe"]
 
     # Daftar tag khusus untuk API nekobot.xyz
-nekobot_tags = ["coffee", "food", "holo", "kanna", "kemonomimi", "neko"]
+    nekobot_tags = ["coffee", "food", "holo", "kanna", "kemonomimi", "neko"]
 
     # Daftar tag khusus untuk API nekosapi.com
     nekosapi_tags = [
