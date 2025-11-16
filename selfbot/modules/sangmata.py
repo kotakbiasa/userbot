@@ -6,7 +6,7 @@ from datetime import timezone
 
 from pyrogram import filters
 from pyrogram.errors import UserIsBlocked
-from pyrogram.types import Message
+from pyrogram.types import Message, User
 
 from selfbot import listener
 from selfbot.module import Module
@@ -30,29 +30,39 @@ class SangMata(Module):
         "e.g.": "sg @username",
     }
 
-    @listener.handler(filters.regex(pattern) & ~listener.fltrep, 1)
+    @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         """Mendapatkan riwayat nama dari @SangMata_BOT."""
         match = pattern.match(event.text)
         _, input_str = match.groups()
 
-        target_user_id = None
+        target_identifier = None
         if input_str:
-            target_user_id = input_str
+            target_identifier = input_str
         elif event.reply_to_message and event.reply_to_message.from_user:
-            target_user_id = event.reply_to_message.from_user.id
+            target_identifier = event.reply_to_message.from_user.id
         else:
             await self._edit_and_delete(
                 event, "<b>Usage:</b> <code>sg &lt;user_id|username&gt;</code> or reply to a user."
             )
             return
 
-        progress_message = await event.edit_text("<code>Processing...</code>")
+        progress_message = await event.edit_text("<code>Resolving user...</code>")
 
         try:
+            # Dapatkan objek user untuk mendapatkan ID
+            user: User = await event._client.get_users(target_identifier)
+            if not isinstance(user, User):
+                user = user[0] if isinstance(user, list) and user else None
+
+            if not user:
+                raise ValueError(f"User '{html.escape(str(target_identifier))}' not found.")
+
+            await progress_message.edit_text("<code>Processing...</code>")
+
             # Kirim perintah ke bot
             start_time = datetime.datetime.now(timezone.utc)
-            await event._client.send_message(SANGMATA_BOT_USERNAME, str(target_user_id))
+            await event._client.send_message(SANGMATA_BOT_USERNAME, str(user.id))
 
             # Tunggu balasan dari bot
             response = await self._find_bot_response(event._client, start_time, SANGMATA_TIMEOUT)
