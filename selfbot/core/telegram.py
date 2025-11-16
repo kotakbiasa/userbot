@@ -259,6 +259,8 @@ class Telegram(abc.ABC):
                 "DATABASE_URL",
                 "GEMINI_API_KEY",
                 "GEMINI_MODEL",
+                "INSTAGRAM_USERNAME",
+                "INSTAGRAM_PASSWORD",
                 "STICKER_FILE_ID",
             ):
                 self.config[key.lower()] = os.environ[key]
