@@ -29,18 +29,14 @@ class InstaDL(Module):
 
     def _build_caption(self, metadata: dict, rtt: str) -> str:
         """Membangun caption untuk media yang diunduh."""
-        title = html.escape(metadata.get("title", "No caption"))
-        username = html.escape(metadata.get("username", "N/A"))
-        likes = metadata.get("likeCount", 0)
-        comments = metadata.get("commentCount", 0)
-        source = metadata.get("source")
+        title = html.escape(metadata.get("title", "No caption."))
+        source = metadata.get("source") # URL asli Instagram
 
         caption_parts = [
-            f"<blockquote>{title}</blockquote>\n"
-            f"<b>Author:</b> <a href=\"https://instagram.com/{username}\">@{username}</a>\n"
-            f"<b>Likes:</b> {likes:,} | <b>Comments:</b> {comments:,}\n"
-            f"<a href='{source}'>Source</a>"
+            f"<blockquote>{title}</blockquote>"
         ]
+        if source:
+            caption_parts.append(f"<a href='{source}'>Source</a>")
 
         caption_parts.append(f"<b><blockquote>{rtt}</blockquote></b>")
         return "\n".join(caption_parts)
@@ -49,7 +45,12 @@ class InstaDL(Module):
         """Memproses URL, mengunduh media, dan mengirimkannya."""
         now = datetime.datetime.now(datetime.UTC)
         api_url = "https://api.ferdev.my.id/downloader/instagram"
-        params = {"link": url, "apikey": "key_iOPE5w"}
+        # Saran: Pindahkan API Key ke environment variable untuk keamanan.
+        # Contoh: INSTADL_API_KEY="key_anda"
+        api_key = self.client.config.get("instadl_api_key", "key_iOPE5w")
+        if api_key == "key_iOPE5w":
+            self.logger.warning("Using a hardcoded API key for the InstaDL module. Please set INSTADL_API_KEY.")
+        params = {"link": url, "apikey": api_key}
         
         try:
             resp = await self.client.http.get(api_url, params=params, timeout=40)
@@ -61,20 +62,34 @@ class InstaDL(Module):
                 raise ValueError(error_message)
 
             media_data = data["data"]
-            media_type = media_data.get("type")
-            # API mengembalikan 'videoUrls' untuk video dan 'imageUrls' untuk gambar
-            media_urls = media_data.get("videoUrls") or media_data.get("imageUrls", [])
+            download_info = media_data.get("download", [])
 
-            if not media_urls:
+            if not download_info:
                 raise ValueError("No media found in the API response.")
 
-            download_url = media_urls[0]["url"]
-            caption = self._build_caption(media_data.get("metadata", {}), fmtsec(now))
+            caption = self._build_caption(media_data, fmtsec(now))
 
-            if media_type == "video":
-                await event.reply_video(video=download_url, caption=caption)
-            else: # Asumsikan sebagai gambar jika bukan video
-                await event.reply_photo(photo=download_url, caption=caption)
+            if len(download_info) > 1:
+                # Handle album/carousel
+                media_group = []
+                for i, item in enumerate(download_info):
+                    media_url = item["url"]
+                    media_ext = item.get("ext", "").lower()
+                    item_caption = caption if i == 0 else None  # Caption hanya di item pertama
+                    if media_ext == "mp4":
+                        media_group.append(InputMediaVideo(media_url, caption=item_caption))
+                    else:
+                        media_group.append(InputMediaPhoto(media_url, caption=item_caption))
+                await event.reply_media_group(media_group)
+            else:
+                # Handle single media
+                first_media = download_info[0]
+                download_url = first_media["url"]
+                media_ext = first_media.get("ext", "").lower()
+                if media_ext == "mp4":
+                    await event.reply_video(video=download_url, caption=caption)
+                else:
+                    await event.reply_photo(photo=download_url, caption=caption)
             
             await event.delete()
 
