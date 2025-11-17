@@ -163,7 +163,11 @@ class Anilist(Module):
     @listener.handler(filters.regex(cb_pattern), priority=4)
     async def on_inline_callback(self, event: CallbackQuery) -> None:
         """Handles button clicks to show media details."""
-        media_type, media_id = event.matches[0].groups()
+        match = self.cb_pattern.match(event.data)
+        if not match:
+            return
+
+        media_type, media_id = match.groups()
         
         try:
             await event.answer("Fetching details...")
@@ -227,7 +231,11 @@ class Anilist(Module):
     @listener.handler(filters.regex(r"^anilist/desc/(\d+)$"), priority=5)
     async def on_desc_callback(self, event: CallbackQuery) -> None:
         """Handles the 'Description' button click."""
-        media_id = event.matches[0].group(1)
+        match = re.match(r"^anilist/desc/(\d+)$", event.data)
+        if not match:
+            return
+            
+        media_id = match.group(1)
         try:
             data = await self._fetch_anilist(DETAILS_QUERY, {"id": int(media_id)})
             media = data.get("data", {}).get("Media")
