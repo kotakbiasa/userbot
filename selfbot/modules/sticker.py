@@ -55,7 +55,6 @@ class Sticker(Module):
 
         total_messages = len(messages_to_process)
         stickers = None
-        start_time = time.monotonic()
         for i, message in enumerate(messages_to_process):
             media_func = self.MEDIA_TYPE_MAP.get(message.media)
             if not media_func:
@@ -64,6 +63,7 @@ class Sticker(Module):
                 continue
 
             await response.edit(f"<code>Processing {i+1}/{total_messages}...</code>")
+            now = datetime.datetime.now(datetime.UTC)
 
             try:
                 file_id, emoji, temp_msg = await media_func(self, message=message, ff="-f" in event.text)
@@ -76,10 +76,9 @@ class Sticker(Module):
                 continue
 
         if stickers:
-            time_taken = datetime.timedelta(seconds=time.monotonic() - start_time)
             url = f"https://t.me/addstickers/{stickers.set.short_name}"
             await response.edit(
-                f"<b>Successfully added {total_messages} sticker(s) in {fmtsec(time_taken)}.</b>",
+                f"<b>Successfully added {total_messages} sticker(s).</b>",
                 link_preview_options=LinkPreviewOptions(url=url, show_above_text=True)
             )
         else:
