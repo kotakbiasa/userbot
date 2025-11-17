@@ -55,7 +55,7 @@ class Sticker(Module):
 
         total_messages = len(messages_to_process)
         stickers = None
-        start_time = datetime.datetime.now(datetime.UTC)
+        start_time = datetime.datetime.now(datetime.timezone.utc)
         for i, message in enumerate(messages_to_process):
             media_func = self.MEDIA_TYPE_MAP.get(message.media)
             if not media_func:
@@ -76,7 +76,7 @@ class Sticker(Module):
                 continue
 
         if stickers:
-            time_taken = datetime.datetime.now(datetime.UTC) - start_time
+            time_taken = datetime.datetime.now(datetime.timezone.utc) - start_time
             url = f"https://t.me/addstickers/{stickers.set.short_name}"
             await response.edit(
                 f"<b>Successfully added {total_messages} sticker(s) in {fmtsec(time_taken)}.</b>",
