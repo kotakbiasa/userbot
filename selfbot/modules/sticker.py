@@ -42,31 +42,47 @@ class Sticker(Module):
     @listener.handler(filters.regex(pattern) & listener.fltrep, 1)
     async def on_message_out(self, event: Message) -> None:
         """Handler utama untuk perintah kang."""
-        replied_msg = event.reply_to_message
-        media_func = self.MEDIA_TYPE_MAP.get(replied_msg.media)
-
-        if not media_func:
-            await event.edit_text("<code>Unsupported media...</code>")
-            return
-
         response = await event.edit_text("<code>Processing...</code>")
-        now = datetime.datetime.now(datetime.UTC)
+        replied_msg = event.reply_to_message
+        messages_to_process = []
 
-        try:
-            file_id, emoji, temp_msg = await media_func(self, message=replied_msg, ff="-f" in event.text)
-            stickers: StickerSet = await self._kang_sticker(event._client, file_id, emoji, user=event.from_user)
-            url = f"https://t.me/addstickers/{stickers.set.short_name}"
-            await asyncio.gather(
-                response.edit(
-                    f"<b><blockquote>{fmtsec(now)}</blockquote></b>",
-                    link_preview_options=LinkPreviewOptions(
-                        url=url, show_above_text=True
-                    )
-                ),
-                temp_msg.delete() if temp_msg else asyncio.sleep(0) # Hapus pesan sementara
+        if replied_msg.media_group_id:
+            messages_to_process = await self.client.app.get_media_group(
+                chat_id=event.chat.id, message_id=replied_msg.id
             )
-        except Exception as e:
-            await response.edit(f"<b>Error:</b>\n<code>{e}</code>")
+        else:
+            messages_to_process.append(replied_msg)
+
+        total_messages = len(messages_to_process)
+        stickers = None
+        for i, message in enumerate(messages_to_process):
+            media_func = self.MEDIA_TYPE_MAP.get(message.media)
+            if not media_func:
+                await response.edit(f"Skipping unsupported media in album (message {i+1}/{total_messages}).")
+                await asyncio.sleep(2)
+                continue
+
+            await response.edit(f"<code>Processing {i+1}/{total_messages}...</code>")
+            now = datetime.datetime.now(datetime.UTC)
+
+            try:
+                file_id, emoji, temp_msg = await media_func(self, message=message, ff="-f" in event.text)
+                stickers = await self._kang_sticker(event._client, file_id, emoji, user=event.from_user)
+                if temp_msg:
+                    await temp_msg.delete()
+            except Exception as e:
+                await response.edit(f"<b>Error on item {i+1}/{total_messages}:</b>\n<code>{e}</code>")
+                await asyncio.sleep(3)
+                continue
+
+        if stickers:
+            url = f"https://t.me/addstickers/{stickers.set.short_name}"
+            await response.edit(
+                f"<b>Successfully added {total_messages} sticker(s).</b>",
+                link_preview_options=LinkPreviewOptions(url=url, show_above_text=True)
+            )
+        else:
+            await response.edit("<code>No valid media found to process.</code>")
 
     async def _save_sticker(self, file: Path | BytesIO) -> Message:
         """Uploads a file to saved messages to get a file_id."""
