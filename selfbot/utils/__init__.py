@@ -1,5 +1,15 @@
 from .debug import aexec, shell
-from .fmt import fmtexc, fmtsec, fmtstr
-from .tg import ids, ikm
+from .fmt import fmtbyte, fmtexc, fmtsec, fmtstr
+from .tg import ids, ikm, prog
 
-__all__ = ["aexec", "fmtexc", "fmtsec", "fmtstr", "ids", "ikm", "shell"]
+__all__ = [
+    "aexec",
+    "fmtbyte",
+    "fmtexc",
+    "fmtsec",
+    "fmtstr",
+    "ids",
+    "ikm",
+    "prog",
+    "shell",
+]
