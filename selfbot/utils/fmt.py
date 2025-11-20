@@ -4,37 +4,71 @@ import sys
 import traceback
 
 
-def fmtsec(now: datetime.datetime, part: int = 3) -> str:
-    delta = datetime.datetime.now(datetime.UTC) - now
-    micro, total, parts = delta.microseconds, int(delta.total_seconds()), []
-    w, r = divmod(total, 7 * 24 * 3600)
-    if w:
-        parts.append(f"{w} Week{'s' if w != 1 else ''}")
+def fmtbyte(byte: int) -> str:
+    units = (("TB", 1024**4), ("GB", 1024**3), ("MB", 1024**2), ("KB", 1024), ("B", 1))
+    for unit, factor in units:
+        if byte >= factor:
+            value = f"{(byte / factor):.2f}".rstrip("0").rstrip(".")
+            return f"{value} {unit}"
 
-    d, r = divmod(r, 24 * 3600)
-    if d:
-        parts.append(f"{d} Day{'s' if d != 1 else ''}")
+    return "-"
 
-    h, r = divmod(r, 3600)
-    if h:
-        parts.append(f"{h} Hour{'s' if h != 1 else ''}")
 
-    m, r = divmod(r, 60)
-    if m:
-        parts.append(f"{m} Minute{'s' if m != 1 else ''}")
+def fmtexc() -> str:
+    exc = traceback.TracebackException(*sys.exc_info())
+    fmt = exc.exc_type.__name__
+    if exc._str:
+        fmt += f":\n  {exc._str}"
 
-    s = r
-    if s:
-        parts.append(f"{s} Second{'s' if s != 1 else ''}")
+    ftb = traceback.format_list(f for f in exc.stack if "/site-packages/" in f.filename)
+    if ftb:
+        fmt += f"\n\nTraceback:\n{''.join(ftb)}"
 
-    ms, us = divmod(micro, 1000)
-    if ms:
-        parts.append(f"{ms} ms")
+    return fmt
 
-    if us:
-        parts.append(f"{us} µs")
 
-    return ", ".join(parts[:part]) if parts else "0 µs"
+def fmtsec(sec: object, part: int = 3, human: bool = False) -> str:
+    if isinstance(sec, datetime.timedelta):
+        delta = sec
+    elif isinstance(sec, datetime.datetime):
+        if sec.tzinfo is None:
+            sec = sec.replace(tzinfo=datetime.UTC)
+        else:
+            sec = sec.astimezone(datetime.UTC)
+
+        delta = datetime.datetime.now(datetime.UTC) - sec
+    elif isinstance(sec, (float, int)):
+        delta = datetime.timedelta(seconds=sec)
+    else:
+        raise TypeError
+
+    total = int(delta.total_seconds())
+    micro = delta.microseconds
+    units = (
+        ("w", 60**2 * 24 * 7),
+        ("d", 60**2 * 24),
+        ("h", 60**2),
+        ("m", 60),
+        ("s", 1),
+    )
+    parts = []
+    for unit, second in units:
+        value, total = divmod(total, second)
+        if value:
+            parts.append(f"{value}{unit}")
+
+        if len(parts) >= part:
+            break
+
+    if len(parts) < part and not human:
+        ms, us = divmod(micro, 1000)
+        if ms:
+            parts.append(f"{ms}ms")
+
+        if us and len(parts) < part:
+            parts.append(f"{us}µs")
+
+    return ", ".join(parts) if parts else "-"
 
 
 def fmtstr(head: str, data: object = None, foot: str = "", msgs: str = "") -> str:
@@ -64,16 +98,3 @@ def fmtstr(head: str, data: object = None, foot: str = "", msgs: str = "") -> st
         text.append(f"<b><blockquote>{html.escape(str(foot))}</blockquote></b>")
 
     return "\n\n".join(text)
-
-
-def fmtexc() -> str:
-    exc = traceback.TracebackException(*sys.exc_info())
-    fmt = exc.exc_type.__name__
-    if exc._str:
-        fmt += f":\n  {exc._str}"
-
-    ftb = traceback.format_list(f for f in exc.stack if "/site-packages/" in f.filename)
-    if ftb:
-        fmt += f"\n\nTraceback:\n{''.join(ftb)}"
-
-    return fmt

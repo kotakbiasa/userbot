@@ -62,6 +62,12 @@ CREATE TABLE IF NOT EXISTS call.chats (
     join_as BIGINT,
     mute    BOOLEAN DEFAULT FALSE
 );
+CREATE SCHEMA IF NOT EXISTS pmbl;
+CREATE TABLE IF NOT EXISTS pmbl.meta (
+    status  BOOLEAN,
+    msg     TEXT,
+    url     TEXT
+);
 """
 
 
@@ -71,11 +77,10 @@ class Database(abc.ABC):
         super().__init__(**kwargs)
 
     async def initdb(self) -> None:
-        self.logger.info("Creating Pool...")
         try:
-            self.db = await create_pool(self.config["database_url"])
+            self.db = await create_pool(self.config["DATABASE_URL"])
         except Exception as e:
             self.logger.error(f"{e.__class__.__name__}: {e}")
         else:
+            self.config.pop("DATABASE_URL", None)
             await self.db.execute(queries)
-            self.logger.info("Pool Created")

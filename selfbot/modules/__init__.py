@@ -2,15 +2,12 @@ import importlib
 import pathlib
 import pkgutil
 
-parents = [str(pathlib.Path(__file__).parent)]
-submods = [
+modules = [
     importlib.import_module(f".{info.name}", __name__)
-    for info in pkgutil.iter_modules(parents)
+    for info in pkgutil.iter_modules([str(pathlib.Path(__file__).parent)])
 ]
-try:
-    again: bool
-    if again:
-        for module in submods:
-            importlib.reload(module)
-except NameError:
-    again = True
+if globals().get("reload", False):
+    for module in modules:
+        importlib.reload(module)
+else:
+    reload = True

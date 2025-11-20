@@ -37,8 +37,8 @@ class Dispatcher(abc.ABC):
                 return None
             else:
                 remote, branch = self.config.get(
-                    "remote", "https://github.com/DeltaUniverse/selfbot"
-                ).removesuffix(".git"), self.config.get("branch", "staging")
+                    "REMOTE", "https://github.com/DeltaUniverse/selfbot"
+                ).removesuffix(".git"), self.config.get("BRANCH", "staging")
                 return f"{remote}/blob/{branch}/{relp}#L{line}"
 
         for listener in self.listeners.get(event, []):
@@ -71,8 +71,8 @@ class Dispatcher(abc.ABC):
                         fmtstr(
                             e.__class__.__name__,
                             {
-                                "Module": listener.mod.name,
-                                "Event": listener.event.replace("_", " ").title(),
+                                "Module": listener.mod.__class__.__name__,
+                                "Event": f"{listener.event.replace('_', ' ').title()}\n",
                                 "File": fn,
                                 "Line": ln,
                             },
@@ -81,7 +81,7 @@ class Dispatcher(abc.ABC):
                         reply_markup=ikm(("Code", "url", url)) if url else None,
                     )
 
-                self.logger.error(f"{e.__class__.__name__}: {e} at {fn}:{ln}")
+                listener.mod.logger.error(f"{e.__class__.__name__}: {e} at {fn}:{ln}")
 
     def registers(self, mod: Module) -> None:
         for event, func in self._funcs(mod, "on_"):

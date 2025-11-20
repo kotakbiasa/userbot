@@ -12,26 +12,24 @@ from pyrogram.types import (
     CallbackQuery,
     ChosenInlineResult,
     InlineQuery,
-    InlineQueryResultCachedSticker,
-    InputTextMessageContent,
     Message,
     Update,
 )
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import aexec, fmtexc, fmtsec, ids, ikm, shell
+from selfbot.utils import aexec, fmtbyte, fmtexc, fmtsec, fmtstr, ids, ikm, prog, shell
 
-pattern = re.compile(r"^(?:e\s+.+|.+#|#)$", flags=re.DOTALL)
+pattern = re.compile(r"^(?:e\s+.+|.+?\s+#|#)$", flags=re.DOTALL)
 
 
 class Debug(Module):
-    name = "Debug"
+    name = "Code Execute"
     cmds = "e? {code} #?"
     desc = {
-        "e": "Prefix for No Inline (Suffix '#' No Needed)",
-        "code": "String as Python Code",
-        "#": "Suffix for Inline (Prefix 'e' No Needed)",
+        "e": "Prefix (No Inline)",
+        "code": "String",
+        "#": "Suffix (Inline)",
         "?": "Optional",
         "e.g.": 'print("Hello, World!")#',
     }
@@ -48,14 +46,17 @@ class Debug(Module):
         "types": pyrogram.types,
         "utils": pyrogram.utils,
         "aexec": aexec,
+        "fmtbyte": fmtbyte,
         "fmtexc": fmtexc,
         "fmtsec": fmtsec,
+        "fmtstr": fmtstr,
         "ids": ids,
         "ikm": ikm,
+        "prog": prog,
         "shell": shell,
     }
 
-    async def on_starting(self) -> None:
+    async def on_loading(self) -> None:
         self.args.update(
             {
                 "cls": self,
@@ -74,14 +75,23 @@ class Debug(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         if event.content.strip() == "#":
+            if event.reply_to_message:
+                for task in asyncio.all_tasks():
+                    if (
+                        task.get_name()
+                        == f"{event.chat.id}/{event.reply_to_message_id}"
+                    ):
+                        task.cancel()
+                        await event.delete()
+
             return
 
         if event.content.endswith("#"):
-            res, _ = await asyncio.gather(
-                event._client.get_inline_bot_results(self.client.bot.me.id, "#"),
+            _, res = await asyncio.gather(
                 event.edit_text(
                     html.escape(event.content.markdown).removesuffix("#").rstrip()
                 ),
+                event._client.get_inline_bot_results(self.client.bot.me.id, "#"),
             )
             await event.reply_inline_bot_result(
                 res.query_id, res.results[0].id, quote=True
@@ -96,17 +106,8 @@ class Debug(Module):
         )
         await self.execute(cmd, msg)
 
-    @listener.handler(
-        filters.private & (filters.self_destruct | filters.user(777000)), 2
-    )
+    @listener.handler(filters.private & listener.fltusr & filters.self_destruct, 2)
     async def on_message_in(self, event: Message) -> None:
-        if event.chat.id == 777000:
-            match = re.search(r"\b\d{5,6}\b", event.content)
-            if match:
-                self.logger.info(f"Login Code: {match.group()}")
-
-            return
-
         func = getattr(self.client.bot, f"send_{event.media.value}")
         args, attr = inspect.signature(func).parameters, getattr(
             event, event.media.value
@@ -143,19 +144,13 @@ class Debug(Module):
 
     @listener.handler(filters.regex(pattern), 3)
     async def on_inline_query(self, event: InlineQuery) -> None:
-        await event.answer(
-            [
-                InlineQueryResultCachedSticker(
-                    sticker_file_id=self.client.config["sticker_file_id"],
-                    reply_markup=ikm((">_", "user_id", event._client.me.id)),
-                    input_message_content=InputTextMessageContent(
-                        event.query.removesuffix("#").rstrip()
-                        if len(event.query) > 1
-                        else "<code>...</code>"
-                    ),
-                )
-            ],
-            cache_time=0,
+        await self.answer(
+            event,
+            message_text=(
+                event.query.removesuffix("#").rstrip()
+                if len(event.query) > 1
+                else "<code>...</code>"
+            ),
         )
 
     @listener.handler(filters.regex(pattern), 4)
