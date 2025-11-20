@@ -19,9 +19,23 @@ for lib in ("pyrogram", "httpx"):
 def config() -> dict:
     config = dotenv_values()
     if not config:
-        return {k.lower(): v for k, v in os.environ.items()}
+        config = {
+            k: v
+            for k, v in os.environ.items()
+            if k
+            in (
+                "API_ID",
+                "API_HASH",
+                "BOT_TOKEN",
+                "BRANCH",
+                "DATABASE_URL",
+                "GEMINI_API_KEY",
+                "GEMINI_MODEL",
+                "REMOTE",
+                "STICKER_FILE_ID",
+            )
+        }
 
-    os.environ.update({k: v for k, v in config.items()})
     return config
 
 

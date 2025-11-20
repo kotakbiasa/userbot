@@ -14,4 +14,3 @@ def version() -> str:
 
 
 __version__ = version()
-__all__ = ["__version__"]
