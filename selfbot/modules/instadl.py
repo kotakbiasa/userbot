@@ -1,19 +1,16 @@
 import asyncio
-import html
 import re
 import shutil
-import datetime
 import tempfile
 import time
-from pathlib import Path
+from html import escape
+from typing import ClassVar
 
 import instaloader
-from pyrogram import filters
-from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
+from aiopath import AsyncPath
+from pyrogram.types import InputMediaPhoto, InputMediaVideo
 
-from selfbot import listener
-from selfbot.module import Module
-from selfbot.utils import fmtsec
+from selfbot import command, module
 
 
 class SimpleRateController(instaloader.RateController):
@@ -36,36 +33,29 @@ class SimpleRateController(instaloader.RateController):
         return 1
 
 
-class InstaDL(Module):
+class InstaDL(module.Module):
     """Module to download Instagram posts, reels, and stories."""
 
-    name = "InstaDL"
-    cmds = "instadl {url}"
-    desc = {
-        "url": "Link to the Instagram post, reel, or story.",
-        "e.g.": "instadl https://www.instagram.com/p/C...",
-    }
+    name: ClassVar = "InstaDL"
 
-    # Regex to capture the command and URL
-    pattern = re.compile(r"^instadl\s+(https?://(?:www\.)?instagram\.com/.+)", re.IGNORECASE)
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    async def on_load(self):
         self.loader = None
-        self.downloads_dir = Path("downloads")
-        self.session_file = Path(".instaloader_session")
-        self.ig_user = self.client.config.get("instagram_username")
-        self.ig_pass = self.client.config.get("instagram_password")
-        self._session_state = "uninitialized"        
+        self.downloads_dir = None
+        self.session_file = None
+        self.ig_user = None
+        self.ig_pass = None
+        self._session_state = None
 
-    async def on_starting(self):
+        self.downloads_dir = AsyncPath(
+            self.bot.config.get("bot", {}).get("download_path", "downloads")
+        )
+        await self.downloads_dir.mkdir(parents=True, exist_ok=True)
+
+        self.session_file = AsyncPath("selfbot/.cache/instagram_session")
+
         """Initializes the Instaloader instance and logs in."""
-        self.logger.info("Initializing Instaloader...")
-        self.downloads_dir.mkdir(parents=True, exist_ok=True)
+        self.bot.log.info("Initializing Instaloader...")
 
-        if self.loader: # Already initialized
-            return
-            
         self.loader = instaloader.Instaloader(
             download_videos=True,
             download_video_thumbnails=False,
@@ -80,33 +70,37 @@ class InstaDL(Module):
             quiet=True,
         )
 
+        ig_cfg = self.bot.config.get("instagram", {})
+        self.ig_user = ig_cfg.get("username")
+        self.ig_pass = ig_cfg.get("password")
+
         if not self.ig_user or not self.ig_pass:
-            self.logger.info("Instagram: No credentials found. Running in public mode.")
+            self.bot.log.info("Instagram: No credentials found. Running in public mode.")
             self._session_state = "public"
             return
 
-        if self.session_file.exists():
+        if await self.session_file.exists():
             try:
                 await asyncio.to_thread(
-                    self.loader.load_session_from_file, self.ig_user, str(self.session_file)
+                    self.loader.load_session_from_file, None, str(self.session_file)
                 )
-                self.logger.info("Instagram: Loaded existing session file.")
+                self.bot.log.info("Instagram: Loaded existing session file.")
                 self._session_state = "session"
                 return
-            except Exception as e:
-                self.logger.warning(f"Instagram: Session file invalid, logging in fresh. Error: {e}")
+            except Exception:
+                self.bot.log.warning("Instagram: Session file invalid, logging in fresh.")
 
         try:
             await asyncio.to_thread(self.loader.login, self.ig_user, self.ig_pass)
             await asyncio.to_thread(
                 self.loader.save_session_to_file, str(self.session_file)
             )
-            self.logger.info("Instagram: Logged in and saved new session file.")
+            self.bot.log.info("Instagram: Logged in and saved new session file.")
             self._session_state = "logged_in"
         except Exception as e:
-            self.logger.error(f"Instagram login failed: {e}")
-            if self.session_file.exists():
-                self.session_file.unlink()
+            self.bot.log.error(f"Instagram login failed: {e}")
+            if await self.session_file.exists():
+                await self.session_file.unlink()
             self._session_state = "public"
 
     @staticmethod
@@ -125,9 +119,9 @@ class InstaDL(Module):
 
     async def _download_post(self, shortcode: str):
         """Downloads a post and returns file paths and caption."""
-        temp_dir_path = self.downloads_dir / f"instagram_{shortcode}"
-        await asyncio.to_thread(temp_dir_path.mkdir, parents=True, exist_ok=True)
-        self.loader.dirname_pattern = str(temp_dir_path)
+        temp_dir = self.downloads_dir / f"instagram_{shortcode}"
+        await temp_dir.mkdir(parents=True, exist_ok=True)
+        self.loader.dirname_pattern = str(temp_dir)
 
         post = await asyncio.to_thread(
             instaloader.Post.from_shortcode, self.loader.context, shortcode
@@ -135,132 +129,129 @@ class InstaDL(Module):
 
         caption = post.caption or ""
         if caption:
-            caption = f"<blockquote>{html.escape(caption)}</blockquote>"
+            caption = f"<blockquote>{escape(caption)}</blockquote>"
 
         await asyncio.to_thread(self.loader.download_post, post, target="")
 
         media_files = [
-            f
-            for f in temp_dir_path.glob("*")
+            f async for f in temp_dir.glob("*")
             if f.suffix.lower() in {".mp4", ".jpg", ".jpeg", ".png"}
         ]
         if not media_files:
-            raise ValueError("No media files found in downloaded content.")
+            raise ValueError("No media files found in downloaded content")
 
-        return media_files, caption, temp_dir_path
+        return media_files, caption, temp_dir
 
     async def _send_album_chunks(self, chat_id, media_files, media_types, caption, reply_id):
         """Sends media files in chunks of 10."""
         MAX_ALBUM = 10
-        for i in range(0, len(media_files), MAX_ALBUM):
-            chunk_files = media_files[i : i + MAX_ALBUM]
-            chunk_types = media_types[i : i + MAX_ALBUM]
+        for chunk_index in range(0, len(media_files), MAX_ALBUM):
+            chunk_files = media_files[chunk_index : chunk_index + MAX_ALBUM]
+            chunk_types = media_types[chunk_index : chunk_index + MAX_ALBUM]
             album = []
             for idx, file_path in enumerate(chunk_files):
-                is_first = i == 0 and idx == 0
+                is_first = chunk_index == 0 and idx == 0
                 media_caption = caption if is_first else None
                 if chunk_types[idx] == "video":
                     album.append(InputMediaVideo(str(file_path), caption=media_caption))
                 else:
                     album.append(InputMediaPhoto(str(file_path), caption=media_caption))
-            await self.client.app.send_media_group(
+            await self.bot.client.send_media_group(
                 chat_id=chat_id, media=album, reply_to_message_id=reply_id
             )
 
-    @listener.handler(filters.regex(pattern), priority=1)
-    async def on_message_out(self, event: Message):
-        """Handles the .instadl command."""
-        start_time = datetime.datetime.now(datetime.UTC)
-        url = event.matches[0].group(1).strip()
+    @command.desc("Download an Instagram video/reel/photo")
+    @command.usage("--url <instagram link>")
+    async def cmd_instadl(self, ctx: command.Context):
+        url = ctx.flags.get("url") or ctx.input.strip()
         if not url:
-            await event.edit_text("<code>Please provide an Instagram URL.</code>")
-            return
+            return "Please provide an Instagram URL using `--url`."
 
-        await event.edit_text("<code>Downloading...</code>")
-
+        await ctx.respond("Downloading...")
         shortcode = self._extract_shortcode(url)
-        temp_dir = None
-        media_files = []
-        media_types = []
-        caption = ""
 
+        media_files, media_types, caption, temp_dir = None, None, "", None
         try:
-            # First attempt with Instaloader
-            if shortcode and self._session_state != "uninitialized":
+            if shortcode:
                 try:
                     files, caption, temp_dir = await self._download_post(shortcode)
                     media_files = files
-                    media_types = ["video" if f.suffix.lower() == ".mp4" else "image" for f in media_files]
+                    media_types = [
+                        "video" if f.suffix.lower() == ".mp4" else "image"
+                        for f in media_files
+                    ]
                 except Exception as e:
-                    self.logger.warning(f"Instaloader failed: {e}. Falling back to API.")
-                    media_files = [] # Reset to trigger fallback
-
-            # Fallback to API if Instaloader fails or is not applicable
-            if not media_files:
-                api_url = f"https://api.ryzumi.vip/api/downloader/igdl?url={url}"
-                resp = await self.client.http.get(api_url, headers={"accept": "application/json"})
-                if resp.status_code != 200:
-                    raise ConnectionError(f"API failed with HTTP {resp.status_code}")
-                data = resp.json()
-
-                if not data.get("status") or not (api_data := data.get("data")):
-                    raise ValueError("API returned no valid data.")
-
-                temp_dir_obj = tempfile.TemporaryDirectory()
-                temp_dir = Path(temp_dir_obj.name)
-
-                for item in api_data:
-                    file_url = item.get("url")
-                    if not file_url:
-                        continue
-
-                    file_type = item.get("type", "").lower()
-                    filename = file_url.split("?")[0].split("/")[-1]
-                    if "." not in filename:
-                        filename += ".mp4" if file_type == "video" else ".jpg"
-
-                    tmp_path = temp_dir / filename
-                    async with self.client.http.stream("GET", file_url) as file_resp:
-                        if file_resp.status_code != 200:
-                            self.logger.warning(f"Failed to download {file_url}: HTTP {file_resp.status_code}")
-                            continue
-                        with open(tmp_path, "wb") as f:
-                            async for chunk in file_resp.aiter_bytes():
-                                f.write(chunk)
-
-                    media_files.append(tmp_path)
-                    media_types.append(file_type)
-
-                if api_data[0].get("caption"):
-                    caption = f"<blockquote>{html.escape(api_data[0]['caption'])}</blockquote>"
-
-            # Tambahkan stempel waktu ke caption
-            caption += f"\n\n<b><blockquote>{fmtsec(start_time)}</blockquote></b>"
-
-            if not media_files:
-                raise ValueError("Failed to download media from all sources.")
-
-            # Send the downloaded media
-            reply_id = event.reply_to_message_id or event.id
-            if len(media_files) == 1:
-                file_path = str(media_files[0])
-                if media_types[0] == "video":
-                    await self.client.app.send_video(event.chat.id, file_path, caption=caption, reply_to_message_id=reply_id)
-                else:
-                    await self.client.app.send_photo(event.chat.id, file_path, caption=caption, reply_to_message_id=reply_id)
-                await event.delete()
+                    self.bot.log.warning(f"Instaloader failed: {e}. Falling back to API.")
+                    media_files = None  # Explicitly set to None to trigger fallback
             else:
-                await self._send_album_chunks(event.chat.id, media_files, media_types, caption, reply_id)
-                await event.delete()
+                raise ValueError("Invalid Instagram URL format.")
 
-        except Exception as e:
-            self.logger.error(f"InstaDL error: {e}")
-            await event.edit_text(f"<b>Error:</b>\n<code>{html.escape(str(e))}</code>")
+            if not media_files:  # Fallback to API
+                raise instaloader.InstaloaderException("Fallback to API")
 
+        except Exception:
+            api_url = f"https://api.ryzumi.vip/api/downloader/igdl?url={url}"
+            resp = await self.bot.http.get(api_url, headers={"accept": "application/json"})
+            if resp.status_code != 200:
+                return f"API failed with HTTP {resp.status_code}"
+            data = resp.json()
+
+            if not data.get("status") or not (api_data := data.get("data")):
+                return "API returned no valid data"
+
+            temp_dir_obj = tempfile.TemporaryDirectory()
+            tmp_dir_path = AsyncPath(temp_dir_obj.name)
+            media_files = []
+            media_types = []
+
+            for item in api_data:
+                file_url = item.get("url")
+                if not file_url:
+                    continue
+
+                file_type = item.get("type", "").lower()
+                filename = file_url.split("?")[0].split("/")[-1]
+
+                if "." not in filename:
+                    filename += ".mp4" if file_type == "video" else ".jpg"
+
+                tmp_path = tmp_dir_path / filename
+
+                async with self.bot.http.stream("GET", file_url) as file_resp:
+                    if file_resp.status_code != 200:
+                        self.bot.log.warning(f"Failed to download {file_url}: HTTP {file_resp.status_code}")
+                        continue
+                    await tmp_path.write_bytes(await file_resp.aread())
+
+                media_files.append(tmp_path)
+                media_types.append(file_type)
+
+            caption = (api_data[0].get("caption") or "").strip()
+            if caption:
+                caption = f"<blockquote>{escape(caption)}</blockquote>"
+
+            temp_dir = temp_dir_obj
+
+        try:
+            if len(media_files) == 1:
+                if media_types[0] == "video":
+                    await ctx.msg.edit_media(InputMediaVideo(str(media_files[0]), caption=caption))
+                else:
+                    await ctx.msg.edit_media(InputMediaPhoto(str(media_files[0]), caption=caption))
+            else:
+                await self._send_album_chunks(
+                    ctx.chat.id, [str(f) for f in media_files], media_types, caption, ctx.msg.id
+                )
+                try:
+                    await ctx.msg.delete()
+                except Exception:
+                    pass
         finally:
-            # Clean up the temporary directory
             if temp_dir:
                 try:
-                    await asyncio.to_thread(shutil.rmtree, temp_dir)
-                except Exception as e:
-                    self.logger.error(f"Failed to clean up temp directory {temp_dir}: {e}")
+                    if hasattr(temp_dir, "name"):  # It's a TemporaryDirectory object
+                        await asyncio.to_thread(shutil.rmtree, temp_dir.name)
+                    else:  # It's a Path object
+                        await asyncio.to_thread(shutil.rmtree, temp_dir)
+                except Exception:
+                    pass
