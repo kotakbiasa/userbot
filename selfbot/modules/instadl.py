@@ -220,11 +220,13 @@ class InstaDL(Module):
                         filename += ".mp4" if file_type == "video" else ".jpg"
 
                     tmp_path = temp_dir / filename
-                    async with self.client.http.get(file_url) as file_resp:
+                    async with self.client.http.stream("GET", file_url) as file_resp:
                         if file_resp.status_code != 200:
                             self.logger.warning(f"Failed to download {file_url}: HTTP {file_resp.status_code}")
                             continue
-                        await asyncio.to_thread(tmp_path.write_bytes, await file_resp.aread())
+                        with open(tmp_path, "wb") as f:
+                            async for chunk in file_resp.aiter_bytes():
+                                f.write(chunk)
 
                     media_files.append(tmp_path)
                     media_types.append(file_type)
