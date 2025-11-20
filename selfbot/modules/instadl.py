@@ -198,10 +198,10 @@ class InstaDL(Module):
             # Fallback to API if Instaloader fails or is not applicable
             if not media_files:
                 api_url = f"https://api.ryzumi.vip/api/downloader/igdl?url={url}"
-                async with self.client.http.get(api_url, headers={"accept": "application/json"}) as resp:
-                    if resp.status_code != 200:
-                        raise ConnectionError(f"API failed with HTTP {resp.status_code}")
-                    data = await resp.json()
+                resp = await self.client.http.get(api_url, headers={"accept": "application/json"})
+                if resp.status_code != 200:
+                    raise ConnectionError(f"API failed with HTTP {resp.status_code}")
+                data = resp.json()
 
                 if not data.get("status") or not (api_data := data.get("data")):
                     raise ValueError("API returned no valid data.")
