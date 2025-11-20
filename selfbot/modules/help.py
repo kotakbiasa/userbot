@@ -3,14 +3,7 @@ import html
 import re
 
 from pyrogram import filters
-from pyrogram.types import (
-    CallbackQuery,
-    InlineQuery,
-    InlineQueryResultCachedSticker,
-    InputTextMessageContent,
-    Message,
-    ReplyParameters,
-)
+from pyrogram.types import CallbackQuery, InlineQuery, Message, ReplyParameters
 
 from selfbot import __version__, listener
 from selfbot.module import Module
@@ -20,22 +13,22 @@ pattern = re.compile(r"^help/?(mod|info|page)?(?:/(\d{1}|[a-zA-Z]+))?$")
 
 
 class Help(Module):
-    name = "Help"
+    name = "Selfbot Help"
     cmds = "help(/{name})?"
-    desc = {"name": "String as Module Name", "?": "Optional", "e.g.": "help/debug"}
+    desc = {"name": "String", "?": "Optional", "e.g.": "help/debug"}
     mods, maps, ikbs = {}, {}, []
 
     async def on_started(self) -> None:
         mods, page = [mod for mod in self.client.modules.values()], []
         for i, mod in enumerate(mods):
-            name = mod.name.lower()
+            name = mod.__class__.__name__.lower()
             self.maps[name] = len(self.ikbs)
             self.mods[name] = (
                 f"<b>{mod.name}</b>\n\n{' ' * 2}<b>Pattern</b>"
                 f"\n{' ' * 4}<code>{html.escape(mod.cmds)}</code>"
                 f"\n\n{self._fmthelp(mod.desc)}"
             )
-            page.append((mod.name, f"help/mod/{name}".encode()))
+            page.append((mod.__class__.__name__, f"help/mod/{name}".encode()))
             if len(page) == 4:
                 self.ikbs.append([page[i : i + 2] for i in range(0, 4, 2)])
                 page = []
@@ -65,55 +58,30 @@ class Help(Module):
         if len(event.query.split("/")) == 2:
             name = event.query.split("/")[1].strip().lower()
             if name in self.mods:
-                await event.answer(
-                    [
-                        InlineQueryResultCachedSticker(
-                            sticker_file_id=self.client.config["sticker_file_id"],
-                            reply_markup=ikm(
-                                [
-                                    ("« Back", f"help/page/{self.maps[name]}"),
-                                    ("Close", b"0"),
-                                ]
-                            ),
-                            input_message_content=InputTextMessageContent(
-                                self.mods[name]
-                            ),
-                        )
-                    ]
+                await self.answer(
+                    event,
+                    ikm([("« Back", f"help/page/{self.maps[name]}"), ("Close", b"0")]),
+                    self.mods[name],
                 )
             else:
                 names = [
                     f"  {n}. <code>{i}</code>"
                     for n, i in enumerate(self.client.modules, 1)
                 ]
-                await event.answer(
-                    [
-                        InlineQueryResultCachedSticker(
-                            sticker_file_id=self.client.config["sticker_file_id"],
-                            reply_markup=ikm(("Close", b"0")),
-                            input_message_content=InputTextMessageContent(
-                                f"<code>No Module with Name '{name}'</code>\n\n"
-                                f"<b>Available Modules:</b>\n{'\n'.join(names)}\n\n"
-                                "Get with Prefix '<code>help/</code>'\n"
-                                "<b>e.g.</b> <code>help/debug</code>"
-                            ),
-                        )
-                    ]
+                await self.answer(
+                    event,
+                    ikm(("Close", b"0")),
+                    (
+                        f"<code>No Module with Name '{name}'</code>\n\n"
+                        f"<b>Available Modules:</b>\n{'\n'.join(names)}\n\n"
+                        "Get with Prefix '<code>help/</code>'\n"
+                        "<b>e.g.</b> <code>help/debug</code>"
+                    ),
                 )
 
             return
 
-        await event.answer(
-            [
-                InlineQueryResultCachedSticker(
-                    sticker_file_id=self.client.config["sticker_file_id"],
-                    reply_markup=ikm(self.build()),
-                    input_message_content=InputTextMessageContent(
-                        "<b>Selfbot Modules</b>"
-                    ),
-                )
-            ]
-        )
+        await self.answer(event, ikm(self.build()), "<b>Selfbot Modules</b>")
 
     @listener.handler(filters.regex(pattern), 4)
     async def on_inline_callback(self, event: CallbackQuery) -> None:

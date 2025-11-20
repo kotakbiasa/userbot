@@ -11,9 +11,9 @@ pattern = re.compile(r"^d(?:el(?:ete)?)?$")
 
 
 class Delete(Module):
-    name = "Delete"
-    cmds = "<Reply to Message> d(el(ete)?)?"
-    desc = {"?": "Optional", "e.g.": "<Reply to Message> delete"}
+    name = "Delete Message"
+    cmds = "<Reply> d(el(ete)?)?"
+    desc = {"?": "Optional", "e.g.": "<Reply> del"}
 
     @listener.handler(filters.regex(pattern) & listener.fltrep, 1)
     async def on_message_out(self, event: Message) -> None:
