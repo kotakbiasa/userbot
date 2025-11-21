@@ -1,11 +1,12 @@
 import asyncio
+import datetime
 import html
 import os
 import json
 import re
 import shutil
-import tempfile
 import time
+import tempfile
 import pathlib
 
 import instaloader
@@ -14,6 +15,7 @@ from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 
 from selfbot import listener
 from selfbot.module import Module
+from selfbot.utils import fmtsec
 
 
 class SimpleRateController(instaloader.RateController):
@@ -38,15 +40,19 @@ class SimpleRateController(instaloader.RateController):
 
 class InstaDL(Module):
     name = "InstaDL"
-    cmds = "instadl {url}"
+    cmds = "instadl | igdl {url}"
     desc = {
         "Info": "Download an Instagram post, reel, or story.",
         "url": "The full URL of the Instagram content.",
-        "e.g.": "instadl https://www.instagram.com/p/C7f3Z...",
+        "e.g.": "igdl https://www.instagram.com/p/C7f3Z...",
+        "vars": {
+            "INSTAGRAM_USERNAME": "Your Instagram username (optional).",
+            "INSTAGRAM_PASSWORD": "Your Instagram password (optional)."
+        }
     }
 
     # Regex to match 'instadl' followed by a URL
-    pattern = re.compile(r"^instadl\s+(https?://www\.instagram\.com/[^\s]+)$")
+    pattern = re.compile(r"^(?:instadl|igdl)\s+(https?://www\.instagram\.com/[^\s]+)$")
 
     async def on_loading(self):
         """Initializes the instaloader instance and session."""
@@ -67,9 +73,9 @@ class InstaDL(Module):
         session_file = pathlib.Path("selfbot/.cache/instagram_session")
         await asyncio.to_thread(session_file.parent.mkdir, exist_ok=True)
 
-        ig_cfg = self.client.config.get("instagram", {})
-        ig_user = ig_cfg.get("username")
-        ig_pass = ig_cfg.get("password")
+        # Read credentials from config
+        ig_user = self.client.config.get("INSTAGRAM_USERNAME")
+        ig_pass = self.client.config.get("INSTAGRAM_PASSWORD")
 
         if not ig_user or not ig_pass:
             self.logger.info("Instagram: No credentials found, running in public mode.")
@@ -109,7 +115,7 @@ class InstaDL(Module):
                 return m.group(1)
         return None
 
-    async def _download_post(self, shortcode: str):
+    async def _download_post(self, shortcode: str, url: str):
         """Downloads a post using instaloader."""
         temp_dir = await asyncio.to_thread(tempfile.mkdtemp, prefix="instadl_")
         self.loader.dirname_pattern = str(temp_dir)
@@ -118,9 +124,10 @@ class InstaDL(Module):
             instaloader.Post.from_shortcode, self.loader.context, shortcode
         )
 
-        caption = post.caption or ""
-        if caption:
-            caption = f"<blockquote>{html.escape(caption)}</blockquote>"
+        caption_text = post.caption or ""
+        caption = f"<a href='{url}'>Source</a>"
+        if caption_text:
+            caption += f"\n\n<blockquote>{html.escape(caption_text)}</blockquote>"
 
         await asyncio.to_thread(self.loader.download_post, post, target="")
 
@@ -163,6 +170,7 @@ class InstaDL(Module):
             return
 
         url = match.group(1)
+        now = datetime.datetime.now(datetime.UTC)
         await event.edit_text("<code>Downloading...</code>")
 
         media_files, caption, temp_dir = [], "", None
@@ -171,7 +179,9 @@ class InstaDL(Module):
             if not shortcode:
                 raise ValueError("Invalid Instagram URL format.")
 
-            media_files, caption, temp_dir = await self._download_post(shortcode)
+            media_files, caption, temp_dir = await self._download_post(shortcode, url)
+            rtt = fmtsec(now)
+            caption += f"\n\n<b><blockquote>{rtt}</blockquote></b>"
 
             if len(media_files) == 1:
                 file_path = media_files[0]
@@ -221,17 +231,30 @@ class InstaDL(Module):
                 for f in pathlib.Path(temp_dir).rglob('*.json'):
                     try:
                         meta = json.loads(await asyncio.to_thread(f.read_text))
-                        caption_text = meta.get('caption') or meta.get('description')
+                        caption_text = meta.get('caption') or meta.get('description', '')
+                        caption = f"<a href='{url}'>Source</a>"
                         if caption_text:
-                            caption = f"<blockquote>{html.escape(str(caption_text))}</blockquote>"
-                            break
+                            caption += f"\n\n<blockquote>{html.escape(str(caption_text))}</blockquote>"
+                        caption += f"\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
+                        break
                     except Exception:
-                        continue # Ignore parsing errors
+                        continue  # Ignore parsing errors
+
+                # Send the downloaded media
+                if len(media_files) == 1:
+                    file_path = media_files[0]
+                    if file_path.suffix.lower() == ".mp4":
+                        await event.reply_video(video=str(file_path), caption=caption)
+                    else:
+                        await event.reply_photo(photo=str(file_path), caption=caption)
+                elif len(media_files) > 1:
+                    await self._send_album_chunks(event, media_files, caption)
+                await event.delete()
 
             except Exception as fallback_e:
                 error_message = f"<b>Instaloader Error:</b>\n<code>{html.escape(str(e))}</code>\n\n<b>Fallback API Error:</b>\n<code>{html.escape(str(fallback_e))}</code>"
                 await event.edit_text(error_message)
-                return # Stop execution if fallback also fails
+                return  # Stop execution if fallback also fails
         finally:
             if temp_dir and await asyncio.to_thread(os.path.exists, temp_dir):
                 await asyncio.to_thread(shutil.rmtree, temp_dir)
