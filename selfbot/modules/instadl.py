@@ -1,11 +1,11 @@
 import asyncio
-import datetime
 import html
 import os
 import json
 import re
 import shutil
 import tempfile
+import time
 import pathlib
 
 import instaloader
@@ -14,7 +14,6 @@ from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec
 
 
 class SimpleRateController(instaloader.RateController):
@@ -23,6 +22,9 @@ class SimpleRateController(instaloader.RateController):
     def __init__(self, context, sleep_time=2):
         super().__init__(context)
         self.sleep_time = sleep_time
+
+    def sleep(self, secs):
+        time.sleep(secs)
 
     def query_waittime(self, query_type, current_time, untracked_queries=False):
         return self.sleep_time
@@ -36,15 +38,15 @@ class SimpleRateController(instaloader.RateController):
 
 class InstaDL(Module):
     name = "InstaDL"
-    cmds = "instadl | igdl {url}"
+    cmds = "instadl {url}"
     desc = {
         "Info": "Download an Instagram post, reel, or story.",
         "url": "The full URL of the Instagram content.",
-        "e.g.": "igdl https://www.instagram.com/p/C7f3Z...",
+        "e.g.": "instadl https://www.instagram.com/p/C7f3Z...",
     }
 
     # Regex to match 'instadl' followed by a URL
-    pattern = re.compile(r"^(?:instadl|igdl)\s+(https?://www\.instagram\.com/[^\s]+)$")
+    pattern = re.compile(r"^instadl\s+(https?://www\.instagram\.com/[^\s]+)$")
 
     async def on_loading(self):
         """Initializes the instaloader instance and session."""
@@ -107,7 +109,7 @@ class InstaDL(Module):
                 return m.group(1)
         return None
 
-    async def _download_post(self, shortcode: str, url: str):
+    async def _download_post(self, shortcode: str):
         """Downloads a post using instaloader."""
         temp_dir = await asyncio.to_thread(tempfile.mkdtemp, prefix="instadl_")
         self.loader.dirname_pattern = str(temp_dir)
@@ -116,10 +118,9 @@ class InstaDL(Module):
             instaloader.Post.from_shortcode, self.loader.context, shortcode
         )
 
-        caption_text = post.caption or ""
-        caption = f"<a href='{url}'>Source</a>"
-        if caption_text:
-            caption += f"\n\n<blockquote>{html.escape(caption_text)}</blockquote>"
+        caption = post.caption or ""
+        if caption:
+            caption = f"<blockquote>{html.escape(caption)}</blockquote>"
 
         await asyncio.to_thread(self.loader.download_post, post, target="")
 
@@ -162,7 +163,6 @@ class InstaDL(Module):
             return
 
         url = match.group(1)
-        now = datetime.datetime.now(datetime.UTC)
         await event.edit_text("<code>Downloading...</code>")
 
         media_files, caption, temp_dir = [], "", None
@@ -171,9 +171,7 @@ class InstaDL(Module):
             if not shortcode:
                 raise ValueError("Invalid Instagram URL format.")
 
-            media_files, caption, temp_dir = await self._download_post(shortcode, url)
-            rtt = fmtsec(now)
-            caption += f"\n\n<b><blockquote>{rtt}</blockquote></b>"
+            media_files, caption, temp_dir = await self._download_post(shortcode)
 
             if len(media_files) == 1:
                 file_path = media_files[0]
@@ -223,12 +221,10 @@ class InstaDL(Module):
                 for f in pathlib.Path(temp_dir).rglob('*.json'):
                     try:
                         meta = json.loads(await asyncio.to_thread(f.read_text))
-                        caption_text = meta.get('caption') or meta.get('description', '')
-                        caption = f"<a href='{url}'>Source</a>"
+                        caption_text = meta.get('caption') or meta.get('description')
                         if caption_text:
-                            caption += f"\n\n<blockquote>{html.escape(str(caption_text))}</blockquote>"
-                        caption += f"\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
-                        break
+                            caption = f"<blockquote>{html.escape(str(caption_text))}</blockquote>"
+                            break
                     except Exception:
                         continue # Ignore parsing errors
 
