@@ -228,7 +228,7 @@ class InstaDL(Module):
                         if caption_text:
                             caption += f"\n\n<blockquote>{html.escape(str(caption_text))}</blockquote>"
                         caption += f"\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
-                            break
+                        break
                     except Exception:
                         continue # Ignore parsing errors
 
