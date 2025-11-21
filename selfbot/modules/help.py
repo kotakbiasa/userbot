@@ -132,7 +132,7 @@ class Help(Module):
     def _fmthelp(data: object) -> str:
         if isinstance(data, dict):
             res = [
-                f"{' ' * 4}• <b>{k}</b>\n{' ' * 6}<code>{html.escape(v)}</code>"
+                f"{' ' * 4}• <b>{k}</b>\n{' ' * 6}<code>{html.escape(str(v))}</code>"
                 for k, v in data.items()
             ]
             return "\n".join(res)
