@@ -27,8 +27,7 @@ dependencies = [
     "telegraph[aio] (>=2.2.0,<3.0.0)",
     "validators (>=0.35.0,<0.36.0)",
     "youtube-search-python @ git+https://github.com/KSKOP69/youtube-search-python.git@ksk",
-    "yt-dlp (>=2025.11.12,<2026.0.0)",
-    "typing-extensions (>=4.17.0,<5.0.0)"
+    "yt-dlp (>=2025.11.12,<2026.0.0)"
 ]
 
 [[project.authors]]
