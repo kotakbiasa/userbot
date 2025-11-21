@@ -1,6 +1,7 @@
 import asyncio
 import html
 import os
+import json
 import re
 import shutil
 import tempfile
@@ -188,29 +189,49 @@ class InstaDL(Module):
         except Exception as e:
             self.logger.error(f"Instaloader failed: {e}. Trying fallback API.")
             await event.edit_text(f"<code>Instaloader failed. Trying fallback...</code>")
+            # Fallback to gallery-dl
             try:
-                api_url = f"https://api.ryzumi.vip/api/downloader/igdl?url={url}"
-                async with self.client.http.get(api_url, headers={"accept": "application/json"}) as resp:
-                    resp.raise_for_status()
-                    data = resp.json()
+                temp_dir = await asyncio.to_thread(tempfile.mkdtemp, prefix="gdl_")
+                
+                process = await asyncio.create_subprocess_exec(
+                    "gallery-dl",
+                    "--write-metadata",
+                    "-d", temp_dir,
+                    url,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                stdout, stderr = await process.communicate()
 
-                if not data.get("status") or not data.get("data"):
-                    raise ValueError("Fallback API returned no data.")
+                if process.returncode != 0:
+                    error_output = stderr.decode().strip()
+                    self.logger.error(f"gallery-dl failed: {error_output}")
+                    raise ValueError(f"gallery-dl error: {error_output}")
 
-                media_items = [item['url'] for item in data['data'] if 'url' in item]
-                caption = (data["data"][0].get("caption") or "").strip()
-                if caption:
-                    caption = f"<blockquote>{html.escape(caption)}</blockquote>"
+                media_files = await asyncio.to_thread(sorted, [
+                    f for f in pathlib.Path(temp_dir).rglob('*') 
+                    if f.is_file() and f.suffix.lower() in {".mp4", ".jpg", ".jpeg", ".png"}
+                ])
 
-                if len(media_items) == 1:
-                    await event.reply_video(video=media_items[0], caption=caption)
-                else:
-                    album = [InputMediaVideo(url, caption=caption if i == 0 else None) for i, url in enumerate(media_items)]
-                    await event._client.send_media_group(event.chat.id, album, reply_to_message_id=event.reply_to_message_id or event.id)
-                await event.delete()
+                if not media_files:
+                    raise ValueError("gallery-dl downloaded no media files.")
+
+                # Try to find caption from metadata
+                caption = ""
+                for f in pathlib.Path(temp_dir).rglob('*.json'):
+                    try:
+                        meta = json.loads(await asyncio.to_thread(f.read_text))
+                        caption_text = meta.get('caption') or meta.get('description')
+                        if caption_text:
+                            caption = f"<blockquote>{html.escape(str(caption_text))}</blockquote>"
+                            break
+                    except Exception:
+                        continue # Ignore parsing errors
+
             except Exception as fallback_e:
                 error_message = f"<b>Instaloader Error:</b>\n<code>{html.escape(str(e))}</code>\n\n<b>Fallback API Error:</b>\n<code>{html.escape(str(fallback_e))}</code>"
                 await event.edit_text(error_message)
+                return # Stop execution if fallback also fails
         finally:
             if temp_dir and await asyncio.to_thread(os.path.exists, temp_dir):
                 await asyncio.to_thread(shutil.rmtree, temp_dir)
