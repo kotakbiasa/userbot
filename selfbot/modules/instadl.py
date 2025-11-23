@@ -136,8 +136,8 @@ class InstaDL(Module):
                 album.append(media(file_path, caption=caption if is_first else None))
             await self.client.app.send_media_group(chat_id=chat_id, media=album, reply_to_message_id=reply_id)
 
-    @listener.handler(filters.regex(pattern) & filters.me, priority=1)
-    async def cmd_instadl(self, event: Message):
+    @listener.handler(filters.regex(pattern), priority=1)
+    async def on_message_out(self, event: Message):
         match = pattern.match(event.text)
         if not match:
             await event.edit("Please provide an Instagram URL.")
@@ -226,7 +226,9 @@ class InstaDL(Module):
                     await event.edit_media(media_to_send)
             else:
                 # For albums, we reply to the original message and delete the command message
-                reply_to = event.reply_to_message_id or event.id
+                reply_to = (
+                    event.reply_to_message.id if event.reply_to_message else event.id
+                )
                 await self._send_album_chunks(event.chat.id, media_files, media_types, final_caption, reply_to)
                 await event.delete()
         finally:
