@@ -96,13 +96,13 @@ class Info(Module):
 
             if user.id != message.from_user.id:
                 try:
-                    common_chats = await message._client.get_common_chats(user.id)
+                    common_chats = await self.client.app.get_common_chats(user.id)
                     info_lines.append(f"• <b>Common Groups:</b> {len(common_chats)}")
                 except Exception:
                     pass  # Ignore if unable to fetch common chats
                 
                 try:
-                    await message._client.send_chat_action(user.id, enums.ChatAction.CANCEL)
+                    await self.client.app.send_chat_action(user.id, enums.ChatAction.CANCEL)
                     info_lines.append("• <b>Blocked You:</b> No ✅")
                 except UserIsBlocked:
                     info_lines.append("• <b>Blocked You:</b> Yes ⛔️")
