@@ -210,7 +210,16 @@ class InstaDL(Module):
                 return
 
             rtt = fmtsec(now)
-            final_caption = f"{caption}\n\n<b><blockquote>{rtt}</blockquote></b>" if caption else f"<b><blockquote>{rtt}</blockquote></b>"
+            caption_parts = []
+            if caption:
+                caption_parts.append(caption)
+            
+            # Menambahkan link source
+            caption_parts.append(f"<a href='{url}'>Source</a>")
+            
+            # Menambahkan timestamp
+            caption_parts.append(f"<b><blockquote>{rtt}</blockquote></b>")
+            final_caption = "\n\n".join(caption_parts)
 
             if len(media_files) == 1:
                 media_type = media_types[0]
