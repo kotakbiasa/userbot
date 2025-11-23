@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import html
 import os
-import json
 import re
 import shutil
 import time
@@ -197,64 +196,9 @@ class InstaDL(Module):
                 await event.edit_text("<code>No media found to download.</code>")
 
         except Exception as e:
-            self.logger.error(f"Instaloader failed: {e}. Trying fallback API.")
-            await event.edit_text(f"<code>Instaloader failed. Trying fallback...</code>")
-            # Fallback to gallery-dl
-            try:
-                temp_dir = await asyncio.to_thread(tempfile.mkdtemp, prefix="gdl_")
-                
-                process = await asyncio.create_subprocess_exec(
-                    "gallery-dl",
-                    "--write-metadata",
-                    "-d", temp_dir,
-                    url,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                stdout, stderr = await process.communicate()
-
-                if process.returncode != 0:
-                    error_output = stderr.decode().strip()
-                    self.logger.error(f"gallery-dl failed: {error_output}")
-                    raise ValueError(f"gallery-dl error: {error_output}")
-
-                media_files = await asyncio.to_thread(sorted, [
-                    f for f in pathlib.Path(temp_dir).rglob('*') 
-                    if f.is_file() and f.suffix.lower() in {".mp4", ".jpg", ".jpeg", ".png"}
-                ])
-
-                if not media_files:
-                    raise ValueError("gallery-dl downloaded no media files.")
-
-                # Try to find caption from metadata
-                caption = ""
-                for f in pathlib.Path(temp_dir).rglob('*.json'):
-                    try:
-                        meta = json.loads(await asyncio.to_thread(f.read_text))
-                        caption_text = meta.get('caption') or meta.get('description', '')
-                        caption = f"<a href='{url}'>Source</a>"
-                        if caption_text:
-                            caption += f"\n\n<blockquote>{html.escape(str(caption_text))}</blockquote>"
-                        caption += f"\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
-                        break
-                    except Exception:
-                        continue  # Ignore parsing errors
-
-                # Send the downloaded media
-                if len(media_files) == 1:
-                    file_path = media_files[0]
-                    if file_path.suffix.lower() == ".mp4":
-                        await event.reply_video(video=str(file_path), caption=caption)
-                    else:
-                        await event.reply_photo(photo=str(file_path), caption=caption)
-                elif len(media_files) > 1:
-                    await self._send_album_chunks(event, media_files, caption)
-                await event.delete()
-
-            except Exception as fallback_e:
-                error_message = f"<b>Instaloader Error:</b>\n<code>{html.escape(str(e))}</code>\n\n<b>Fallback API Error:</b>\n<code>{html.escape(str(fallback_e))}</code>"
-                await event.edit_text(error_message)
-                return  # Stop execution if fallback also fails
+            self.logger.error(f"Instaloader failed: {e}")
+            error_message = f"<b>Instaloader Error:</b>\n<code>{html.escape(str(e))}</code>"
+            await event.edit_text(error_message)
         finally:
             if temp_dir and await asyncio.to_thread(os.path.exists, temp_dir):
                 await asyncio.to_thread(shutil.rmtree, temp_dir)
