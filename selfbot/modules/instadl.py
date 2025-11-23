@@ -219,7 +219,7 @@ class InstaDL(Module):
             
             # Menambahkan timestamp
             caption_parts.append(f"<b><blockquote>{rtt}</blockquote></b>")
-            final_caption = "\n\n".join(caption_parts)
+            final_caption = "\n".join(caption_parts)
 
             if len(media_files) == 1:
                 media_type = media_types[0]
