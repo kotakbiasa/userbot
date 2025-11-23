@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import html
 import io
 import re
@@ -13,7 +14,9 @@ from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 
 from selfbot import listener
 from selfbot.module import Module
+from selfbot.utils import fmtsec
 
+pattern = re.compile(r"^(?:igdl|instadl)\s+(https?://[^\s]+)$")
 
 class SimpleRateController(instaloader.RateController):
     """A simple rate controller for instaloader to avoid blocking."""
@@ -133,15 +136,16 @@ class InstaDL(Module):
                 album.append(media(file_path, caption=caption if is_first else None))
             await self.client.app.send_media_group(chat_id=chat_id, media=album, reply_to_message_id=reply_id)
 
-    @listener.handler(filters.command(["instadl", "igdl"], prefixes=".") & filters.me)
+    @listener.handler(filters.regex(pattern) & filters.me)
     async def cmd_instadl(self, event: Message):
-        url_match = re.search(r"https?://[^\s]+", event.text)
-        if not url_match:
+        match = pattern.match(event.text)
+        if not match:
             await event.edit("Please provide an Instagram URL.")
             return
 
-        url = url_match.group(0)
+        url = match.group(1)
         await event.edit("<code>Downloading...</code>")
+        now = datetime.datetime.now(datetime.UTC)
 
         shortcode = self._extract_shortcode(url)
         temp_dir_obj = None
@@ -205,17 +209,25 @@ class InstaDL(Module):
                 await event.edit("Could not find any media to download.")
                 return
 
-            reply_id = event.reply_to_message_id or event.id
+            rtt = fmtsec(now)
+            final_caption = f"{caption}\n\n<b><blockquote>{rtt}</blockquote></b>" if caption else f"<b><blockquote>{rtt}</blockquote></b>"
+
             if len(media_files) == 1:
                 media_type = media_types[0]
                 file_path = media_files[0]
+                media_to_send = (
+                    InputMediaVideo(file_path, caption=final_caption)
+                    if media_type == "video" else
+                    InputMediaPhoto(file_path, caption=final_caption)
+                )
                 if media_type == "video":
-                    await self.client.app.send_video(event.chat.id, file_path, caption=caption, reply_to_message_id=reply_id)
+                    await event.edit_media(media_to_send)
                 else:
-                    await self.client.app.send_photo(event.chat.id, file_path, caption=caption, reply_to_message_id=reply_id)
-                await event.delete()
+                    await event.edit_media(media_to_send)
             else:
-                await self._send_album_chunks(event.chat.id, media_files, media_types, caption, reply_id)
+                # For albums, we reply to the original message and delete the command message
+                reply_to = event.reply_to_message_id or event.id
+                await self._send_album_chunks(event.chat.id, media_files, media_types, final_caption, reply_to)
                 await event.delete()
         finally:
             if temp_dir_path:
