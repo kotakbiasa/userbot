@@ -136,7 +136,7 @@ class InstaDL(Module):
                 album.append(media(file_path, caption=caption if is_first else None))
             await self.client.app.send_media_group(chat_id=chat_id, media=album, reply_to_message_id=reply_id)
 
-    @listener.handler(filters.regex(pattern) & filters.me)
+    @listener.handler(filters.regex(pattern) & filters.me, priority=1)
     async def cmd_instadl(self, event: Message):
         match = pattern.match(event.text)
         if not match:
