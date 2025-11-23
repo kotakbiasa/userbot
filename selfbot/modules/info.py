@@ -116,6 +116,17 @@ class Info(Module):
             if user.is_premium: flags.append("Premium ✨")
             if flags: info_lines.append(f"• <b>Flags:</b> {', '.join(flags)}")
             
+            # Get registration date from external API
+            try:
+                async with self.client.http as http_client:
+                    reg_date_resp = await http_client.get(
+                        f"https://yasirapi.eu.org/register_date?user_id={user.id}&tz=UTC"
+                    )
+                if reg_date_resp.status_code == 200 and (reg_date_data := reg_date_resp.json()).get("success"):
+                    info_lines.append(f"• <b>Registration Date:</b> {reg_date_data.get('reg_date')} UTC")
+            except Exception:
+                pass  # Ignore if API fails, so it doesn't break the whole command
+
             info_lines.append(f"• <b>Last Seen:</b> {self._get_user_status(user)}")
             
             if full_chat_info.bio: info_lines.append(f"• <b>Bio:</b> {safe_escape(full_chat_info.bio)}")
