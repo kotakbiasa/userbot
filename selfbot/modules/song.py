@@ -36,22 +36,28 @@ class Song(Module):
         The waveform consists of 100 samples of 5-bit amplitude values.
         """
         try:
-            # Perintah untuk mengekstrak data amplitudo audio, lalu memformatnya
-            # -filter:a volumedetect -> mendeteksi volume audio
-            # -show_entries frame_tags=lavfi.volumedetect.mean_volume -> hanya output nilai rata-rata volume
+            # Perintah untuk mengubah audio menjadi data mentah (raw) 8-bit mono
             command = (
-                f"ffmpeg -hide_banner -i \"{audio_path}\" -f null - -filter:a volumedetect -show_entries frame_tags=lavfi.volumedetect.mean_volume"
+                f"ffmpeg -i \"{audio_path}\" -f u8 -ac 1 -ar 8000 -"
             )
-            _, stderr = await shell(command)
+            stdout, _ = await shell(command)
             
-            # Ekstrak nilai mean_volume dari output stderr ffmpeg
-            mean_volume_db = [float(x.split("=")[1]) for x in stderr.splitlines() if "mean_volume" in x]
-            if not mean_volume_db:
+            # Konversi output biner menjadi byte
+            raw_waveform = bytes(stdout, "latin-1")
+
+            if not raw_waveform:
                 return None
 
-            # Normalisasi nilai dari dB ke rentang 0-31 untuk waveform
-            samples = [int((vol + 60) / 60 * 31) for vol in mean_volume_db]
-            return bytes(samples[:100]) # Pastikan hanya 100 sampel
+            # Ambil sampel dari data mentah untuk membuat waveform
+            num_samples = 100
+            step = len(raw_waveform) // num_samples
+            if step == 0:
+                return None
+
+            # Ambil sampel dan normalisasi ke rentang 0-31
+            sampled_waveform = [raw_waveform[i] for i in range(0, len(raw_waveform), step)]
+            normalized_waveform = [int((sample / 255) * 31) for sample in sampled_waveform]
+            return bytes(normalized_waveform[:num_samples])
         except Exception as e:
             self.logger.error(f"Gagal membuat waveform: {e}")
             return None

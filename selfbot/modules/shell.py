@@ -55,7 +55,7 @@ class Shell(Module):
         # Determine shell prompt character
         char = "#" if hasattr(os, 'getuid') and os.getuid() == 0 else "$"
         
-        text = f"<b>{char}</b> <blockquote><code>{html.escape(command)}</code></blockquote>\n\n"
+        text = f"<blockquote><b>{char}</b> <code>{html.escape(command)}</code></blockquote>\n\n"
         await event.edit_text(text + "<b>Running...</b>")
         
         stdout, stderr, returncode = await asyncio.to_thread(self._run_command, command)
