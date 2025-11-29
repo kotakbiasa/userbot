@@ -27,9 +27,10 @@ class FacebookDL(Module):
         "e.g.": "fb https://www.facebook.com/watch/?v=1234567890",
     }
 
-    # Cache untuk daftar proxy
-    _proxy_list = []
-    _proxy_last_updated = None
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._proxy_list = []
+        self._proxy_last_updated = None
 
     async def _get_random_proxy(self) -> str | None:
         """Mengambil daftar proxy dari GitHub, menyimpannya di cache, dan mengembalikan satu secara acak."""
@@ -47,10 +48,9 @@ class FacebookDL(Module):
                 self._proxy_last_updated = now
                 self.logger.info(f"Successfully fetched {len(self._proxy_list)} proxies.")
             except Exception as e:
-                self.logger.error(f"Failed to fetch proxy list: {e}")
-                # Jangan hapus cache lama jika pengambilan gagal
-                if not self._proxy_list:
-                    return None
+                self.logger.warning(f"Failed to fetch proxy list: {e}. Will try without proxy.")
+                self._proxy_list = []
+                return None
 
         if not self._proxy_list:
             return None
@@ -86,33 +86,44 @@ class FacebookDL(Module):
                 )
                 if resp.status_code != 200:
                     raise Exception(f"API failed with HTTP {resp.status_code}")
-                data = resp.json()
+                
+                try:
+                    data = resp.json()
+                except Exception as e:
+                    raise Exception(f"Failed to parse API response: {str(e)}")
 
-
-            if not data.get("status") or not data.get("data"):
-                error_message = data.get("message", "API returned no data or failed status.")
+            if not data.get("status"):
+                error_message = data.get("message", "API returned failed status")
                 raise Exception(error_message)
 
-            api_data = data["data"]
+            api_data = data.get("data")
+            if not api_data:
+                raise Exception("API returned no data")
+
             if not isinstance(api_data, list):
-                raise Exception("API returned invalid data format.")
+                raise Exception("API returned invalid data format (expected list)")
 
+            # Prioritaskan resolusi HD, lalu ambil video pertama yang tersedia
             video_url = None
-            # Prioritaskan resolusi HD, lalu ambil video pertama yang tersedia jika tidak ada HD
             for item in api_data:
-                if item.get("type") == "video" and "hd" in item.get("resolution", "").lower() and not item.get("shouldRender"):
-                    video_url = item.get("url")
-                    break
+                if item.get("type") == "video" and not item.get("shouldRender"):
+                    if "hd" in item.get("resolution", "").lower():
+                        video_url = item.get("url")
+                        break
             
+            # Fallback ke video pertama yang tidak shouldRender
             if not video_url:
-                video_url = next((item.get("url") for item in api_data if item.get("type") == "video" and not item.get("shouldRender")), None)
+                for item in api_data:
+                    if item.get("type") == "video" and not item.get("shouldRender"):
+                        video_url = item.get("url")
+                        if video_url:
+                            break
 
             if not video_url:
-                raise Exception("No downloadable video URL found in API response.")
+                raise Exception("No downloadable video URL found in API response")
 
             temp_dir_obj = tempfile.TemporaryDirectory()
             temp_dir_path = Path(temp_dir_obj.name)
-            
             file_path = temp_dir_path / "video.mp4"
 
             # Gunakan proxy yang sama untuk mengunduh file video
@@ -120,8 +131,15 @@ class FacebookDL(Module):
                 file_resp = await proxy_client.get(video_url)
                 if file_resp.status_code != 200:
                     raise Exception(f"Failed to download video file (HTTP {file_resp.status_code})")
+                
                 content = file_resp.content
+                if not content:
+                    raise Exception("Downloaded content is empty")
+                
                 await asyncio.to_thread(file_path.write_bytes, content)
+
+            if not file_path.exists() or file_path.stat().st_size == 0:
+                raise Exception("Video file is empty or failed to save")
 
             rtt = fmtsec(now)
             caption_parts = [
@@ -134,7 +152,10 @@ class FacebookDL(Module):
 
         except Exception as e:
             self.logger.error(f"FacebookDL failed: {e}")
-            await event.edit(f"<b>Error:</b> Failed to download Facebook video.\n<b>Reason:</b> <code>{html.escape(str(e))}</code>")
+            await event.edit(f"<b>Error:</b> <code>{html.escape(str(e)[:200])}</code>")
         finally:
             if temp_dir_obj:
-                temp_dir_obj.cleanup()
+                try:
+                    temp_dir_obj.cleanup()
+                except Exception as e:
+                    self.logger.warning(f"Failed to cleanup temp dir: {e}")
