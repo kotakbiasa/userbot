@@ -55,7 +55,7 @@ class FacebookDL(Module):
             return None
 
         proxy = random.choice(self._proxy_list)
-        return f"http://{proxy['ip']}:{proxy['port']}"
+        return proxy.get("proxy")
 
     @listener.handler(filters.regex(pattern), priority=1)
     async def on_message_out(self, event: Message):
@@ -70,83 +70,67 @@ class FacebookDL(Module):
 
         temp_dir_obj = None
 
-        # Daftar API yang akan dicoba secara berurutan
-        apis = [
-            "https://api.ryzumi.vip/api/downloader/fbdl?url={url}",
-            "https://apidl.asepharyana.tech/api/downloader/fbdl?url={url}",
-        ]
+        try:
+            api_url = f"https://api.ryzumi.vip/api/downloader/fbdl?url={url}"
+            
+            # Dapatkan proxy acak jika diperlukan
+            proxy = await self._get_random_proxy()
+            proxies = {"http://": proxy, "https://": proxy} if proxy else None
+            if proxy:
+                self.logger.info(f"Using proxy: {proxy}")
 
-        errors = []
-        download_successful = False
+            resp = await self.client.http.get(
+                api_url, headers={"accept": "application/json"}, timeout=60, proxies=proxies
+            )
+            if resp.status_code != 200:
+                raise Exception(f"API failed with HTTP {resp.status_code}")
+            data = resp.json()
 
-        for i, api_template in enumerate(apis):
-            try:
-                api_url = api_template.format(url=url)
-                await event.edit(f"<code>Downloading... (Attempt {i+1}/{len(apis)})</code>")
-                
-                # Dapatkan proxy acak untuk setiap percobaan
-                proxy = await self._get_random_proxy()
-                proxies = {"http://": proxy, "https://": proxy} if proxy else None
-                if proxy:
-                    self.logger.info(f"Using proxy: {proxy}")
+            if not data.get("status") or not data.get("data"):
+                error_message = data.get("message", "API returned no data or failed status.")
+                raise Exception(error_message)
 
-                resp = await self.client.http.get(
-                    api_url, headers={"accept": "application/json"}, timeout=60, proxies=proxies
-                )
-                if resp.status_code != 200:
-                    raise Exception(f"API failed with HTTP {resp.status_code}")
-                data = resp.json()
+            api_data = data["data"]
+            if not isinstance(api_data, list):
+                raise Exception("API returned invalid data format.")
 
-                if not data.get("status") or not data.get("data"):
-                    error_message = data.get("message", "API returned no data or failed status.")
-                    raise Exception(error_message)
+            video_url = None
+            # Prioritaskan resolusi HD, lalu ambil video pertama yang tersedia jika tidak ada HD
+            for item in api_data:
+                if item.get("type") == "video" and "hd" in item.get("resolution", "").lower() and not item.get("shouldRender"):
+                    video_url = item.get("url")
+                    break
+            
+            if not video_url:
+                video_url = next((item.get("url") for item in api_data if item.get("type") == "video" and not item.get("shouldRender")), None)
 
-                api_data = data["data"]
-                if not isinstance(api_data, list):
-                    raise Exception("API returned invalid data format.")
+            if not video_url:
+                raise Exception("No downloadable video URL found in API response.")
 
-                video_url = None
-                # Prioritaskan resolusi HD, lalu ambil video pertama yang tersedia jika tidak ada HD
-                for item in api_data:
-                    if item.get("type") == "video" and "hd" in item.get("resolution", "").lower() and not item.get("shouldRender"):
-                        video_url = item.get("url")
-                        break
-                
-                if not video_url:
-                    video_url = next((item.get("url") for item in api_data if item.get("type") == "video" and not item.get("shouldRender")), None)
+            temp_dir_obj = tempfile.TemporaryDirectory()
+            temp_dir_path = Path(temp_dir_obj.name)
+            
+            file_path = temp_dir_path / "video.mp4"
 
-                if not video_url:
-                    raise Exception("No downloadable video URL found in API response.")
+            # Gunakan proxy yang sama untuk mengunduh file video
+            file_resp = await self.client.http.get(video_url, proxies=proxies, timeout=180)
+            if file_resp.status_code != 200:
+                raise Exception(f"Failed to download video file (HTTP {file_resp.status_code})")
+            content = file_resp.content
+            await asyncio.to_thread(file_path.write_bytes, content)
 
-                temp_dir_obj = tempfile.TemporaryDirectory()
-                temp_dir_path = Path(temp_dir_obj.name)
-                
-                file_path = temp_dir_path / "video.mp4"
+            rtt = fmtsec(now)
+            caption_parts = [
+                f"<a href='{url}'>Source</a>",
+                f"<b><blockquote>{rtt}</blockquote></b>"
+            ]
 
-                # Gunakan proxy yang sama untuk mengunduh file video
-                file_resp = await self.client.http.get(video_url, proxies=proxies, timeout=180)
-                if file_resp.status_code != 200:
-                    raise Exception(f"Failed to download video file (HTTP {file_resp.status_code})")
-                content = file_resp.content
-                await asyncio.to_thread(file_path.write_bytes, content)
+            media_to_send = InputMediaVideo(str(file_path), caption="\n".join(caption_parts))
+            await event.edit_media(media_to_send)
 
-                rtt = fmtsec(now)
-                caption_parts = [
-                    f"<a href='{url}'>Source</a>",
-                    f"<b><blockquote>{rtt}</blockquote></b>"
-                ]
-
-                media_to_send = InputMediaVideo(str(file_path), caption="\n".join(caption_parts))
-                await event.edit_media(media_to_send)
-                download_successful = True
-                break # Hentikan loop jika berhasil
-
-            except Exception as e:
-                self.logger.warning(f"FacebookDL API {i+1} failed: {e}")
-                errors.append(f"Attempt {i+1}: <code>{html.escape(str(e))}</code>")
-                if temp_dir_obj:
-                    temp_dir_obj.cleanup()
-
-        if not download_successful:
-            error_message = "<b>Error:</b> All download attempts failed.\n\n<b>Reasons:</b>\n" + "\n".join(errors)
-            await event.edit(error_message)
+        except Exception as e:
+            self.logger.error(f"FacebookDL failed: {e}")
+            await event.edit(f"<b>Error:</b> Failed to download Facebook video.\n<b>Reason:</b> <code>{html.escape(str(e))}</code>")
+        finally:
+            if temp_dir_obj:
+                temp_dir_obj.cleanup()
