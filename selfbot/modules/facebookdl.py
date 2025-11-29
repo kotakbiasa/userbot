@@ -37,14 +37,13 @@ class FacebookDL(Module):
             try:
                 self.logger.info("Fetching updated proxy list...")
                 proxy_list_url = "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/countries/ID/data.json"
-                async with self.client.http as client:
-                    resp = await client.get(proxy_list_url, timeout=20)
-                    resp.raise_for_status()
-                    data = resp.json()
-                    # Filter hanya untuk proxy http/https
-                    self._proxy_list = [p for p in data if p.get('protocol') in ['http', 'https']]
-                    self._proxy_last_updated = now
-                    self.logger.info(f"Successfully fetched {len(self._proxy_list)} proxies.")
+                resp = await self.client.http.get(proxy_list_url, timeout=20)
+                resp.raise_for_status()
+                data = resp.json()
+                # Filter hanya untuk proxy http/https
+                self._proxy_list = [p for p in data if p.get('protocol') in ['http', 'https']]
+                self._proxy_last_updated = now
+                self.logger.info(f"Successfully fetched {len(self._proxy_list)} proxies.")
             except Exception as e:
                 self.logger.error(f"Failed to fetch proxy list: {e}")
                 # Jangan hapus cache lama jika pengambilan gagal
@@ -79,12 +78,14 @@ class FacebookDL(Module):
             if proxy:
                 self.logger.info(f"Using proxy: {proxy}")
 
-            resp = await self.client.http.get(
-                api_url, headers={"accept": "application/json"}, timeout=60, proxies=proxies
-            )
-            if resp.status_code != 200:
-                raise Exception(f"API failed with HTTP {resp.status_code}")
-            data = resp.json()
+            async with self.client.AsyncClient(proxies=proxies, timeout=60) as proxy_client:
+                resp = await proxy_client.get(
+                    api_url, headers={"accept": "application/json"}
+                )
+                if resp.status_code != 200:
+                    raise Exception(f"API failed with HTTP {resp.status_code}")
+                data = resp.json()
+
 
             if not data.get("status") or not data.get("data"):
                 error_message = data.get("message", "API returned no data or failed status.")
@@ -113,11 +114,12 @@ class FacebookDL(Module):
             file_path = temp_dir_path / "video.mp4"
 
             # Gunakan proxy yang sama untuk mengunduh file video
-            file_resp = await self.client.http.get(video_url, proxies=proxies, timeout=180)
-            if file_resp.status_code != 200:
-                raise Exception(f"Failed to download video file (HTTP {file_resp.status_code})")
-            content = file_resp.content
-            await asyncio.to_thread(file_path.write_bytes, content)
+            async with self.client.AsyncClient(proxies=proxies, timeout=180) as proxy_client:
+                file_resp = await proxy_client.get(video_url)
+                if file_resp.status_code != 200:
+                    raise Exception(f"Failed to download video file (HTTP {file_resp.status_code})")
+                content = file_resp.content
+                await asyncio.to_thread(file_path.write_bytes, content)
 
             rtt = fmtsec(now)
             caption_parts = [
