@@ -69,16 +69,3 @@ class Shell(Module):
         
         text += f"<b>Completed in {elapsed} seconds with code {returncode}</b>"
         await event.edit_text(text)
-
-            if not output:
-                output = "<code>Command executed with no output.</code>"
-
-            # Add timestamp
-            output += f"\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
-
-            await event.edit_text(output)
-
-        except asyncio.TimeoutError:
-            await event.edit_text("<b>Error:</b> <code>Command timed out after 60 seconds.</code>")
-        except Exception as e:
-            await event.edit_text(f"<b>Error:</b>\n<code>{html.escape(str(e))}</code>")
