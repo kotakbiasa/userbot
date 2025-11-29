@@ -76,12 +76,12 @@ class FacebookDL(Module):
             
             # Dapatkan proxy acak jika diperlukan
             proxy = await self._get_random_proxy()
-            proxies = {"http://": proxy, "https://": proxy} if proxy else None
-            if proxy:
-                self.logger.info(f"Using proxy: {proxy}")
+            proxy_url = proxy if proxy else None
+            if proxy_url:
+                self.logger.info(f"Using proxy: {proxy_url}")
 
-            async with AsyncClient(proxies=proxies, timeout=60) as proxy_client:
-                resp = await proxy_client.get(
+            async with AsyncClient(proxy=proxy_url, timeout=60) as client:
+                resp = await client.get(
                     api_url, headers={"accept": "application/json"}
                 )
                 if resp.status_code != 200:
@@ -127,8 +127,8 @@ class FacebookDL(Module):
             file_path = temp_dir_path / "video.mp4"
 
             # Gunakan proxy yang sama untuk mengunduh file video
-            async with AsyncClient(proxies=proxies, timeout=180) as proxy_client:
-                file_resp = await proxy_client.get(video_url)
+            async with AsyncClient(proxy=proxy_url, timeout=180) as client:
+                file_resp = await client.get(video_url)
                 if file_resp.status_code != 200:
                     raise Exception(f"Failed to download video file (HTTP {file_resp.status_code})")
                 
