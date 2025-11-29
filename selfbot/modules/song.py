@@ -1,32 +1,21 @@
 import re
 import datetime
 import os
-import validators
 import httpx
+import asyncio
+from pathlib import Path
 
 from pyrogram import filters
 from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec
-from selfbot.utils.youtube_api import YouTubeAPI
-
-def format_bytes(size):
-    """Converts bytes to a human-readable format."""
-    if size is None:
-        return "N/A"
-    power = 1024
-    n = 0
-    power_labels = {0: '', 1: 'K', 2: 'M', 3: 'G', 4: 'T'}
-    while size > power and n < len(power_labels) -1 :
-        size /= power
-        n += 1
-    return f"{size:.2f} {power_labels[n]}B"
+from selfbot.utils import fmtsec, fmtbyte
+from selfbot.utils.youtube_api import YouTube
 
 
 pattern = re.compile(r"^song(?:\s+(-d|--doc|-v|--voice))?\s+(.+)")
-youtube = YouTubeAPI()
+youtube = YouTube()
 
 
 class Song(Module):
@@ -42,83 +31,91 @@ class Song(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         """Downloads a song from a YouTube link."""
+        await event.edit_text("<code>Processing...</code>")
         now = datetime.datetime.now(datetime.UTC)
         match = pattern.match(event.text)
         if not match:
-            await event.edit_text("<b>Usage:</b> <code>.song &lt;youtube_link | search_query&gt;</code>")
+            await event.edit_text("<b>Usage:</b> <code>song &lt;youtube_link | search_query&gt;</code>")
             return
 
         flag, query = match.groups()
+        api_key = self.client.config.get("FERDEV_API_KEY", "key_iOPE5w")
 
-        if not validators.url(query):
+        if not youtube.valid(query):
             await event.edit_text(f"<code>Searching for '{query}'...</code>")
-            results = await youtube.search(query, limit=1)
-            if not results:
+            track = await youtube.search(query, m_id=event.id)
+            if not track:
                 await event.edit_text(f"<code>No results found for '{query}'.</code>")
                 return
-            yt_link = results[0]["link"]
+            yt_link = track.url
         else:
             yt_link = query
 
-        await event.edit_text("<code>Fetching song details...</code>")
+        await event.edit_text("<code>Fetching song from API...</code>")
 
         try:
-            details = await youtube.details(yt_link)
-            if not details:
-                await event.edit_text("<code>Could not fetch song details.</code>")
-                return
+            async with httpx.AsyncClient(timeout=60) as client:
+                api_url = f"https://api.ferdev.my.id/downloader/ytmp3?link={yt_link}&apikey={api_key}"
+                resp = await client.get(api_url)
+                resp.raise_for_status()
+                data = resp.json()
 
-            title = details["title"]
-            duration = details["duration_sec"]
-            thumb_url = details["thumbnail"]
+                if not data.get("success") or not data.get("data"):
+                    raise Exception(f"API returned an error: {data.get('message', 'Unknown error')}")
 
-            await event.edit_text(f"<code>Downloading: {title}</code>")
-            
-            # Download audio using yt-dlp
-            audio_file = await youtube.download(yt_link)
-            file_name = os.path.basename(audio_file)
-            
-            size = os.path.getsize(audio_file) if os.path.exists(audio_file) else 0
+                song_data = data["data"]
+                title = song_data.get("title", "Untitled")
+                duration = int(song_data.get("duration", 0))
+                thumb_url = song_data.get("thumbnail")
+                dlink = song_data.get("dlink")
+                size = song_data.get("size")
 
-            thumb_path = None
-            if thumb_url:
-                try:
-                    async with httpx.AsyncClient() as client:
-                        thumb_res = await client.get(thumb_url)
-                        thumb_res.raise_for_status()
-                        thumb_path = f"thumb_{event.id}.jpg"
-                        with open(thumb_path, "wb") as f:
-                            f.write(thumb_res.content)
-                except Exception:
-                    thumb_path = None
+                if not dlink:
+                    raise Exception("API did not provide a download link.")
 
-            # Mengambil metadata durasi
-            duration_str = details.get("duration_string", f"{duration // 60:02d}:{duration % 60:02d}")
+                await event.edit_text(f"<code>Downloading: {title}</code>")
 
-            # Membangun caption baru
+                # Download audio and thumbnail concurrently
+                audio_content_task = client.get(dlink, timeout=300)
+                thumb_content_task = client.get(thumb_url) if thumb_url else asyncio.sleep(0)
+                audio_resp, thumb_resp = await asyncio.gather(audio_content_task, thumb_content_task)
+                audio_resp.raise_for_status()
+
+                # Save files
+                download_dir = Path("downloads")
+                download_dir.mkdir(exist_ok=True)
+                audio_file = download_dir / f"{title[:50]}.mp3"
+                thumb_file = download_dir / f"thumb_{event.id}.jpg"
+
+                with open(audio_file, "wb") as f:
+                    f.write(audio_resp.content)
+                
+                if thumb_url and thumb_resp.status_code == 200:
+                    with open(thumb_file, "wb") as f:
+                        f.write(thumb_resp.content)
+                else:
+                    thumb_file = None
+
+            duration_str = f"{duration // 60:02d}:{duration % 60:02d}"
             caption_parts = [
                 f"<b>Title:</b> {title}",
-                f"<b>Duration:</b> {duration_str}"
+                f"<b>Duration:</b> {duration_str}",
+                f"<b>Size:</b> {fmtbyte(size)}"
             ]
             caption = "\n".join(caption_parts) + f"\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
-            
+
             if flag in ["-d", "--doc"]:
-                await event.reply_document(
-                    document=audio_file,
-                    caption=caption,
-                    thumb=thumb_path,
-                    file_name=file_name
-                )
+                await event.reply_document(document=audio_file, caption=caption, thumb=thumb_file)
             elif flag in ["-v", "--voice"]:
                 await event.reply_voice(voice=audio_file, caption=caption, duration=duration)
             else:
-                await event.reply_audio(audio=audio_file, caption=caption, title=title, duration=duration, thumb=thumb_path)
+                await event.reply_audio(audio=audio_file, caption=caption, title=title, duration=duration, thumb=thumb_file)
 
             await event.delete()
 
-            # Cleanup
-            if os.path.exists(audio_file): os.remove(audio_file)
-            if thumb_path and os.path.exists(thumb_path): os.remove(thumb_path)
-
         except Exception as e:
             await event.edit_text(f"<b>An error occurred:</b> <code>{e}</code>")
+        finally:
+            # Cleanup
+            if 'audio_file' in locals() and os.path.exists(audio_file): os.remove(audio_file)
+            if 'thumb_file' in locals() and thumb_file and os.path.exists(thumb_file): os.remove(thumb_file)
