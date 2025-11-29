@@ -29,7 +29,6 @@ class Song(Module):
         "e.g.": "song https://youtu.be/es4WLcvl7Fc",
     }
 
-    @staticmethod
     async def _get_waveform(audio_path: str) -> bytes | None:
         """
         Generates waveform data for a voice message from an audio file using ffmpeg.
