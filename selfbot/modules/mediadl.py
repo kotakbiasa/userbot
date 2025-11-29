@@ -68,11 +68,17 @@ class MediaDL(Module):
         output_path.mkdir(parents=True, exist_ok=True)
 
         ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'format': 'bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc]/bestvideo[ext=mp4]+bestaudio/best',
             'outtmpl': str(output_path / '%(id)s.%(ext)s'),
             'quiet': True,
             'noplaylist': True,
             'max_filesize': 2000 * 1024 * 1024, # 2GB limit
+            'postprocessors': [{
+                'key': 'FFmpegVideoConvertor',
+                'preferedformat': 'mp4',
+            }],
+            # Ensure we keep the video after post-processing if it's a different file
+            'keepvideo': False,
         }
 
         def download_and_extract_info(url_to_dl):
