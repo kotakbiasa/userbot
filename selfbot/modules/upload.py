@@ -11,8 +11,7 @@ from selfbot.module import Module
 from selfbot.utils import fmtbyte, fmtsec, fmtstr, prog
 
 pattern = re.compile(
-    r"^ul\s(.+?)"
-    r"(?:\s-to\s(@?[a-zA-Z][a-zA-Z0-9_]{1,31}[a-zA-Z0-9]|-100[1-9]\d{9}|[1-9]\d{1,9}))?$"
+    r"^ul\s(.+?)(?:\s-to\s(@?[a-zA-Z][a-zA-Z0-9_]{1,31}[a-zA-Z0-9]|-100[1-9]\d{9}|[1-9]\d{1,9}))?$"
 )
 
 
@@ -29,7 +28,7 @@ class Upload(Module):
     @listener.handler(filters.regex(pattern) & ~listener.fltrep, 1)
     async def on_message_out(self, event: Message) -> None:
         await event.edit_text("<code>...</code>")
-        rep_msg, (chat_id, document) = None, pattern.match(event.content).groups()
+        rep_msg, (document, chat_id) = None, pattern.match(event.text).groups()
         if not chat_id:
             chat_id = event.chat.id
             rep_msg = ReplyParameters(message_id=event.id)
