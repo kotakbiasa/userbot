@@ -36,7 +36,8 @@ class Shell(Module):
 
         try:
             # Execute shell command with a 60-second timeout
-            stdout, stderr = await asyncio.wait_for(shell(command), timeout=60.0)
+            result = await asyncio.wait_for(shell(command), timeout=60.0)
+            stdout, stderr = result
 
             output = ""
             if stdout:
