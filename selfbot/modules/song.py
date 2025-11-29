@@ -29,7 +29,7 @@ class Song(Module):
         "e.g.": "song https://youtu.be/es4WLcvl7Fc",
     }
 
-    async def _get_waveform(audio_path: str) -> bytes | None:
+    async def _get_waveform(self, audio_path: str) -> bytes | None:
         """
         Generates waveform data for a voice message from an audio file using ffmpeg.
         The waveform consists of 100 samples of 5-bit amplitude values.
