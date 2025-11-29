@@ -41,10 +41,10 @@ class FacebookDL(Module):
             api_key = "key_iOPE5w"  # As provided in the request
             api_url = f"https://api.ferdev.my.id/downloader/facebook?link={url}&apikey={api_key}"
 
-            async with self.client.http.get(api_url, headers={"accept": "application/json"}) as resp:
-                if resp.status != 200:
-                    raise Exception(f"API failed with HTTP {resp.status}")
-                data = await resp.json()
+            resp = await self.client.http.get(api_url, headers={"accept": "application/json"})
+            if resp.status_code != 200:
+                raise Exception(f"API failed with HTTP {resp.status_code}")
+            data = resp.json()
 
             if not data.get("success") or not data.get("data"):
                 error_message = data.get("message", "API returned no data or failed status.")
