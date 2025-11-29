@@ -31,37 +31,42 @@ class Song(Module):
 
     async def _get_waveform(self, audio_path: str) -> bytes | None:
         """
-        Generates waveform data for a voice message from an audio file using ffmpeg.
+        Generates waveform data from actual audio file using ffmpeg.
         The waveform consists of 100 samples of 5-bit amplitude values.
         """
         try:
-            # Perintah untuk mengubah audio menjadi data mentah (raw) 8-bit mono
+            # Extract raw audio data dari file MP3
             command = (
                 f"ffmpeg -i \"{audio_path}\" -f u8 -ac 1 -ar 8000 -"
             )
             stdout, _ = await shell(command)
             
-            # Konversi output biner menjadi byte
+            # Convert output ke bytes
             if isinstance(stdout, bytes):
                 raw_waveform = stdout
             else:
-                raw_waveform = bytes(stdout, "latin-1")
+                raw_waveform = bytes(stdout, "latin-1") if stdout else b""
 
-            if not raw_waveform:
+            if not raw_waveform or len(raw_waveform) < 100:
                 return None
 
-            # Ambil sampel dari data mentah untuk membuat waveform
+            # Ambil sampel setiap N bytes untuk mendapat 100 sampel
             num_samples = 100
             step = len(raw_waveform) // num_samples
             if step == 0:
-                return None
+                step = 1
 
-            # Ambil sampel dan normalisasi ke rentang 0-31
-            sampled_waveform = [raw_waveform[i] for i in range(0, len(raw_waveform), step)]
-            normalized_waveform = [int((sample / 255) * 31) for sample in sampled_waveform]
-            return bytes(normalized_waveform[:num_samples])
+            # Sample dan normalisasi ke range 0-31
+            sampled = []
+            for i in range(num_samples):
+                idx = min(i * step, len(raw_waveform) - 1)
+                # Normalisasi dari 0-255 ke 0-31
+                sample_val = int((raw_waveform[idx] / 255) * 31)
+                sampled.append(max(0, min(31, sample_val)))
+
+            return bytes(sampled)
         except Exception as e:
-            self.logger.error(f"Gagal membuat waveform: {e}")
+            self.logger.error(f"Failed to generate waveform: {e}")
             return None
 
     @listener.handler(filters.regex(pattern), 1)
@@ -107,40 +112,57 @@ class Song(Module):
                 duration = int(song_data.get("duration", 0))
                 thumb_url = song_data.get("thumbnail")
                 dlink = song_data.get("dlink")
-                size = song_data.get("size")
+                size = song_data.get("size", 0)
 
                 if not dlink:
                     raise Exception("API did not provide a download link.")
 
                 await event.edit_text(f"<code>Downloading: {title}</code>")
 
-                # Download audio and thumbnail concurrently
-                audio_content_task = client.get(dlink, timeout=300)
-                thumb_content_task = client.get(thumb_url) if thumb_url else asyncio.sleep(0)
-                results = await asyncio.gather(audio_content_task, thumb_content_task, return_exceptions=True)
-                audio_resp = results[0]
-                thumb_resp = results[1]
-
-                # Validate audio response
-                if isinstance(audio_resp, Exception):
-                    raise audio_resp
-                audio_resp.raise_for_status()
-
-                # Save files
+                # Create download directory
                 download_dir = Path("downloads")
                 download_dir.mkdir(exist_ok=True)
-                audio_file = download_dir / f"{title[:50]}.mp3"
+                
+                # Sanitize filename
+                safe_title = re.sub(r'[<>:"/\\|?*]', '', title)[:50]
+                audio_file = download_dir / f"{safe_title}.mp3"
                 thumb_file = download_dir / f"thumb_{event.id}.jpg"
 
-                with open(audio_file, "wb") as f:
-                    f.write(audio_resp.content)
-                
-                # Handle thumbnail safely
-                if thumb_url and isinstance(thumb_resp, httpx.Response) and thumb_resp.status_code == 200:
-                    with open(thumb_file, "wb") as f:
-                        f.write(thumb_resp.content)
+                # Download audio with progress tracking
+                try:
+                    async with client.stream("GET", dlink, timeout=300) as audio_stream:
+                        audio_stream.raise_for_status()
+                        audio_content = b""
+                        async for chunk in audio_stream.aiter_bytes(chunk_size=8192):
+                            audio_content += chunk
+                        
+                        if not audio_content:
+                            raise Exception("Downloaded audio is empty")
+                        
+                        with open(audio_file, "wb") as f:
+                            f.write(audio_content)
+                except (httpx.RequestError, httpx.HTTPStatusError) as e:
+                    raise Exception(f"Failed to download audio: {str(e)}")
+
+                # Download thumbnail if available
+                if thumb_url:
+                    try:
+                        thumb_resp = await client.get(thumb_url, timeout=30)
+                        thumb_resp.raise_for_status()
+                        if thumb_resp.content:
+                            with open(thumb_file, "wb") as f:
+                                f.write(thumb_resp.content)
+                        else:
+                            thumb_file = None
+                    except (httpx.RequestError, httpx.HTTPStatusError):
+                        self.logger.warning(f"Failed to download thumbnail for {title}")
+                        thumb_file = None
                 else:
                     thumb_file = None
+
+                # Validate downloaded file
+                if not audio_file.exists() or audio_file.stat().st_size == 0:
+                    raise Exception("Audio file download failed or is empty")
 
             duration_str = f"{duration // 60:02d}:{duration % 60:02d}"
             caption_parts = [
@@ -165,10 +187,15 @@ class Song(Module):
             await event.delete()
 
         except Exception as e:
-            await event.edit_text(f"<b>An error occurred:</b> <code>{e}</code>")
+            error_msg = str(e)
+            self.logger.error(f"Song download error: {error_msg}")
+            await event.edit_text(f"<b>An error occurred:</b>\n<code>{error_msg[:200]}</code>")
         finally:
-            # Cleanup
-            if audio_file and os.path.exists(audio_file):
-                os.remove(audio_file)
-            if thumb_file and os.path.exists(thumb_file):
-                os.remove(thumb_file)
+            # Cleanup with error handling
+            for file_path in [audio_file, thumb_file]:
+                if file_path:
+                    try:
+                        if os.path.exists(file_path):
+                            os.remove(file_path)
+                    except OSError as e:
+                        self.logger.warning(f"Failed to cleanup {file_path}: {e}")
