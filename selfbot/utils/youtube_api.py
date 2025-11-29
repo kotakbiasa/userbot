@@ -22,6 +22,20 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
+async def shell(cmd: str) -> tuple[str, str]:
+    """Menjalankan perintah shell."""
+    proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+    return (
+        (stdout.decode("utf-8", "replace").strip() if stdout else ""),
+        (stderr.decode("utf-8", "replace").strip() if stderr else ""),
+    )
+
+
 @dataclass
 class Track:
     id: str
