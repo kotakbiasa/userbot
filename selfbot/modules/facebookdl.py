@@ -38,22 +38,33 @@ class FacebookDL(Module):
         temp_dir_obj = None
 
         try:
-            api_key = "key_iOPE5w"  # As provided in the request
-            api_url = f"https://api.ferdev.my.id/downloader/facebook?link={url}&apikey={api_key}"
+            api_url = f"https://api.ryzumi.vip/api/downloader/fbdl?url={url}"
 
             resp = await self.client.http.get(api_url, headers={"accept": "application/json"})
             if resp.status_code != 200:
                 raise Exception(f"API failed with HTTP {resp.status_code}")
             data = resp.json()
 
-            if not data.get("success") or not data.get("data"):
+            if not data.get("status") or not data.get("data"):
                 error_message = data.get("message", "API returned no data or failed status.")
                 raise Exception(error_message)
 
-            video_data = data["data"]
-            video_url = video_data.get("hd") or video_data.get("sd")
+            api_data = data["data"]
+            if not isinstance(api_data, list):
+                raise Exception("API returned invalid data format.")
+
+            video_url = None
+            # Prioritaskan resolusi HD, lalu ambil video pertama yang tersedia jika tidak ada HD
+            for item in api_data:
+                if item.get("type") == "video" and "hd" in item.get("resolution", "").lower() and not item.get("shouldRender"):
+                    video_url = item.get("url")
+                    break
+            
             if not video_url:
-                raise Exception("No video URL found in API response.")
+                video_url = next((item.get("url") for item in api_data if item.get("type") == "video" and not item.get("shouldRender")), None)
+
+            if not video_url:
+                raise Exception("No downloadable video URL found in API response.")
 
             title = video_data.get("title", "Unknown Title").strip()
 
@@ -62,11 +73,11 @@ class FacebookDL(Module):
             
             file_path = temp_dir_path / "video.mp4"
 
-            async with self.client.http.get(video_url) as file_resp:
-                if file_resp.status != 200:
-                    raise Exception(f"Failed to download video file (HTTP {file_resp.status})")
-                content = await file_resp.read()
-                await asyncio.to_thread(file_path.write_bytes, content)
+            file_resp = await self.client.http.get(video_url)
+            if file_resp.status_code != 200:
+                raise Exception(f"Failed to download video file (HTTP {file_resp.status_code})")
+            content = file_resp.content
+            await asyncio.to_thread(file_path.write_bytes, content)
 
             rtt = fmtsec(now)
             caption_parts = [
