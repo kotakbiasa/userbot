@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import html
 import re
+import random
 import tempfile
 from pathlib import Path
 
@@ -23,6 +24,38 @@ class FacebookDL(Module):
         "url": "The Facebook video URL.",
         "e.g.": "fb https://www.facebook.com/watch/?v=1234567890",
     }
+
+    # Cache untuk daftar proxy
+    _proxy_list = []
+    _proxy_last_updated = None
+
+    async def _get_random_proxy(self) -> str | None:
+        """Mengambil daftar proxy dari GitHub, menyimpannya di cache, dan mengembalikan satu secara acak."""
+        now = datetime.datetime.now(datetime.UTC)
+        # Perbarui cache jika sudah lebih dari 1 jam
+        if not self._proxy_list or (self._proxy_last_updated and (now - self._proxy_last_updated).total_seconds() > 3600):
+            try:
+                self.logger.info("Fetching updated proxy list...")
+                proxy_list_url = "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/countries/ID/data.json"
+                async with self.client.http as client:
+                    resp = await client.get(proxy_list_url, timeout=20)
+                    resp.raise_for_status()
+                    data = resp.json()
+                    # Filter hanya untuk proxy http/https
+                    self._proxy_list = [p for p in data if p.get('protocol') in ['http', 'https']]
+                    self._proxy_last_updated = now
+                    self.logger.info(f"Successfully fetched {len(self._proxy_list)} proxies.")
+            except Exception as e:
+                self.logger.error(f"Failed to fetch proxy list: {e}")
+                # Jangan hapus cache lama jika pengambilan gagal
+                if not self._proxy_list:
+                    return None
+
+        if not self._proxy_list:
+            return None
+
+        proxy = random.choice(self._proxy_list)
+        return f"http://{proxy['ip']}:{proxy['port']}"
 
     @listener.handler(filters.regex(pattern), priority=1)
     async def on_message_out(self, event: Message):
@@ -50,8 +83,16 @@ class FacebookDL(Module):
             try:
                 api_url = api_template.format(url=url)
                 await event.edit(f"<code>Downloading... (Attempt {i+1}/{len(apis)})</code>")
+                
+                # Dapatkan proxy acak untuk setiap percobaan
+                proxy = await self._get_random_proxy()
+                proxies = {"http://": proxy, "https://": proxy} if proxy else None
+                if proxy:
+                    self.logger.info(f"Using proxy: {proxy}")
 
-                resp = await self.client.http.get(api_url, headers={"accept": "application/json"}, timeout=30)
+                resp = await self.client.http.get(
+                    api_url, headers={"accept": "application/json"}, timeout=60, proxies=proxies
+                )
                 if resp.status_code != 200:
                     raise Exception(f"API failed with HTTP {resp.status_code}")
                 data = resp.json()
@@ -82,7 +123,8 @@ class FacebookDL(Module):
                 
                 file_path = temp_dir_path / "video.mp4"
 
-                file_resp = await self.client.http.get(video_url)
+                # Gunakan proxy yang sama untuk mengunduh file video
+                file_resp = await self.client.http.get(video_url, proxies=proxies, timeout=180)
                 if file_resp.status_code != 200:
                     raise Exception(f"Failed to download video file (HTTP {file_resp.status_code})")
                 content = file_resp.content
