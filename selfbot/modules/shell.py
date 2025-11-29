@@ -1,15 +1,16 @@
 import asyncio
+import datetime
 import html
 import os
 import re
 from subprocess import PIPE, Popen, TimeoutExpired
-from time import perf_counter
 
 from pyrogram import filters
 from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
+from selfbot.utils import fmtsec
 
 pattern = re.compile(r"^(?:shell|sh)\s+(.+)$", flags=re.DOTALL)
 
@@ -24,9 +25,8 @@ class Shell(Module):
     }
 
     @staticmethod
-    def _run_command(command: str) -> tuple[str, str, int, float]:
-        """Runs a shell command synchronously and captures output."""
-        start_time = perf_counter()
+    def _run_command(command: str) -> tuple[str, str, int]:
+        """Menjalankan perintah shell secara sinkron dan menangkap output."""
         cmd_obj = Popen(
             command,
             shell=True,
@@ -38,11 +38,8 @@ class Shell(Module):
             stdout, stderr = cmd_obj.communicate(timeout=60)
         except TimeoutExpired:
             cmd_obj.kill()
-            return None, "<b>Timeout expired (60 seconds)</b>", cmd_obj.returncode, perf_counter() - start_time
-        
-        stop_time = perf_counter()
-        elapsed = round(stop_time - start_time, 5)
-        return stdout, stderr, cmd_obj.returncode, elapsed
+            return None, "<b>Timeout expired (60 seconds)</b>", cmd_obj.returncode
+        return stdout, stderr, cmd_obj.returncode
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
@@ -53,19 +50,20 @@ class Shell(Module):
             return
 
         command = match.group(1).strip()
+        now = datetime.datetime.now(datetime.UTC)
         
         # Determine shell prompt character
         char = "#" if hasattr(os, 'getuid') and os.getuid() == 0 else "$"
         
         text = f"<b>{char}</b> <code>{html.escape(command)}</code>\n\n"
         await event.edit_text(text + "<b>Running...</b>")
-
-        stdout, stderr, returncode, elapsed = await asyncio.to_thread(self._run_command, command)
+        
+        stdout, stderr, returncode = await asyncio.to_thread(self._run_command, command)
 
         if stdout:
             text += f"<b>Output:</b>\n<code>{html.escape(stdout)}</code>\n\n"
         if stderr:
             text += f"<b>Error:</b>\n<code>{html.escape(stderr)}</code>\n\n"
         
-        text += f"<b>Completed in {elapsed} seconds with code {returncode}</b>"
+        text += f"<b>Return Code:</b> <code>{returncode}</code>\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
         await event.edit_text(text)
