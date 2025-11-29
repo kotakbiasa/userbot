@@ -36,15 +36,24 @@ class Song(Module):
         The waveform consists of 100 samples of 5-bit amplitude values.
         """
         try:
-            # Command to extract audio amplitude data, resample, and format
+            # Perintah untuk mengekstrak data amplitudo audio, lalu memformatnya
+            # -filter:a volumedetect -> mendeteksi volume audio
+            # -show_entries frame_tags=lavfi.volumedetect.mean_volume -> hanya output nilai rata-rata volume
             command = (
-                f"ffmpeg -i \"{audio_path}\" -f s16le -ac 1 -ar 48000 -acodec pcm_s16le - | "
-                f"ffmpeg -i - -filter:a \"compand,aformat=channel_layouts=mono,showwavespic=s=100x32:colors=white\" -f rawvideo -"
+                f"ffmpeg -hide_banner -i \"{audio_path}\" -f null - -filter:a volumedetect -show_entries frame_tags=lavfi.volumedetect.mean_volume"
             )
-            process = await asyncio.create_subprocess_shell(command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-            stdout, _ = await process.communicate()
-            return bytes([int(i / 255 * 31) for i in stdout[::4]])
-        except Exception:
+            _, stderr = await shell(command)
+            
+            # Ekstrak nilai mean_volume dari output stderr ffmpeg
+            mean_volume_db = [float(x.split("=")[1]) for x in stderr.splitlines() if "mean_volume" in x]
+            if not mean_volume_db:
+                return None
+
+            # Normalisasi nilai dari dB ke rentang 0-31 untuk waveform
+            samples = [int((vol + 60) / 60 * 31) for vol in mean_volume_db]
+            return bytes(samples[:100]) # Pastikan hanya 100 sampel
+        except Exception as e:
+            self.logger.error(f"Gagal membuat waveform: {e}")
             return None
 
     @listener.handler(filters.regex(pattern), 1)
