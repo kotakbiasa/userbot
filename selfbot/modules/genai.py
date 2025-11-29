@@ -174,15 +174,7 @@ class GenAI(Module):
                         }
                     )
                     if not query:
-                        parts.append(
-                            {
-                                "text": (
-                                    "Analyze the media."
-                                    " If there is readable text, extract it."
-                                    " Summarize key details and provide brief context."
-                                )
-                            }
-                        )
+                        parts.append({"text": "Analyze"})
                 elif event.reply_to_message.media == MessageMediaType.WEB_PAGE:
                     parts.append({"text": event.reply_to_message.content})
                 else:

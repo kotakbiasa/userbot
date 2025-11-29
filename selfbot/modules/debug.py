@@ -59,8 +59,8 @@ class Debug(Module):
     async def on_loading(self) -> None:
         self.args.update(
             {
-                "cls": self,
-                "self": self.client,
+                "self": self,
+                "client": self.client,
                 "db": self.client.db,
                 "app": self.client.app,
                 "bot": self.client.bot,

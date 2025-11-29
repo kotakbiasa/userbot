@@ -1,4 +1,4 @@
-
+import asyncio
 import logging
 import typing
 
@@ -7,6 +7,7 @@ from pyrogram.types import (
     InlineQuery,
     InlineQueryResultCachedSticker,
     InputTextMessageContent,
+    Message,
 )
 
 from selfbot.utils import ikm
@@ -16,7 +17,7 @@ if typing.TYPE_CHECKING:
 
 
 class Module:
-    name = ""
+    name = "Module"
     cmds = ""
     desc = None
 
@@ -47,6 +48,33 @@ class Module:
             ],
             **kwargs,
         )
+
+    async def listen(self) -> object:
+        fut = asyncio.Future()
+
+        async def result(event: Message) -> None:
+            if not fut.done():
+                fut.set_result(event)
+
+            await event.delete()
+
+        self.client.register(self, result, "message_bot", priority=-1)
+        try:
+            res = await asyncio.wait_for(fut, timeout=5)
+        except Exception:
+            return None
+        else:
+            return res
+        finally:
+            for listener in tuple(self.client.listeners["message_bot"]):
+                if listener.mod is self:
+                    self.client.unregister(listener)
+
+    async def message(self, event: Message) -> object:
+        res, msg = await asyncio.gather(
+            asyncio.create_task(self.listen()), event.copy(self.client.bot.me.id)
+        )
+        return res
 
 
 class ModuleError(Exception):
