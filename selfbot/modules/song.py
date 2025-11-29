@@ -42,7 +42,10 @@ class Song(Module):
             stdout, _ = await shell(command)
             
             # Konversi output biner menjadi byte
-            raw_waveform = bytes(stdout, "latin-1")
+            if isinstance(stdout, bytes):
+                raw_waveform = stdout
+            else:
+                raw_waveform = bytes(stdout, "latin-1")
 
             if not raw_waveform:
                 return None
@@ -86,6 +89,9 @@ class Song(Module):
 
         await event.edit_text("<code>Fetching song from API...</code>")
 
+        audio_file = None
+        thumb_file = None
+
         try:
             async with httpx.AsyncClient(timeout=60) as client:
                 api_url = f"https://api.ferdev.my.id/downloader/ytmp3?link={yt_link}&apikey={api_key}"
@@ -111,7 +117,13 @@ class Song(Module):
                 # Download audio and thumbnail concurrently
                 audio_content_task = client.get(dlink, timeout=300)
                 thumb_content_task = client.get(thumb_url) if thumb_url else asyncio.sleep(0)
-                audio_resp, thumb_resp = await asyncio.gather(audio_content_task, thumb_content_task)
+                results = await asyncio.gather(audio_content_task, thumb_content_task, return_exceptions=True)
+                audio_resp = results[0]
+                thumb_resp = results[1]
+
+                # Validate audio response
+                if isinstance(audio_resp, Exception):
+                    raise audio_resp
                 audio_resp.raise_for_status()
 
                 # Save files
@@ -123,7 +135,8 @@ class Song(Module):
                 with open(audio_file, "wb") as f:
                     f.write(audio_resp.content)
                 
-                if thumb_url and thumb_resp.status_code == 200:
+                # Handle thumbnail safely
+                if thumb_url and isinstance(thumb_resp, httpx.Response) and thumb_resp.status_code == 200:
                     with open(thumb_file, "wb") as f:
                         f.write(thumb_resp.content)
                 else:
@@ -155,5 +168,7 @@ class Song(Module):
             await event.edit_text(f"<b>An error occurred:</b> <code>{e}</code>")
         finally:
             # Cleanup
-            if 'audio_file' in locals() and os.path.exists(audio_file): os.remove(audio_file)
-            if 'thumb_file' in locals() and thumb_file and os.path.exists(thumb_file): os.remove(thumb_file)
+            if audio_file and os.path.exists(audio_file):
+                os.remove(audio_file)
+            if thumb_file and os.path.exists(thumb_file):
+                os.remove(thumb_file)
