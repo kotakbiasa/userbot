@@ -61,9 +61,9 @@ class Shell(Module):
         stdout, stderr, returncode = await asyncio.to_thread(self._run_command, command)
 
         if stdout:
-            text += f"<b>Output:</b>\n<code>{html.escape(stdout)}</code>\n\n"
+            text += f"<b>Output:</b>\n<blockquote><code>{html.escape(stdout)}</code></blockquote>\n\n"
         if stderr:
-            text += f"<b>Error:</b>\n<code>{html.escape(stderr)}</code>\n\n"
+            text += f"<b>Error:</b>\n<blockquote><code>{html.escape(stderr)}</code></blockquote>\n\n"
         
         text += f"<b>Return Code:</b> <code>{returncode}</code>\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
         await event.edit_text(text)
