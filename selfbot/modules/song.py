@@ -1,5 +1,6 @@
 import re
 import datetime
+import math
 import os
 import httpx
 import asyncio
@@ -11,7 +12,7 @@ from pyrogram.types import Message
 from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import fmtsec, fmtbyte
-from selfbot.utils.youtube_api import YouTube
+from selfbot.utils.youtube_api import YouTube, shell
 
 
 pattern = re.compile(r"^song(?:\s+(-d|--doc|-v|--voice))?\s+(.+)")
@@ -27,6 +28,24 @@ class Song(Module):
         "-v, --voice": "Send as a voice message.",
         "e.g.": "song https://youtu.be/es4WLcvl7Fc",
     }
+
+    @staticmethod
+    async def _get_waveform(audio_path: str) -> bytes | None:
+        """
+        Generates waveform data for a voice message from an audio file using ffmpeg.
+        The waveform consists of 100 samples of 5-bit amplitude values.
+        """
+        try:
+            # Command to extract audio amplitude data, resample, and format
+            command = (
+                f"ffmpeg -i \"{audio_path}\" -f s16le -ac 1 -ar 48000 -acodec pcm_s16le - | "
+                f"ffmpeg -i - -filter:a \"compand,aformat=channel_layouts=mono,showwavespic=s=100x32:colors=white\" -f rawvideo -"
+            )
+            process = await asyncio.create_subprocess_shell(command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            stdout, _ = await process.communicate()
+            return bytes([int(i / 255 * 31) for i in stdout[::4]])
+        except Exception:
+            return None
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
@@ -107,7 +126,12 @@ class Song(Module):
             if flag in ["-d", "--doc"]:
                 await event.reply_document(document=audio_file, caption=caption, thumb=thumb_file)
             elif flag in ["-v", "--voice"]:
-                await event.reply_voice(voice=audio_file, caption=caption, duration=duration)
+                waveform = await self._get_waveform(str(audio_file))
+                await event.reply_voice(
+                    voice=audio_file, 
+                    caption=caption, 
+                    duration=duration, 
+                    waveform=waveform)
             else:
                 await event.reply_audio(audio=audio_file, caption=caption, title=title, duration=duration, thumb=thumb_file)
 
