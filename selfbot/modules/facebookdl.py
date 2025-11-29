@@ -81,13 +81,11 @@ class FacebookDL(Module):
 
             rtt = fmtsec(now)
             caption_parts = [
-                f"<blockquote>{html.escape(title)}</blockquote>" if title != "unknown" else "",
                 f"<a href='{url}'>Source</a>",
                 f"<b><blockquote>{rtt}</blockquote></b>"
             ]
-            final_caption = "\n".join(filter(None, caption_parts))
 
-            media_to_send = InputMediaVideo(str(file_path), caption=final_caption)
+            media_to_send = InputMediaVideo(str(file_path), caption="\n".join(caption_parts))
             await event.edit_media(media_to_send)
 
         except Exception as e:
