@@ -6,6 +6,8 @@ import random
 import tempfile
 from pathlib import Path
 
+from httpx import AsyncClient
+
 from pyrogram import filters
 from pyrogram.types import InputMediaVideo, Message
 
@@ -78,7 +80,7 @@ class FacebookDL(Module):
             if proxy:
                 self.logger.info(f"Using proxy: {proxy}")
 
-            async with self.client.AsyncClient(proxies=proxies, timeout=60) as proxy_client:
+            async with AsyncClient(proxies=proxies, timeout=60) as proxy_client:
                 resp = await proxy_client.get(
                     api_url, headers={"accept": "application/json"}
                 )
@@ -114,7 +116,7 @@ class FacebookDL(Module):
             file_path = temp_dir_path / "video.mp4"
 
             # Gunakan proxy yang sama untuk mengunduh file video
-            async with self.client.AsyncClient(proxies=proxies, timeout=180) as proxy_client:
+            async with AsyncClient(proxies=proxies, timeout=180) as proxy_client:
                 file_resp = await proxy_client.get(video_url)
                 if file_resp.status_code != 200:
                     raise Exception(f"Failed to download video file (HTTP {file_resp.status_code})")
