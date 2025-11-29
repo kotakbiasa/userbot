@@ -29,19 +29,13 @@ class Song(Module):
         "e.g.": "song https://youtu.be/es4WLcvl7Fc",
     }
 
-    async def _get_waveform(self, audio_path: str) -> bytes | None:
-        """
-        Generates waveform data from actual audio file using ffmpeg.
-        The waveform consists of 100 samples of 5-bit amplitude values.
-        """
+    @staticmethod
+    async def get_waveform(audio_path: str) -> bytes | None:
+        """Extract waveform data from audio file."""
         try:
-            # Extract raw audio data dari file MP3
-            command = (
-                f"ffmpeg -i \"{audio_path}\" -f u8 -ac 1 -ar 8000 -"
-            )
+            command = f"ffmpeg -i \"{audio_path}\" -f u8 -ac 1 -ar 8000 -"
             stdout, _ = await shell(command)
             
-            # Convert output ke bytes
             if isinstance(stdout, bytes):
                 raw_waveform = stdout
             else:
@@ -50,34 +44,18 @@ class Song(Module):
             if not raw_waveform or len(raw_waveform) < 100:
                 return None
 
-            # Ambil sampel setiap N bytes untuk mendapat 100 sampel
             num_samples = 100
-            step = len(raw_waveform) // num_samples
-            if step == 0:
-                step = 1
-
-            # Sample dan normalisasi ke range 0-31
+            step = len(raw_waveform) // num_samples or 1
             sampled = []
+            
             for i in range(num_samples):
                 idx = min(i * step, len(raw_waveform) - 1)
-                # Normalisasi dari 0-255 ke 0-31
                 sample_val = int((raw_waveform[idx] / 255) * 31)
                 sampled.append(max(0, min(31, sample_val)))
 
             return bytes(sampled)
-        except Exception as e:
-            self.logger.error(f"Failed to generate waveform: {e}")
+        except Exception:
             return None
-    
-    async def _send_voice(self, event: Message, audio_file: Path, caption: str, duration: int) -> None:
-        """Helper method to send voice with waveform."""
-        waveform = await self._get_waveform(str(audio_file))
-        await event.reply_voice(
-            voice=audio_file,
-            caption=caption,
-            duration=duration,
-            waveform=waveform
-        )
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
@@ -185,7 +163,12 @@ class Song(Module):
             if flag in ["-d", "--doc"]:
                 await event.reply_document(document=audio_file, caption=caption, thumb=thumb_file)
             elif flag in ["-v", "--voice"]:
-                await self._send_voice(event, audio_file, caption, duration)
+                waveform = await Song.get_waveform(str(audio_file))
+                await event.reply_voice(
+                    voice=audio_file, 
+                    caption=caption, 
+                    duration=duration, 
+                    waveform=waveform)
             else:
                 await event.reply_audio(audio=audio_file, caption=caption, title=title, duration=duration, thumb=thumb_file)
 
