@@ -68,6 +68,16 @@ class Song(Module):
         except Exception as e:
             self.logger.error(f"Failed to generate waveform: {e}")
             return None
+    
+    async def _send_voice(self, event: Message, audio_file: Path, caption: str, duration: int) -> None:
+        """Helper method to send voice with waveform."""
+        waveform = await self._get_waveform(str(audio_file))
+        await event.reply_voice(
+            voice=audio_file,
+            caption=caption,
+            duration=duration,
+            waveform=waveform
+        )
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
@@ -175,12 +185,7 @@ class Song(Module):
             if flag in ["-d", "--doc"]:
                 await event.reply_document(document=audio_file, caption=caption, thumb=thumb_file)
             elif flag in ["-v", "--voice"]:
-                waveform = await self._get_waveform(str(audio_file))
-                await event.reply_voice(
-                    voice=audio_file, 
-                    caption=caption, 
-                    duration=duration, 
-                    waveform=waveform)
+                await self._send_voice(event, audio_file, caption, duration)
             else:
                 await event.reply_audio(audio=audio_file, caption=caption, title=title, duration=duration, thumb=thumb_file)
 
