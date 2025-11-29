@@ -20,6 +20,7 @@ RUN apt-get update -qq \
     libpq-dev \
     curl \
     git \
+    ffmpeg \
     && curl -sSL https://install.python-poetry.org | python3 - \
     && rm -rf /var/lib/apt/lists/*
 
