@@ -14,27 +14,28 @@ from selfbot.utils import fmtsec
 
 # --- Konstanta ---
 SANGMATA_BOT_USERNAME = "SangMata_beta_bot"
-SANGMATA_TIMEOUT = 25  # Waktu tunggu dalam detik (increased)
-ERROR_VISIBLE_DURATION = 8  # Durasi pesan error ditampilkan
+SANGMATA_TIMEOUT = 25
+ERROR_VISIBLE_DURATION = 8
 
-# --- Pola Regex ---
-pattern = re.compile(r"^(sg|sangmata)(?:\s+(.+))?$")
+# --- Pola Regex - Support sg, sangmata, sama ---
+pattern = re.compile(r"^(sg|sangmata|sama)(?:\s+(.+))?$")
 
 
 class SangMata(Module):
     name = "SangMata"
-    cmds = "sg {user_id|username}? or <Reply to Message> sg"
+    cmds = "sg|sangmata|sama {user_id|username}? or <Reply to Message> sg"
     desc = {
         "Info": f"Fetches user name history from @{SANGMATA_BOT_USERNAME}.",
+        "Command": "sg, sangmata, atau sama (semua sama)",
         "?": "Optional. If no user is specified, it will use the replied message or your own ID.",
-        "e.g.": "sg @username",
+        "e.g.": "sg @username OR sama 123456789 OR <Reply> sg",
     }
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         """Mendapatkan riwayat nama dari @SangMata_BOT."""
         match = pattern.match(event.text)
-        _, input_str = match.groups()
+        cmd, input_str = match.groups()
 
         target_identifier = None
         if input_str:
@@ -43,7 +44,7 @@ class SangMata(Module):
             target_identifier = event.reply_to_message.from_user.id
         else:
             await self._edit_and_delete(
-                event, "<b>Usage:</b> <code>sg &lt;user_id|username&gt;</code> or reply to a user."
+                event, "<b>Usage:</b> <code>{} &lt;user_id|username&gt;</code> or reply to a user.".format(cmd)
             )
             return
 
@@ -58,17 +59,17 @@ class SangMata(Module):
             if not user:
                 raise ValueError(f"User '{html.escape(str(target_identifier))}' not found.")
 
-            await progress_message.edit_text("<code>Processing...</code>")
+            await progress_message.edit_text("<code>Fetching name history...</code>")
 
             # Kirim perintah ke bot
             start_time = datetime.datetime.now(timezone.utc)
-            sent_msg = await event._client.send_message(SANGMATA_BOT_USERNAME, str(user.id))
+            await event._client.send_message(SANGMATA_BOT_USERNAME, str(user.id))
             
             self.logger.info(f"Sent query to {SANGMATA_BOT_USERNAME} for user {user.id}")
 
-            # Tunggu balasan dari bot dengan timeout yang lebih lama
+            # Tunggu balasan dari bot
             response = await self._find_bot_response(
-                event._client, sent_msg.id, start_time, SANGMATA_TIMEOUT
+                event._client, start_time, SANGMATA_TIMEOUT
             )
 
             if response:
@@ -84,7 +85,6 @@ class SangMata(Module):
 
                 # Kirim balasan yang sudah dimodifikasi
                 if response.text:
-                    # Gunakan text_html jika tersedia, fallback ke escape
                     response_text = response.text_html if hasattr(response, 'text_html') else html.escape(response.text)
                     await event.reply_text(
                         response_text + footer,
@@ -92,7 +92,6 @@ class SangMata(Module):
                         disable_web_page_preview=True,
                     )
                 elif response.caption:
-                    # Jika ada caption (foto, video, dll)
                     caption_text = response.caption_html if hasattr(response, 'caption_html') else html.escape(response.caption)
                     await response.copy(
                         event.chat.id,
@@ -100,13 +99,12 @@ class SangMata(Module):
                         reply_to_message_id=event.reply_to_message_id or event.id
                     )
                 else:
-                    # Jika tidak ada text atau caption, salin apa adanya
                     await response.copy(
                         event.chat.id,
                         reply_to_message_id=event.reply_to_message_id or event.id
                     )
             else:
-                raise asyncio.TimeoutError(f"@{SANGMATA_BOT_USERNAME} did not respond in time (>{SANGMATA_TIMEOUT}s).")
+                raise asyncio.TimeoutError(f"@{SANGMATA_BOT_USERNAME} did not respond in time.")
 
         except UserIsBlocked:
             error_text = f"<b>Error:</b> Please unblock <a href='tg://resolve?domain={SANGMATA_BOT_USERNAME}'>@{SANGMATA_BOT_USERNAME}</a> and try again."
@@ -120,52 +118,37 @@ class SangMata(Module):
             await self._edit_and_delete(progress_message, error_text)
 
     async def _find_bot_response(
-        self, client, sent_msg_id: int, start_time: datetime, timeout: int
+        self, client, start_time: datetime, timeout: int
     ) -> Message | None:
-        """
-        Mencari balasan dari bot dalam riwayat obrolan.
-        Lebih reliable dengan checking multiple messages dan better filtering.
-        """
+        """Mencari balasan dari bot dalam riwayat obrolan."""
         end_time = start_time + datetime.timedelta(seconds=timeout)
         last_checked_date = start_time
-        check_interval = 0.3  # Check interval lebih sering
         
         while datetime.datetime.now(timezone.utc) < end_time:
             try:
-                # Get last 10 messages untuk lebih comprehensive
                 async for message in client.get_chat_history(
                     SANGMATA_BOT_USERNAME, limit=10
                 ):
-                    # Skip jika message terlalu lama (sebelum query dikirim)
-                    if message.date <= start_time:
-                        continue
-                    
-                    # Skip jika message sudah di-check sebelumnya
+                    # Skip jika message sebelum query atau sudah di-check
                     if message.date <= last_checked_date:
                         continue
                     
                     # Validasi message dari bot (bukan dari self)
-                    if not message.from_user:
-                        continue
-                    
-                    if message.from_user.is_self:
+                    if not message.from_user or message.from_user.is_self:
                         continue
                     
                     # Update last checked date
-                    if message.date > last_checked_date:
-                        last_checked_date = message.date
+                    last_checked_date = message.date
                     
                     # Check apakah message memiliki content
-                    has_content = message.text or message.caption or message.media
-                    
-                    if has_content:
-                        self.logger.info(f"Found bot response at {message.date}: {message.id}")
+                    if message.text or message.caption or message.media:
+                        self.logger.info(f"Found bot response: {message.id}")
                         return message
                     
             except Exception as e:
                 self.logger.debug(f"Error checking bot response: {e}")
             
-            await asyncio.sleep(check_interval)
+            await asyncio.sleep(0.3)
         
         self.logger.warning(f"No response from bot after {timeout} seconds")
         return None
