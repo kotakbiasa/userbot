@@ -56,9 +56,13 @@ class Info(Module):
             caption += f"\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
 
             if photo_id:
-                photo = await event._client.download_media(photo_id, in_memory=True)
-                await event.delete()
-                await event.reply_photo(photo=photo, caption=caption)
+                try:
+                    photo = await event._client.download_media(photo_id, in_memory=True)
+                    await event.delete()
+                    await event.reply_photo(photo=photo, caption=caption)
+                except Exception as e:
+                    self.logger.warning(f"Failed to download profile photo: {e}")
+                    await event.edit_text(caption, link_preview_options=LinkPreviewOptions(is_disabled=True))
             else:
                 await event.edit_text(caption, link_preview_options=LinkPreviewOptions(is_disabled=True))
 
@@ -95,20 +99,23 @@ class Info(Module):
             if user.language_code: info_lines.append(f"• <b>Language:</b> {user.language_code}")
 
             if user.id != message.from_user.id:
+                # Get common chats
                 try:
                     common_chats = await self.client.app.get_common_chats(user.id)
                     info_lines.append(f"• <b>Common Groups:</b> {len(common_chats)}")
                 except Exception:
-                    pass  # Ignore if unable to fetch common chats
-                
+                    pass
+
+                # Check if blocked
                 try:
                     await self.client.app.send_chat_action(user.id, enums.ChatAction.CANCEL)
                     info_lines.append("• <b>Blocked You:</b> No ✅")
                 except UserIsBlocked:
                     info_lines.append("• <b>Blocked You:</b> Yes ⛔️")
                 except Exception:
-                    pass  # Ignore if unable to fetch common chats
+                    pass
 
+            # User flags
             flags = []
             if user.is_bot: flags.append("Bot 🤖")
             if user.is_verified: flags.append("Verified ✅")
@@ -118,62 +125,108 @@ class Info(Module):
             
             # Get registration date from external API
             try:
-                async with self.client.http as http_client:
-                    reg_date_resp = await http_client.get(
-                        f"https://yasirapi.eu.org/register_date?user_id={user.id}&tz=UTC"
-                    )
-                if reg_date_resp.status_code == 200 and (reg_date_data := reg_date_resp.json()).get("success"):
-                    info_lines.append(f"• <b>Registration Date:</b> {reg_date_data.get('reg_date')} UTC")
-            except Exception:
-                pass  # Ignore if API fails, so it doesn't break the whole command
+                reg_date_resp = await self.client.http.get(
+                    f"https://yasirapi.eu.org/register_date?user_id={user.id}&tz=UTC",
+                    timeout=10
+                )
+                if reg_date_resp.status_code == 200:
+                    reg_date_data = reg_date_resp.json()
+                    if reg_date_data.get("success"):
+                        info_lines.append(f"• <b>Registration Date:</b> {reg_date_data.get('reg_date')} UTC")
+            except Exception as e:
+                self.logger.debug(f"Failed to fetch registration date: {e}")
 
             info_lines.append(f"• <b>Last Seen:</b> {self._get_user_status(user)}")
             
-            if full_chat_info.bio: info_lines.append(f"• <b>Bio:</b> {safe_escape(full_chat_info.bio)}")
+            if full_chat_info.bio: 
+                info_lines.append(f"• <b>Bio:</b> {safe_escape(full_chat_info.bio)}")
             
-            photos_count = await message._client.get_chat_photos_count(user.id)
-            if photos_count > 0: info_lines.append(f"• <b>Profile Photos:</b> {photos_count}")
+            # Profile photos count
+            try:
+                photos_count = await message._client.get_chat_photos_count(user.id)
+                if photos_count > 0: 
+                    info_lines.append(f"• <b>Profile Photos:</b> {photos_count}")
+            except Exception:
+                pass
 
+            # Group membership info
             if message.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
                 try:
                     member = await message._client.get_chat_member(message.chat.id, user.id)
                     if member:
                         info_lines.append("\n<b>Group Info:</b>")
                         group_details = []
-                        status_map = {ChatMemberStatus.OWNER: "Owner", ChatMemberStatus.ADMINISTRATOR: "Administrator", ChatMemberStatus.MEMBER: "Member", ChatMemberStatus.RESTRICTED: "Restricted", ChatMemberStatus.LEFT: "Not in chat", ChatMemberStatus.BANNED: "Banned"}
+                        status_map = {
+                            ChatMemberStatus.OWNER: "Owner",
+                            ChatMemberStatus.ADMINISTRATOR: "Administrator",
+                            ChatMemberStatus.MEMBER: "Member",
+                            ChatMemberStatus.RESTRICTED: "Restricted",
+                            ChatMemberStatus.LEFT: "Not in chat",
+                            ChatMemberStatus.BANNED: "Banned"
+                        }
                         status_str = status_map.get(member.status, "Unknown")
-                        if member.custom_title: status_str += f" (Title: {safe_escape(member.custom_title)})"
+                        if member.custom_title: 
+                            status_str += f" (Title: {safe_escape(member.custom_title)})"
                         group_details.append(f"• <b>Status:</b> {status_str}")
-                        if member.joined_date: group_details.append(f"• <b>Joined:</b> {member.joined_date.strftime('%d %b %Y, %H:%M UTC')}")
-                        if member.promoted_by: group_details.append(f"• <b>Promoted By:</b> {member.promoted_by.mention}")
+                        if member.joined_date: 
+                            group_details.append(f"• <b>Joined:</b> {member.joined_date.strftime('%d %b %Y, %H:%M UTC')}")
+                        if member.promoted_by: 
+                            group_details.append(f"• <b>Promoted By:</b> {member.promoted_by.mention}")
+                        
+                        # Permissions
                         if member.privileges:
                             perms = member.privileges
                             perm_list = [
-                                ("– Manage Chat", perms.can_manage_chat), ("– Delete Messages", perms.can_delete_messages),
-                                ("– Manage Video Chats", perms.can_manage_video_chats), ("– Restrict Members", perms.can_restrict_members),
-                                ("– Change Info", perms.can_change_info), ("– Invite Users", perms.can_invite_users),
-                                ("– Pin Messages", perms.can_pin_messages), ("– Post Stories", perms.can_post_stories),
-                                ("– Edit Stories", perms.can_edit_stories), ("– Delete Stories", perms.can_delete_stories)
+                                ("– Manage Chat", perms.can_manage_chat),
+                                ("– Delete Messages", perms.can_delete_messages),
+                                ("– Manage Video Chats", perms.can_manage_video_chats),
+                                ("– Restrict Members", perms.can_restrict_members),
+                                ("– Change Info", perms.can_change_info),
+                                ("– Invite Users", perms.can_invite_users),
+                                ("– Pin Messages", perms.can_pin_messages),
+                                ("– Post Stories", perms.can_post_stories),
+                                ("– Edit Stories", perms.can_edit_stories),
+                                ("– Delete Stories", perms.can_delete_stories)
                             ]
                             granted_perms = [text for text, has_perm in perm_list if has_perm]
-                            if granted_perms: group_details.append("• <b>Permissions:</b>\n" + "\n".join(granted_perms))
+                            if granted_perms: 
+                                group_details.append("• <b>Permissions:</b>\n" + "\n".join(granted_perms))
+                        
                         info_lines.append(f"<blockquote>{'<br>'.join(group_details)}</blockquote>")
-                except Exception: pass
+                except Exception:
+                    pass
             
             info_lines.append(f"\n<b>Permalink:</b> <a href='tg://user?id={user.id}'>Click Here</a>")
 
         else:
-            info_lines = ["<b>User info:</b>", f"• <b>ID:</b> <code>{user.id}</code>", f"• <b>First Name:</b> {safe_escape(user.first_name)}"]
-            if user.last_name: info_lines.append(f"• <b>Last Name:</b> {safe_escape(user.last_name)}")
-            if user.username: info_lines.append(f"• <b>Username:</b> @{user.username}")
+            info_lines = [
+                "<b>User info:</b>",
+                f"• <b>ID:</b> <code>{user.id}</code>",
+                f"• <b>First Name:</b> {safe_escape(user.first_name)}"
+            ]
+            if user.last_name: 
+                info_lines.append(f"• <b>Last Name:</b> {safe_escape(user.last_name)}")
+            if user.username: 
+                info_lines.append(f"• <b>Username:</b> @{user.username}")
+            
+            # Group status
             try:
                 if message.chat.type in [ChatType.GROUP, ChatType.SUPERGROUP]:
                     member = await message._client.get_chat_member(message.chat.id, user.id)
-                    status_map = {ChatMemberStatus.OWNER: "Owner", ChatMemberStatus.ADMINISTRATOR: "Admin", ChatMemberStatus.MEMBER: "Member", ChatMemberStatus.RESTRICTED: "Restricted", ChatMemberStatus.LEFT: "Not in chat", ChatMemberStatus.BANNED: "Banned"}
+                    status_map = {
+                        ChatMemberStatus.OWNER: "Owner",
+                        ChatMemberStatus.ADMINISTRATOR: "Admin",
+                        ChatMemberStatus.MEMBER: "Member",
+                        ChatMemberStatus.RESTRICTED: "Restricted",
+                        ChatMemberStatus.LEFT: "Not in chat",
+                        ChatMemberStatus.BANNED: "Banned"
+                    }
                     if member.status in status_map:
                         status_str = status_map.get(member.status)
                         info_lines.append(f"• <b>Status:</b> {status_str}")
-            except Exception: pass
+            except Exception:
+                pass
+            
             info_lines.append(f"\n<b>Permalink:</b> {user.mention('Click Here')}")
 
         photo_id = full_chat_info.photo.big_file_id if full_chat_info.photo else None

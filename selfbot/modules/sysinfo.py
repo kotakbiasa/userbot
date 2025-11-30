@@ -47,61 +47,87 @@ class Sysinfo(Module):
     def get_os_info(self) -> str:
         """Gets more descriptive OS information."""
         system = platform.system()
-        if system == "Linux":
-            try:
+        try:
+            if system == "Linux":
                 # Use freedesktop_os_release for a better distro name (Python 3.10+)
-                return platform.freedesktop_os_release().get(
-                    "PRETTY_NAME", f"{system} {platform.release()}"
-                )
-            except (FileNotFoundError, AttributeError):
-                return f"{system} {platform.release()}"  # Fallback
-        elif system == "Darwin":
-            return f"macOS {platform.mac_ver()[0]}"
-
-        return f"{system} {platform.release()}"
+                try:
+                    return platform.freedesktop_os_release().get(
+                        "PRETTY_NAME", f"{system} {platform.release()}"
+                    )
+                except (FileNotFoundError, AttributeError):
+                    return f"{system} {platform.release()}"
+            elif system == "Darwin":
+                return f"macOS {platform.mac_ver()[0]}"
+            else:
+                return f"{system} {platform.release()}"
+        except Exception as e:
+            self.logger.warning(f"Failed to get OS info: {e}")
+            return f"{system} {platform.release()}"
 
     async def get_system_info(self) -> dict:
-        """Gathers system information."""
-        # CPU
-        cpu_freq = psutil.cpu_freq()
-        cpu_usage = psutil.cpu_percent(interval=1)
-
-        cpu_info_str = f"{psutil.cpu_count(logical=False)} Cores, {psutil.cpu_count(logical=True)} Threads"
-        if cpu_freq and cpu_freq.current:
-            cpu_info_str += f" @ {cpu_freq.current:.2f} Mhz"
-        cpu_info_str += f" ({cpu_usage}%)"
-        # Memory
-        mem = psutil.virtual_memory()
-
-        # Disk
-        disk = shutil.disk_usage("/")
-        disk_percent = (disk.used / disk.total) * 100
-
-        # Uptime
-        boot_time = datetime.datetime.fromtimestamp(psutil.boot_time())
-        uptime = datetime.datetime.now() - boot_time
-
-        info = {
-            "OS": self.get_os_info(),
-            "Kernel": platform.release(),
-            "CPU": cpu_info_str,
-            "Architecture": platform.machine(),
-        }
-
+        """Gathers system information asynchronously."""
         try:
-            load1, load5, load15 = psutil.getloadavg()
-            info["Load Average"] = f"{load1:.2f}, {load5:.2f}, {load15:.2f}"
-        except (AttributeError, NotImplementedError):
-            # getloadavg() is not available on all OSes (e.g., Windows)
-            pass
+            # Run blocking operations in thread pool
+            def get_cpu_info():
+                cpu_freq = psutil.cpu_freq()
+                cpu_usage = psutil.cpu_percent(interval=1)
+                cpu_info_str = f"{psutil.cpu_count(logical=False)} Cores, {psutil.cpu_count(logical=True)} Threads"
+                if cpu_freq and cpu_freq.current:
+                    cpu_info_str += f" @ {cpu_freq.current:.2f} Mhz"
+                cpu_info_str += f" ({cpu_usage}%)"
+                return cpu_info_str
 
-        info["RAM"] = f"{format_bytes(mem.used)} / {format_bytes(mem.total)} ({mem.percent}%)"
-        swap = psutil.swap_memory()
-        if swap.total > 0:
-            info["Swap"] = f"{format_bytes(swap.used)} / {format_bytes(swap.total)} ({swap.percent}%)"
-        info["Disk"] = f"{format_bytes(disk.used)} / {format_bytes(disk.total)} ({disk_percent:.2f}%)"
-        info["Python"] = platform.python_version()
-        info["Pyrogram"] = pyrogram_version
-        info["Uptime"] = str(uptime).split(".")[0]
+            def get_memory_info():
+                return psutil.virtual_memory()
 
-        return info
+            def get_disk_info():
+                return shutil.disk_usage("/")
+
+            def get_boot_time():
+                return datetime.datetime.fromtimestamp(psutil.boot_time())
+
+            def get_load_average():
+                try:
+                    return psutil.getloadavg()
+                except (AttributeError, NotImplementedError):
+                    return None
+
+            # Execute blocking calls in thread pool
+            cpu_info_str = await asyncio.to_thread(get_cpu_info)
+            mem = await asyncio.to_thread(get_memory_info)
+            disk = await asyncio.to_thread(get_disk_info)
+            boot_time = await asyncio.to_thread(get_boot_time)
+            load_avg = await asyncio.to_thread(get_load_average)
+
+            disk_percent = (disk.used / disk.total) * 100
+            uptime = datetime.datetime.now() - boot_time
+
+            info = {
+                "OS": self.get_os_info(),
+                "Kernel": platform.release(),
+                "CPU": cpu_info_str,
+                "Architecture": platform.machine(),
+            }
+
+            if load_avg:
+                info["Load Average"] = f"{load_avg[0]:.2f}, {load_avg[1]:.2f}, {load_avg[2]:.2f}"
+
+            info["RAM"] = f"{format_bytes(mem.used)} / {format_bytes(mem.total)} ({mem.percent}%)"
+            
+            # Swap memory
+            swap = psutil.swap_memory()
+            if swap.total > 0:
+                info["Swap"] = f"{format_bytes(swap.used)} / {format_bytes(swap.total)} ({swap.percent}%)"
+            
+            info["Disk"] = f"{format_bytes(disk.used)} / {format_bytes(disk.total)} ({disk_percent:.2f}%)"
+            info["Python"] = platform.python_version()
+            info["Pyrogram"] = pyrogram_version
+            info["Uptime"] = str(uptime).split(".")[0]
+
+            return info
+
+        except Exception as e:
+            self.logger.error(f"Failed to gather system info: {e}")
+            return {
+                "Error": f"Failed to gather system information: {str(e)}"
+            }

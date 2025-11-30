@@ -38,7 +38,7 @@ class SangMata(Module):
 
         target_identifier = None
         if input_str:
-            target_identifier = input_str
+            target_identifier = input_str.strip()
         elif event.reply_to_message and event.reply_to_message.from_user:
             target_identifier = event.reply_to_message.from_user.id
         else:
@@ -77,22 +77,39 @@ class SangMata(Module):
 
                 # Kirim balasan yang sudah dimodifikasi
                 if response.text:
+                    # Gunakan parse_mode untuk preserve formatting
+                    response_text = response.text_html if hasattr(response, 'text_html') else html.escape(response.text)
                     await event.reply_text(
-                        response.text.html + footer,
+                        response_text + footer,
                         reply_to_message_id=event.reply_to_message_id or event.id,
                         disable_web_page_preview=True,
                     )
+                elif response.caption:
+                    # Jika ada caption (foto, video, dll)
+                    caption_text = response.caption_html if hasattr(response, 'caption_html') else html.escape(response.caption)
+                    await response.copy(
+                        event.chat.id,
+                        caption=caption_text + footer,
+                        reply_to_message_id=event.reply_to_message_id or event.id
+                    )
                 else:
-                    # Jika bukan teks (misal: foto), salin dan coba edit caption jika ada
-                    await response.copy(event.chat.id, caption=(response.caption or "") + footer, reply_to_message_id=event.reply_to_message_id or event.id)
+                    # Jika tidak ada text atau caption, salin apa adanya
+                    await response.copy(
+                        event.chat.id,
+                        reply_to_message_id=event.reply_to_message_id or event.id
+                    )
             else:
                 raise asyncio.TimeoutError(f"@{SANGMATA_BOT_USERNAME} did not respond in time.")
 
         except UserIsBlocked:
             error_text = f"<b>Error:</b> Please unblock <a href='tg://resolve?domain={SANGMATA_BOT_USERNAME}'>@{SANGMATA_BOT_USERNAME}</a> and try again."
             await self._edit_and_delete(progress_message, error_text)
+        except asyncio.TimeoutError as e:
+            error_text = f"<b>Error:</b> <code>{html.escape(str(e))}</code>"
+            await self._edit_and_delete(progress_message, error_text)
         except Exception as e:
-            error_text = f"<b>Error:</b> An unexpected error occurred.\n<code>{html.escape(str(e))}</code>"
+            error_msg = str(e)[:150]
+            error_text = f"<b>Error:</b> <code>{html.escape(error_msg)}</code>"
             await self._edit_and_delete(progress_message, error_text)
 
     async def _find_bot_response(
@@ -100,22 +117,25 @@ class SangMata(Module):
     ) -> Message | None:
         """Mencari balasan dari bot dalam riwayat obrolan."""
         end_time = start_time + datetime.timedelta(seconds=timeout)
+        
         while datetime.datetime.now(timezone.utc) < end_time:
             try:
                 # Ambil pesan terakhir dari riwayat chat dengan bot
                 async for last_message in client.get_chat_history(
                     SANGMATA_BOT_USERNAME, limit=1
                 ):
-                    # Pastikan pesan tersebut bukan dari kita dan dikirim setelah perintah kita
+                    # Pastikan pesan tersebut dari bot (bukan dari kita) dan dikirim setelah perintah kita
                     if (
                         last_message.date > start_time
+                        and last_message.from_user
                         and not last_message.from_user.is_self
                     ):
                         return last_message
-            except Exception:
-                # Abaikan error jika terjadi (misal, chat history kosong)
-                pass
+            except Exception as e:
+                self.logger.debug(f"Error checking bot response: {e}")
+            
             await asyncio.sleep(1)  # Beri jeda sebelum memeriksa lagi
+        
         return None
 
     async def _edit_and_delete(self, message: Message, text: str):
@@ -124,6 +144,5 @@ class SangMata(Module):
             await message.edit_text(text, disable_web_page_preview=True)
             await asyncio.sleep(ERROR_VISIBLE_DURATION)
             await message.delete()
-        except Exception:
-            # Abaikan jika pesan sudah terhapus atau terjadi error lain
-            pass
+        except Exception as e:
+            self.logger.debug(f"Failed to edit/delete message: {e}")
