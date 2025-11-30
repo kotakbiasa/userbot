@@ -7,13 +7,13 @@ import shutil
 from pathlib import Path
 
 import yt_dlp
-from httpx import AsyncClient
 from pyrogram import filters
 from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import fmtsec, fmtbyte
+from selfbot.utils.youtube_api import shell
 
 # Regex to match 'dl', 'mediadl', 'img', 'gallerydl' followed by a URL
 pattern = re.compile(r"^(?:dl|mediadl|img|gallerydl)\s+(https?://[^\s]+)$")
@@ -100,22 +100,20 @@ class MediaDL(Module):
     def _download_with_gallerydl(self, url: str, output_dir: str) -> dict:
         """Download images using gallery-dl."""
         try:
-            import gallery_dl
+            import gallery_dl.download
         except ImportError:
             raise Exception("gallery-dl not installed. Install with: pip install gallery-dl")
 
-        config = {
-            "output": {
-                "directory": [output_dir],
+        try:
+            # Use gallery-dl's download function directly
+            pathfmt_list = gallery_dl.download.download([url], {
+                "output": output_dir,
                 "filename": "{category}/{filename}",
-            },
-            "general": {
                 "continue": True,
-            },
-        }
-        
-        job = gallery_dl.job.DownloadJob(url, kwdict=config)
-        job.run()
+            })
+            
+        except Exception as e:
+            raise Exception(f"gallery-dl download failed: {str(e)}")
         
         # Count files dan calculate total size
         total_files = 0
@@ -133,20 +131,90 @@ class MediaDL(Module):
             "output_dir": output_dir,
         }
 
+    async def _convert_video_to_telegram_format(self, video_path: str) -> str:
+        """
+        Converts video to Telegram-compatible format (MP4 H.264 + AAC).
+        Uses system FFmpeg directly.
+        Returns path to converted video.
+        """
+        try:
+            output_path = str(Path(video_path).with_stem(Path(video_path).stem + "_converted"))
+            
+            # FFmpeg command untuk convert ke format Telegram-compatible
+            # H.264 codec, AAC audio, optimized untuk streaming
+            command = (
+                f"ffmpeg -i \"{video_path}\" "
+                f"-c:v libx264 -preset fast -crf 23 "
+                f"-c:a aac -b:a 128k "
+                f"-movflags +faststart "
+                f"\"{output_path}\" -y 2>&1"
+            )
+            
+            self.logger.info(f"Converting video to Telegram format: {video_path}")
+            stdout, stderr = await shell(command)
+            
+            # Check if output exists and is not empty
+            if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                raise Exception("Video conversion failed or output is empty")
+            
+            # Remove original file to save space
+            try:
+                os.remove(video_path)
+            except Exception as e:
+                self.logger.warning(f"Failed to remove original video: {e}")
+            
+            return output_path
+        except Exception as e:
+            self.logger.error(f"Video conversion failed: {e}")
+            raise Exception(f"Failed to convert video: {str(e)}")
+
+    async def _is_video_telegram_compatible(self, video_path: str) -> bool:
+        """
+        Checks if video is Telegram-compatible (MP4 H.264 + AAC).
+        Uses ffprobe to inspect video codec.
+        """
+        try:
+            # Check video codec
+            cmd_video = (
+                f"ffprobe -v error -select_streams v:0 "
+                f"-show_entries stream=codec_name "
+                f"-of default=noprint_wrappers=1:nokey=1 \"{video_path}\""
+            )
+            stdout_v, _ = await shell(cmd_video)
+            video_codec = stdout_v.strip() if isinstance(stdout_v, str) else stdout_v.decode().strip()
+            
+            # Check audio codec
+            cmd_audio = (
+                f"ffprobe -v error -select_streams a:0 "
+                f"-show_entries stream=codec_name "
+                f"-of default=noprint_wrappers=1:nokey=1 \"{video_path}\""
+            )
+            stdout_a, _ = await shell(cmd_audio)
+            audio_codec = stdout_a.strip() if isinstance(stdout_a, str) else stdout_a.decode().strip()
+            
+            # Check if both are compatible
+            is_h264 = "h264" in video_codec.lower()
+            is_aac = "aac" in audio_codec.lower()
+            is_mp4 = video_path.lower().endswith('.mp4')
+            
+            return is_h264 and is_aac and is_mp4
+        except Exception as e:
+            self.logger.warning(f"Failed to check video compatibility: {e}")
+            # Jika check gagal, asumsikan perlu convert (safe approach)
+            return False
+
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         """Handles media or image download command."""
-        await event.edit_text("<code>Detecting content type...</code>")
+        await event.edit_text("<code>Downloading...</code>")
         now = datetime.datetime.now(datetime.UTC)
 
         match = pattern.match(event.text)
         url = match.group(1)
         
-        # Auto-detect content type
+        # Determine if it's an image site
         content_type = await self._detect_content_type(url)
         is_image = content_type == 'image'
-
-        await event.edit_text("<code>Downloading...</code>")
 
         output_path = Path("downloads") / f"{now.timestamp()}"
         output_path.mkdir(parents=True, exist_ok=True)
@@ -214,6 +282,15 @@ class MediaDL(Module):
                         return ydl.prepare_filename(info), info
 
                 filepath, info = await asyncio.to_thread(download_and_extract_info, url)
+                
+                # Check if video needs conversion
+                await event.edit_text("<code>Checking video format...</code>")
+                is_compatible = await self._is_video_telegram_compatible(filepath)
+                
+                if not is_compatible:
+                    await event.edit_text("<code>Converting video to Telegram format...</code>")
+                    filepath = await self._convert_video_to_telegram_format(filepath)
+                
                 caption = self._build_caption(info, fmtsec(now))
                 await event.reply_video(video=filepath, caption=caption)
                 await event.delete()
