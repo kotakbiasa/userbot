@@ -1,4 +1,5 @@
 import datetime
+import html
 import re
 
 from pyrogram import filters
@@ -122,5 +123,28 @@ class Id(Module):
             else:
                 data["Your ID"] = "N/A"
 
-        output = fmtstr("IDs", data, fmtsec(now))
+        # Build output without monospace for keys (left side)
+        lines = []
+        for k, v in data.items():
+            # safe escape and avoid using <code> for labels or values
+            key = html.escape(str(k))
+            val = html.escape(str(v)) if v is not None else ""
+            lines.append(f"<b>{key}:</b> {val}")
+
+        output = "\n".join(lines) + f"\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
+        # Jika perintah dipanggil sambil membalas pesan, kirim hasil sebagai reply ke pesan tersebut
+        if replied:
+            try:
+                await event.reply_text(output, reply_to_message_id=replied.id, disable_web_page_preview=True)
+                # Hapus pesan perintah agar tidak berantakan
+                try:
+                    await event.delete()
+                except Exception:
+                    pass
+                return
+            except Exception as e:
+                # Jika gagal mengirim sebagai reply, fallback ke edit pesan perintah
+                self.logger.debug(f"Failed to reply with IDs: {e}")
+
+        # Default: edit pesan perintah
         await event.edit_text(output, disable_web_page_preview=True)

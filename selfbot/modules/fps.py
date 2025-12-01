@@ -37,35 +37,36 @@ class FPSConverter(Module):
             return 0.0
 
     def _create_progress_bar(self, percentage: int) -> str:
-        return "▰" * (percentage // 10) + "▱" * (10 - (percentage // 10))
+        return "▰" * (max(0, min(100, percentage)) // 10) + "▱" * (10 - (max(0, min(100, percentage)) // 10))
 
     @listener.handler(filters.regex(pattern) & listener.fltrep, 1)
     async def on_convert_fps(self, event: Message) -> None:
         """Handles the video to 60 FPS conversion command."""
         replied_message = event.reply_to_message
-        if not replied_message or replied_message.media != MessageMediaType.VIDEO:
-            await event.edit_text("<code>Please reply to a video message.</code>")
-            return
+        # more robust check: ensure replied message has a video object
+        if not replied_message or not getattr(replied_message, "video", None):
+             await event.edit_text("<code>Please reply to a video message.</code>")
+             return
 
-        video = replied_message.video
-        if video and video.duration > 60:
-            await event.edit_text("<code>Video duration exceeds the 1-minute limit.</code>")
-            return
+         video = replied_message.video
+         if video and video.duration > 60:
+             await event.edit_text("<code>Video duration exceeds the 1-minute limit.</code>")
+             return
 
-        await event.edit_text("<code>Processing...</code>")
-        now = datetime.datetime.now(datetime.UTC)
+         await event.edit_text("<code>Processing...</code>")
+         now = datetime.datetime.now(datetime.UTC)
 
-        # Create a temporary directory for this conversion
-        temp_dir = Path("downloads") / f"fps_converter_{event.id}"
-        temp_dir.mkdir(parents=True, exist_ok=True)
+         # Create a temporary directory for this conversion
+         temp_dir = Path("downloads") / f"fps_converter_{event.id}"
+         temp_dir.mkdir(parents=True, exist_ok=True)
 
-        input_path = None
-        output_path = None
+         input_path = None
+         output_path = None
 
-        # Regex untuk menangkap informasi waktu dari output FFmpeg
-        time_pattern = re.compile(r"time=(\d{2}:\d{2}:\d{2}\.\d{2})")
+        # Regex untuk menangkap informasi waktu dari output FFmpeg (mendukung desimal variable)
+        time_pattern = re.compile(r"time=(\d{2}:\d{2}:\d{2}(?:\.\d+)?)")
 
-        try:
+         try:
             # 1. Download the video
             await event.edit_text("<code>Downloading video...</code>")
             input_path = await replied_message.download(in_memory=False, file_name=str(temp_dir / "input.mp4"))
@@ -93,37 +94,67 @@ class FPSConverter(Module):
             )
 
             last_update_time = 0
-            stderr_output = ""
-            while process.returncode is None:
-                line_bytes = await process.stderr.readline()
-                if not line_bytes:
-                    break
-                line = line_bytes.decode('utf-8', errors='ignore').strip()
-                stderr_output += line + "\n"
-                
-                match = time_pattern.search(line)
-                if match:
-                    current_time = self._parse_ffmpeg_time(match.group(1))
-                    percentage = int((current_time / video.duration) * 100)
-                    
-                    # Update progress setiap 5 detik untuk menghindari FloodWait
-                    if time.time() - last_update_time > 5:
-                        progress_bar = self._create_progress_bar(percentage)
-                        try:
-                            await event.edit_text(
-                                f"<code>Converting to 60 FPS...\n"
-                                f"[{progress_bar}] {percentage}%</code>"
-                            )
-                            last_update_time = time.time()
-                        except FloodWait as e:
-                            await asyncio.sleep(e.value)
-                        except Exception:
-                            pass # Abaikan error jika pesan sudah dihapus
+            stderr_accum = ""
+            # Read progress from stdout (because we used -progress pipe:1)
+            while True:
+                # Try to read a line from stdout; if none, check if process ended
+                line_bytes = await process.stdout.readline()
+                if line_bytes:
+                    line = line_bytes.decode('utf-8', errors='ignore').strip()
+                else:
+                    # no stdout line; check stderr for errors and process status
+                    err = await process.stderr.readline()
+                    if err:
+                        stderr_accum += err.decode('utf-8', errors='ignore')
+                    if process.returncode is not None:
+                        break
+                    # if process still running but no stdout available yet, small sleep
+                    await asyncio.sleep(0.1)
+                    # continue to next iteration
+                    if not line_bytes and not err:
+                        continue
+                    else:
+                        # if we did read something from stderr, continue to parse
+                        if not line_bytes:
+                            line = ""
 
+                # accumulate stderr too for diagnostics
+                if line.startswith("frame=") or line.startswith("time=") or line.startswith("progress=") or line:
+                    # parse possible time=... lines from stdout progress or ffmpeg-ish output
+                    m = time_pattern.search(line)
+                    if m:
+                        current_time = self._parse_ffmpeg_time(m.group(1))
+                        duration = getattr(video, "duration", 0) or 0.0
+                        if duration > 0:
+                            percentage = int((current_time / duration) * 100)
+                            percentage = max(0, min(100, percentage))
+                        else:
+                            percentage = 0
+
+                        # Update progress setiap 5 detik untuk menghindari FloodWait
+                        if time.time() - last_update_time > 5:
+                            progress_bar = self._create_progress_bar(percentage)
+                            try:
+                                await event.edit_text(
+                                    f"<code>Converting to 60 FPS...\n"
+                                    f"[{progress_bar}] {percentage}%</code>"
+                                )
+                                last_update_time = time.time()
+                            except FloodWait as e:
+                                await asyncio.sleep(e.value)
+                            except Exception:
+                                # ignore if message deleted or other error
+                                pass
+
+                # If process finished, break loop
+                if process.returncode is not None:
+                    break
+
+            # wait until process really finishes
             await process.wait()
 
             if process.returncode != 0:
-                raise Exception(f"FFmpeg conversion failed.\n\nDetails:\n{stderr_output[-1000:]}")
+                raise Exception(f"FFmpeg conversion failed.\n\nDetails:\n{stderr_accum[-1000:]}")
 
             if not Path(output_path).exists() or Path(output_path).stat().st_size == 0:
                 raise Exception("Conversion failed: Output file is missing or empty.")
