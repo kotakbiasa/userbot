@@ -120,7 +120,7 @@ class MediaDL(Module):
                     raise Exception("Failed to download any media files.")
 
                 caption = f"<blockquote>{html.escape(title)}</blockquote>\n"
-                caption += f"<a href='{url}'>Source</a>\n\n"
+                caption += f"<a href='{url}'>Source</a>\n"
                 caption += f"<b><blockquote>{fmtsec(now)}</blockquote></b>"
 
                 if len(downloaded_files) == 1:
