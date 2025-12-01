@@ -114,7 +114,7 @@ class MediaDL(Module):
                         with open(file_path, "wb") as f:
                             async for chunk in stream_resp.aiter_bytes():
                                 f.write(chunk)
-                    downloaded_files.append({"path": file_path, "type": item.get("type", "video")})
+                    downloaded_files.append({"path": file_path, "type": item.get("type")})
 
                 if not downloaded_files:
                     raise Exception("Failed to download any media files.")
