@@ -26,6 +26,28 @@ class MediaDL(Module):
         "e.g.": "aio https://www.tiktok.com/@user/video/12345",
     }
 
+    def _get_quality_score(self, quality_str: str) -> int:
+        """Memberikan skor pada kualitas video untuk perbandingan."""
+        if not isinstance(quality_str, str):
+            return 0
+        
+        quality_str = quality_str.lower()
+        score = 0
+        
+        # Ekstrak angka resolusi (misalnya, 720p -> 720)
+        if match := re.search(r'(\d+)p', quality_str):
+            score = int(match.group(1))
+        
+        # Beri bobot lebih untuk kualitas tanpa watermark
+        if 'no_watermark' in quality_str:
+            score += 10000  # Prioritas tinggi
+        if 'hd' in quality_str:
+            score += 1000   # Prioritas sedang
+        if 'watermark' in quality_str:
+            score -= 10000  # Prioritas rendah
+            
+        return score
+
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         """Handles media or image download command."""
@@ -46,10 +68,14 @@ class MediaDL(Module):
                 resp.raise_for_status()
                 data = resp.json()
 
-                if data.get("status") != "ok" or not data.get("result"):
-                    raise Exception(f"API returned an error: {data.get('message', 'Unknown error')}")
+                # Handle different API response structures (chocomilk vs ryzumi-like for IG)
+                if data.get("success") and isinstance(data.get("data"), dict): # Instagram structure
+                    result = data["data"]
+                elif data.get("status") == "ok" and isinstance(data.get("result"), dict): # General structure
+                    result = data["result"]
+                else:
+                    raise Exception(f"API returned an unrecognized error: {data.get('message', 'Unknown error')}")
 
-                result = data["result"]
                 title = result.get("title", "Untitled")
                 media_items = result.get("medias", [])
 
@@ -57,21 +83,30 @@ class MediaDL(Module):
                     # Fallback for single video/audio if 'medias' is not present
                     video_streams = result.get("video", [])
                     if video_streams:
-                        best_stream = max(video_streams, key=lambda s: int(re.sub(r'\D', '', s.get("quality", "0")) or 0))
-                        media_items.append(best_stream)
+                        media_items.extend(video_streams)
 
                 if not media_items:
                     raise Exception("No media found in the API response.")
 
-                await event.edit_text(f"<code>Downloading {len(media_items)} item(s)...</code>")
+                # Filter for best quality if multiple streams of the same type are present (e.g., FB HD/SD)
+                video_streams = [m for m in media_items if m.get("type") == "video" and m.get("url")]
+                image_streams = [m for m in media_items if m.get("type") == "image" and m.get("url")]
+
+                final_media_items = []
+                if video_streams:
+                    best_video = max(video_streams, key=lambda s: self._get_quality_score(s.get("quality")))
+                    final_media_items.append(best_video)
+                final_media_items.extend(image_streams) # Add all images
+
+                await event.edit_text(f"<code>Downloading {len(final_media_items)} item(s)...</code>")
 
                 downloaded_files = []
-                for i, item in enumerate(media_items):
+                for i, item in enumerate(final_media_items):
                     dlink = item.get("url")
                     if not dlink:
                         continue
 
-                    file_ext = "mp4" if item.get("type") == "video" else "jpg"
+                    file_ext = "mp4" if item.get("type") == "video" else item.get("extension", "jpg")
                     file_path = download_dir / f"media_{i}.{file_ext}"
 
                     async with client.stream("GET", dlink, timeout=300) as stream_resp:
