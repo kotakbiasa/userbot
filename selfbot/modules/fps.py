@@ -131,7 +131,7 @@ class FPSConverter(Module):
             # 3. Upload the converted video
             await event.edit_text("<code>Uploading converted video...</code>")
             
-            caption = f"<b>Converted to 60 FPS</b>"
+            caption = f"<b>Converted to 60 FPS</b>\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
             
             await event.reply_video(
                 video=output_path,
