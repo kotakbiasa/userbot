@@ -45,32 +45,32 @@ class FPSConverter(Module):
         replied_message = event.reply_to_message
         # more robust check: ensure replied message has a video object
         if not replied_message or not getattr(replied_message, "video", None):
-             await event.edit_text("<code>Please reply to a video message.</code>")
-             return
+            await event.edit_text("<code>Please reply to a video message.</code>")
+            return
 
-         video = replied_message.video
-         if video and video.duration > 60:
-             await event.edit_text("<code>Video duration exceeds the 1-minute limit.</code>")
-             return
+        video = replied_message.video
+        if video and video.duration > 60:
+            await event.edit_text("<code>Video duration exceeds the 1-minute limit.</code>")
+            return
 
-         await event.edit_text("<code>Processing...</code>")
-         now = datetime.datetime.now(datetime.UTC)
+        await event.edit_text("<code>Processing...</code>")
+        now = datetime.datetime.now(datetime.UTC)
 
-         # Create a temporary directory for this conversion
-         temp_dir = Path("downloads") / f"fps_converter_{event.id}"
-         temp_dir.mkdir(parents=True, exist_ok=True)
+        # Create a temporary directory for this conversion
+        temp_dir = Path("downloads") / f"fps_converter_{event.id}"
+        temp_dir.mkdir(parents=True, exist_ok=True)
 
-         input_path = None
-         output_path = None
+        input_path = None
+        output_path = None
 
         # Regex untuk menangkap informasi waktu dari output FFmpeg (mendukung desimal variable)
         time_pattern = re.compile(r"time=(\d{2}:\d{2}:\d{2}(?:\.\d+)?)")
 
-         try:
+        try:
             # 1. Download the video
             await event.edit_text("<code>Downloading video...</code>")
             input_path = await replied_message.download(in_memory=False, file_name=str(temp_dir / "input.mp4"))
-            
+
             if not input_path or not Path(input_path).exists():
                 raise Exception("Video download failed.")
 
@@ -161,9 +161,9 @@ class FPSConverter(Module):
 
             # 3. Upload the converted video
             await event.edit_text("<code>Uploading converted video...</code>")
-            
+
             caption = f"<b>Converted to 60 FPS</b>\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
-            
+
             await event.reply_video(
                 video=output_path,
                 caption=caption,
