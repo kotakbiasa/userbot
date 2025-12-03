@@ -20,7 +20,7 @@ class Id(Module):
         "e.g.": "<Reply> id",
     }
 
-    @listener.handler(filters.regex(pattern) & ~listener.fltrep, 1)
+    @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         """Fetches and displays various IDs based on context."""
         now = datetime.datetime.now(datetime.UTC)
@@ -29,7 +29,7 @@ class Id(Module):
         chat = event.chat
         data = {
             "Chat ID": getattr(chat, "id", "N/A"),
-            "Chat Type": getattr(chat, "type", "N/A").name if getattr(chat, "type", None) else "N/A",
+            "Chat Type": getattr(chat, "type", "N/A").name.title() if getattr(chat, "type", None) else "N/A",
             "Chat Title": getattr(chat, "title", None) or getattr(chat, "username", None) or "",
         }
 
@@ -37,24 +37,16 @@ class Id(Module):
         if replied:
             data["Replied Msg ID"] = replied.id
             # Attempt to build a permalink if possible
-            try:
-                if getattr(chat, "username", None):
-                    data["Permalink"] = f"https://t.me/{chat.username}/{replied.id}"
-                else:
-                    # for supergroups without username
-                    if str(chat.id).startswith("-100"):
-                        cid = str(chat.id).replace("-100", "")
-                        data["Permalink"] = f"https://t.me/c/{cid}/{replied.id}"
-            except Exception:
-                pass
+            if replied.link:
+                data["Permalink"] = replied.link
 
             # Replied user info (may be None for anonymous/admin)
             if replied.from_user:
                 data["User ID"] = replied.from_user.id
                 if getattr(replied.from_user, "username", None):
-                    data["User"] = f"@{replied.from_user.username}"
+                    data["User"] = replied.from_user.mention
                 else:
-                    data["User"] = getattr(replied.from_user, "first_name", "") or ""
+                    data["User"] = replied.from_user.mention(style="html")
             else:
                 # Could be anonymous admin or channel post
                 data["User"] = "Anonymous / Channel Post"
@@ -71,46 +63,20 @@ class Id(Module):
             if fwd_sender_name:
                 data["Fwd Sender Name"] = fwd_sender_name
 
-            # Media/file specific info
-            # Helper to add file fields
-            def add_file_info(prefix: str, obj):
-                if not obj:
-                    return
-                fid = getattr(obj, "file_id", None)
-                funq = getattr(obj, "file_unique_id", None)
-                ftype = getattr(obj, "mime_type", None) or getattr(obj, "file_name", None) or ""
-                if fid:
-                    data[f"{prefix} File ID"] = fid
-                if funq:
-                    data[f"{prefix} Unique ID"] = funq
-                if ftype:
-                    data[f"{prefix} Type"] = ftype
-
-            # Sticker
-            if replied.sticker:
-                data["Sticker ID"] = replied.sticker.file_id
-                data["Sticker Unique ID"] = getattr(replied.sticker, "file_unique_id", "")
-                data["Sticker Pack"] = getattr(replied.sticker, "set_name", "")
-            # Photo (list of sizes) -> get largest
-            if replied.photo:
-                # photos is list-like; pick last item
-                photo_obj = replied.photo[-1] if isinstance(replied.photo, (list, tuple)) else replied.photo
-                add_file_info("Photo", photo_obj)
-            # Video
-            if replied.video:
-                add_file_info("Video", replied.video)
-            # Animation (GIF)
-            if replied.animation:
-                add_file_info("Animation", replied.animation)
-            # Voice
-            if replied.voice:
-                add_file_info("Voice", replied.voice)
-            # Audio / Music
-            if replied.audio:
-                add_file_info("Audio", replied.audio)
-            # Document (includes stickers sometimes)
-            if replied.document:
-                add_file_info("Document", replied.document)
+            if replied.media:
+                media_obj = getattr(replied, replied.media.value)
+                media_type_name = replied.media.name.title().replace("_", " ")
+                
+                if file_id := getattr(media_obj, "file_id", None):
+                    data[f"{media_type_name} File ID"] = f"<code>{file_id}</code>"
+                if file_unique_id := getattr(media_obj, "file_unique_id", None):
+                    data[f"{media_type_name} Unique ID"] = f"<code>{file_unique_id}</code>"
+                if mime_type := getattr(media_obj, "mime_type", None):
+                    data[f"{media_type_name} MIME"] = mime_type
+                
+                # Specific for stickers
+                if replied.sticker and (set_name := getattr(replied.sticker, "set_name", None)):
+                    data["Sticker Pack"] = set_name
 
         else:
             # Not replied: show sender (you) info
@@ -125,26 +91,18 @@ class Id(Module):
 
         # Build output without monospace for keys (left side)
         lines = []
+        output = ""
         for k, v in data.items():
-            # safe escape and avoid using <code> for labels or values
-            key = html.escape(str(k))
-            val = html.escape(str(v)) if v is not None else ""
-            lines.append(f"<b>{key}:</b> {val}")
+            if v: # Only add if value is not empty
+                key = html.escape(str(k))
+                # Value might already contain <code> tags, so don't escape it again
+                val = str(v) if v is not None else ""
+                lines.append(f"<b>{key}:</b> {val}")
 
-        output = "\n".join(lines) + f"\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
-        # Jika perintah dipanggil sambil membalas pesan, kirim hasil sebagai reply ke pesan tersebut
-        if replied:
-            try:
-                await event.reply_text(output, reply_to_message_id=replied.id, disable_web_page_preview=True)
-                # Hapus pesan perintah agar tidak berantakan
-                try:
-                    await event.delete()
-                except Exception:
-                    pass
-                return
-            except Exception as e:
-                # Jika gagal mengirim sebagai reply, fallback ke edit pesan perintah
-                self.logger.debug(f"Failed to reply with IDs: {e}")
+        if lines:
+            output = "\n".join(lines)
+        
+        output += f"\n\n<b><blockquote>{fmtsec(now)}</blockquote></b>"
 
         # Default: edit pesan perintah
         await event.edit_text(output, disable_web_page_preview=True)

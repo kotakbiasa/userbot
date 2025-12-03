@@ -9,7 +9,7 @@ from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, fmtstr
+from selfbot.utils import fmtmsg, fmtsec
 
 pattern = re.compile(r"^speed(?:test)?$")
 
@@ -38,7 +38,7 @@ class Speedtest(Module):
                 return
 
             # Format the results
-            output = fmtstr(
+            output = fmtmsg(
                 "Speedtest Results",
                 {
                     "Provider": results.get('isp', 'N/A'),

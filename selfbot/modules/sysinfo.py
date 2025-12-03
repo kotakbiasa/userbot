@@ -11,7 +11,7 @@ from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, fmtstr
+from selfbot.utils import fmtmsg, fmtsec
 
 pattern = re.compile(r"^sysinfo$")
 
@@ -42,7 +42,7 @@ class Sysinfo(Module):
         sys_info = await self.get_system_info()
 
         # Format the output
-        await event.edit_text(fmtstr("System Info", sys_info, fmtsec(now)))
+        await event.edit_text(fmtmsg("System Info", sys_info, fmtsec(now)))
 
     def get_os_info(self) -> str:
         """Gets more descriptive OS information."""

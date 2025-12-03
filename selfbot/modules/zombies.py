@@ -10,7 +10,7 @@ from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, fmtstr
+from selfbot.utils import fmtmsg, fmtsec
 
 # Regex untuk mencocokkan 'zombies' dengan flag '-clean' opsional
 pattern = re.compile(r"^zombies(?:\s+(-clean))?$")
@@ -69,7 +69,7 @@ class Zombies(Module):
                 result_text = f"Search Complete"
                 result_data = {"Deleted Accounts": f"{zombies_found} accounts"}
 
-            await event.edit_text(fmtstr(result_text, result_data, fmtsec(now)))
+            await event.edit_text(fmtmsg(result_text, result_data, fmtsec(now)))
 
         except Exception as e:
             await event.edit_text(

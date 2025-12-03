@@ -9,7 +9,7 @@ from pyrogram.types import Message, User, LinkPreviewOptions
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, fmtstr
+from selfbot.utils import fmtsec
 
 pattern = re.compile(r"^info(.*)$", flags=re.DOTALL)
 
