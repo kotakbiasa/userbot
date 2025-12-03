@@ -17,7 +17,7 @@ from pyrogram.types import Update
 
 from selfbot.listener import Listener
 from selfbot.module import Module
-from selfbot.utils import fmtstr, ikm
+from selfbot.utils import fmtmsg, ikm
 
 
 class Dispatcher(abc.ABC):
@@ -68,7 +68,7 @@ class Dispatcher(abc.ABC):
                     url = await asyncio.to_thread(blob, fn, ln)
                     await self.bot.send_message(
                         self.app.me.id,
-                        fmtstr(
+                        fmtmsg(
                             e.__class__.__name__,
                             {
                                 "Module": listener.mod.__class__.__name__,

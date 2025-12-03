@@ -33,7 +33,7 @@ from pyrogram.types import (
 )
 
 from selfbot import __version__
-from selfbot.utils import fmtsec, fmtstr
+from selfbot.utils import fmtmsg, fmtsec
 
 from .storage import PostgreStorage
 
@@ -57,7 +57,7 @@ class Telegram(abc.ABC):
         self.logger.info(f"{res}tarting {self.__class__.__name__}...")
         try:
             await self.start()
-            msg = fmtstr(
+            msg = fmtmsg(
                 f"{self.__class__.__name__} {res}tarted",
                 {
                     "Handlers": len(self.handlers),

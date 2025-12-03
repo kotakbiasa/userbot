@@ -1,67 +1,81 @@
 import asyncio
 import datetime
+import html
 import re
 
-from pyrogram import Client, filters
-from pyrogram.raw.functions import Ping as Latency
-from pyrogram.types import (
-    CallbackQuery,
-    ChosenInlineResult,
-    InlineQuery,
-    Message,
-    Update,
-)
+from pyrogram import filters
+from pyrogram.enums import ChatType
+from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, fmtstr, ikm
+from selfbot.utils import fmtmsg, fmtsec
 
-pattern = re.compile(r"^p(?:ing)?$")
+pattern = re.compile(r"^purge(me)?(?:\s-l\s([1-9]\d{0,2}))?$")
 
 
-class Ping(Module):
-    name = "Selfbot Latency"
-    cmds = "p(ing)?"
-    desc = {"?": "Optional", "e.g.": "ping"}
+class Purge(Module):
+    name = "Purge Message"
+    cmds = "<Reply>? purge(me)? (-l {limit})?"
+    desc = {
+        "Reply": "Min ID",
+        "limit": "[1-999]",
+        "?": "Optional",
+        "e.g.": "purgeme -l 99",
+    }
 
-    @listener.handler(filters.regex(pattern) & ~listener.fltrep, 1)
+    @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
-        await self.respond(event)
+        await event.edit_text("<code>...</code>")
+        (me, limit) = pattern.match(event.content).groups()
+        if limit:
+            limit = int(limit)
 
-    @listener.handler(filters.regex(pattern), 2)
-    async def on_inline_query(self, event: InlineQuery) -> None:
-        await self.answer(event)
-
-    @listener.handler(filters.regex(pattern), 3)
-    async def on_inline_result(self, event: ChosenInlineResult) -> None:
-        await self.respond(event)
-
-    @listener.handler(filters.regex(pattern), 4)
-    async def on_inline_callback(self, event: CallbackQuery) -> None:
-        await self.respond(event)
-
-    async def ping(self, client: Client) -> str:
-        now = datetime.datetime.now(datetime.UTC)
-        await client.invoke(Latency(ping_id=0))
-        return fmtsec(now, 1)
-
-    async def respond(self, event: Update) -> None:
-        if isinstance(event, Message):
-            edit = event.edit_text
+        mids = []
+        if me:
+            mids = [
+                m.id
+                async for m in event._client.search_messages(
+                    event.chat.id,
+                    from_user="me",
+                    limit=(limit or 100) + 1,
+                    min_id=(event.reply_to_message_id or 1) - 1,
+                    max_id=event.id,
+                )
+            ]
         else:
-            edit = event.edit_message_text
+            if event.chat.type == ChatType.SUPERGROUP and (
+                event.chat.is_direct_messages or event.chat.is_forum
+            ):
+                await event.edit_text(
+                    f"<code>Unsupported {html.escape('<ChatType>')}</code>"
+                )
+                return
 
-        if isinstance(event, Message):
-            await edit("<code>...</code>")
-        else:
-            await event.edit_message_reply_markup(
-                ikm(("...", "user_id", event._client.me.id))
-            )
+            mids = [
+                m.id
+                async for m in event._client.get_chat_history(
+                    event.chat.id,
+                    limit=limit or 100,
+                    min_id=(event.reply_to_message_id or 1) - 1,
+                    max_id=event.id,
+                )
+            ]
 
-        now, (app, bot) = datetime.datetime.now(datetime.UTC), await asyncio.gather(
-            self.ping(self.client.app), self.ping(self.client.bot)
+        res, now = 0, datetime.datetime.now(datetime.UTC)
+        for chunk in (mids[i : i + 100] for i in range(0, len(mids), 100)):
+            res += await event._client.delete_messages(event.chat.id, chunk)
+            if len(mids) > 100 and res % 100 == 0:
+                await asyncio.sleep(2.5)
+
+        await asyncio.gather(
+            event.edit_text(
+                fmtmsg(
+                    f"Purge{'me' if me else ''}",
+                    f"{res} Message{'' if res == 1 else 's'}",
+                    fmtsec(now),
+                )
+            ),
+            asyncio.sleep(2.5),
         )
-        await edit(
-            fmtstr("Selfbot Latency", {"App": app, "Bot": bot}, fmtsec(now)),
-            reply_markup=ikm([[("Ping!", b"ping")], [("Close", b"0")]]),
-        )
+        await event.delete()

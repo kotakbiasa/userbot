@@ -11,7 +11,7 @@ from pyrogram.utils import get_channel_id
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtbyte, fmtsec, fmtstr, prog
+from selfbot.utils import fmtbyte, fmtmsg, fmtsec, prog
 
 pattern = re.compile(
     r"^dl\s?(?:(?:https?://)?t\.me/(c/)?"
@@ -72,12 +72,23 @@ class Download(Module):
                 return
             else:
                 if story:
-                    update = await event._client.get_stories(chat_id, int(update_id))
+                    func = event._client.get_stories
                 else:
+                    func = event._client.get_messages
                     if private:
                         chat_id = get_channel_id(int(chat_id))
 
-                    update = await event._client.get_messages(chat_id, int(update_id))
+                try:
+                    update = await func(chat_id, int(update_id))
+                except RPCError as e:
+                    await event.edit_text(
+                        fmtmsg(
+                            e.__class__.__name__,
+                            e.MESSAGE.format(value=e.value),
+                            fmtsec(now),
+                        )
+                    )
+                    return
 
         await self.download(event, update, file_name or "")
 
@@ -92,10 +103,10 @@ class Download(Module):
         )
         now = datetime.datetime.now(datetime.UTC)
         try:
-            res = await asyncio.wait_for(fut, timeout=900)
-        except (asyncio.CancelledError, TimeoutError, Exception) as e:
+            res = await fut
+        except (asyncio.CancelledError, Exception) as e:
             await event.edit_text(
-                fmtstr(
+                fmtmsg(
                     e.__class__.__name__,
                     (
                         e.MESSAGE.format(value=e.value)
@@ -108,16 +119,11 @@ class Download(Module):
         else:
             obj = getattr(update, update.media.value)
             await event.edit_text(
-                fmtstr(
-                    "Download Finished",
+                fmtmsg(
+                    "Media Downloaded",
                     {
-                        **(
-                            {"File Name": obj.file_name}
-                            if hasattr(obj, "file_name")
-                            else {}
-                        ),
-                        "File Size": fmtbyte(obj.file_size),
-                        "File Path": f"{res}\n",
+                        "File Path": res,
+                        "File Size": f"{fmtbyte(obj.file_size)}\n",
                         **(
                             {"MIME Type": f"{obj.mime_type}\n"}
                             if hasattr(obj, "mime_type")

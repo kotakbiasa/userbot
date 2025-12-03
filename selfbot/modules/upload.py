@@ -8,11 +8,11 @@ from pyrogram.types import Message, ReplyParameters
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtbyte, fmtsec, fmtstr, prog
+from selfbot.utils import fmtbyte, fmtmsg, fmtsec, prog
 
 pattern = re.compile(
-    r"^ul\s(.+?)"
-    r"(?:\s-to\s(@?[a-zA-Z][a-zA-Z0-9_]{1,31}[a-zA-Z0-9]|-100[1-9]\d{9}|[1-9]\d{1,9}))?$"
+    r"^ul\s(.+?)(?:\s-to\s"
+    r"(me|@?[a-zA-Z][a-zA-Z0-9_]{2,31}[a-zA-Z0-9]|-100[1-9]\d{9}|[1-9]\d{1,9}))?$"
 )
 
 
@@ -29,7 +29,7 @@ class Upload(Module):
     @listener.handler(filters.regex(pattern) & ~listener.fltrep, 1)
     async def on_message_out(self, event: Message) -> None:
         await event.edit_text("<code>...</code>")
-        rep_msg, (chat_id, document) = None, pattern.match(event.content).groups()
+        rep_msg, (document, chat_id) = None, pattern.match(event.content).groups()
         if not chat_id:
             chat_id = event.chat.id
             rep_msg = ReplyParameters(message_id=event.id)
@@ -46,10 +46,10 @@ class Upload(Module):
         )
         now = datetime.datetime.now(datetime.UTC)
         try:
-            res = await asyncio.wait_for(fut, timeout=900)
-        except (asyncio.CancelledError, TimeoutError, Exception) as e:
+            res = await fut
+        except (asyncio.CancelledError, RPCError) as e:
             await event.edit_text(
-                fmtstr(
+                fmtmsg(
                     e.__class__.__name__,
                     (
                         e.MESSAGE.format(value=e.value)
@@ -61,9 +61,10 @@ class Upload(Module):
             )
         else:
             await event.edit_text(
-                fmtstr(
+                fmtmsg(
                     "Document Uploaded",
                     {
+                        "Chat ID": f"{res.chat.id}\n",
                         "File Name": res.document.file_name,
                         "File Size": f"{fmtbyte(res.document.file_size)}\n",
                         "MIME Type": res.document.mime_type,

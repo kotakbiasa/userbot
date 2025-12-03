@@ -1,17 +1,17 @@
 import asyncio
 import datetime
 import html
-import httpx
 import os
 import re
 import shutil
 from pathlib import Path
+
 from pyrogram import filters
-from pyrogram.types import Message, InputMediaVideo, InputMediaPhoto
+from pyrogram.types import InputMediaPhoto, InputMediaVideo, Message
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, fmtbyte
+from selfbot.utils import fmtsec
 
 # Regex to match 'dl', 'mediadl', 'img', 'gallerydl' followed by a URL
 pattern = re.compile(r"^(?:aio|dl)\s+(https?://[^\s]+)$")
@@ -26,133 +26,108 @@ class MediaDL(Module):
         "e.g.": "aio https://www.tiktok.com/@user/video/12345",
     }
 
-    def _get_quality_score(self, quality_str: str) -> int:
-        """Memberikan skor pada kualitas video untuk perbandingan."""
-        if not isinstance(quality_str, str):
-            return 0
-        
-        quality_str = quality_str.lower()
-        score = 0
-        
-        # Ekstrak angka resolusi (misalnya, 720p -> 720)
-        if match := re.search(r'(\d+)p', quality_str):
-            score = int(match.group(1))
-        
-        # Beri bobot lebih untuk kualitas tanpa watermark
-        if 'no_watermark' in quality_str:
-            score += 10000  # Prioritas tinggi
-        if 'hd' in quality_str:
-            score += 1000   # Prioritas sedang
-        if 'watermark' in quality_str:
-            score -= 10000  # Prioritas rendah
-            
-        return score
+    async def _run_ytdlp(self, url: str, download_dir: Path) -> tuple[str, str, int]:
+        """Menjalankan yt-dlp untuk mengunduh media."""
+        output_template = download_dir / "%(title).200s.%(ext)s"
+        command = (
+            f'yt-dlp -f "bv*+ba/b" --no-warnings --no-playlist '
+            f'--remux-video mp4 -o "{output_template}" "{url}"'
+        )
+
+        process = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        stdout, stderr = await process.communicate()
+        return stdout.decode(), stderr.decode(), process.returncode
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         """Handles media or image download command."""
         await event.edit_text("<code>Processing...</code>")
         now = datetime.datetime.now(datetime.UTC)
-
         match = pattern.match(event.text)
         url = match.group(1)
 
         download_dir = Path("downloads") / f"mediadl_{event.id}"
         download_dir.mkdir(parents=True, exist_ok=True)
+        temp_dir_path = None
 
         try:
-            async with httpx.AsyncClient(timeout=120) as client:
-                await event.edit_text("<code>Fetching media info from API...</code>")
-                api_url = f"https://chocomilk.amira.us.kg/v1/download/aio?url={url}"
-                resp = await client.get(api_url)
-                resp.raise_for_status()
-                data = resp.json()
+            temp_dir_path = download_dir
+            await event.edit_text("<code>Downloading with yt-dlp...</code>")
 
-                # Handle different API response structures (chocomilk vs ryzumi-like for IG)
-                if data.get("success") and isinstance(data.get("data"), dict): # Instagram structure
-                    result = data["data"]
-                elif data.get("status") == "ok" and isinstance(data.get("result"), dict): # General structure
-                    result = data["result"]
+            stdout, stderr, returncode = await self._run_ytdlp(url, download_dir)
+
+            if returncode != 0 and not os.listdir(download_dir):
+                error_details = stderr or stdout
+                raise Exception(f"yt-dlp failed with code {returncode}:\n{error_details[:500]}")
+
+            downloaded_files = sorted(
+                [f for f in download_dir.iterdir() if f.is_file()],
+                key=lambda p: p.stat().st_mtime,
+            )
+
+            if not downloaded_files:
+                raise Exception("yt-dlp finished, but no files were downloaded.")
+
+            title = downloaded_files[0].stem
+            media_to_send = []
+            for file_path in downloaded_files:
+                ext = file_path.suffix.lower()
+                if ext in [".mp4", ".mkv", ".webm"]:
+                    media_to_send.append({"path": file_path, "type": "video"})
+                elif ext in [".jpg", ".jpeg", ".png", ".webp"]:
+                    media_to_send.append({"path": file_path, "type": "image"})
                 else:
-                    raise Exception(f"API returned an unrecognized error: {data.get('message', 'Unknown error')}")
+                    self.logger.info(f"Skipping unsupported file type: {ext}")
 
-                title = result.get("title", "Untitled")
-                media_items = result.get("medias", [])
+            if not media_to_send:
+                raise Exception("No supported media files (video/image) found.")
 
-                if not media_items:
-                    # Fallback for single video/audio if 'medias' is not present
-                    video_streams = result.get("video", [])
-                    if video_streams:
-                        media_items.extend(video_streams)
+            await event.edit_text(f"<code>Uploading {len(media_to_send)} item(s)...</code>")
 
-                if not media_items:
-                    raise Exception("No media found in the API response.")
+            caption = (
+                f"<blockquote>{html.escape(title)}</blockquote>\n"
+                f"<a href='{url}'>Source</a>\n"
+                f"<b><blockquote>{fmtsec(now)}</blockquote></b>"
+            )
 
-                # Filter for best quality if multiple streams of the same type are present (e.g., FB HD/SD)
-                video_streams = [m for m in media_items if m.get("type") == "video" and m.get("url")]
-                image_streams = [m for m in media_items if m.get("type") == "image" and m.get("url")]
-
-                final_media_items = []
-                if video_streams:
-                    best_video = max(video_streams, key=lambda s: self._get_quality_score(s.get("quality")))
-                    final_media_items.append(best_video)
-                final_media_items.extend(image_streams) # Add all images
-
-                await event.edit_text(f"<code>Downloading {len(final_media_items)} item(s)...</code>")
-
-                downloaded_files = []
-                for i, item in enumerate(final_media_items):
-                    dlink = item.get("url")
-                    if not dlink:
-                        continue
-
-                    file_ext = "mp4" if item.get("type") == "video" else item.get("extension", "jpg")
-                    file_path = download_dir / f"media_{i}.{file_ext}"
-
-                    async with client.stream("GET", dlink, timeout=300) as stream_resp:
-                        stream_resp.raise_for_status()
-                        with open(file_path, "wb") as f:
-                            async for chunk in stream_resp.aiter_bytes():
-                                f.write(chunk)
-                    downloaded_files.append({"path": file_path, "type": item.get("type")})
-
-                if not downloaded_files:
-                    raise Exception("Failed to download any media files.")
-
-                caption = f"<blockquote>{html.escape(title)}</blockquote>\n"
-                caption += f"<a href='{url}'>Source</a>\n"
-                caption += f"<b><blockquote>{fmtsec(now)}</blockquote></b>"
-
-                if len(downloaded_files) == 1:
-                    media = downloaded_files[0]
+            if len(media_to_send) == 1:
+                media = media_to_send[0]
+                if media["type"] == "video":
+                    await event.reply_video(video=media["path"], caption=caption)
+                else:
+                    await event.reply_photo(photo=media["path"], caption=caption)
+            else:
+                album_media = []
+                for i, media in enumerate(media_to_send):
+                    is_first = i == 0
+                    current_caption = caption if is_first else None
                     if media["type"] == "video":
-                        await event.reply_video(video=media["path"], caption=caption)
+                        album_media.append(InputMediaVideo(media["path"], caption=current_caption))
                     else:
-                        await event.reply_photo(photo=media["path"], caption=caption)
-                else:
-                    album_media = []
-                    for i, media in enumerate(downloaded_files):
-                        is_first = i == 0
-                        if media["type"] == "video":
-                            album_media.append(InputMediaVideo(media["path"], caption=caption if is_first else None))
-                        else:
-                            album_media.append(InputMediaPhoto(media["path"], caption=caption if is_first
-                                                               else None))
-                    
-                    # Send in chunks of 10
-                    for i in range(0, len(album_media), 10):
-                        chunk = album_media[i:i+10]
-                        await event.reply_media_group(chunk)
+                        album_media.append(InputMediaPhoto(media["path"], caption=current_caption))
+
+                # Kirim dalam potongan 10 media
+                for i in range(0, len(album_media), 10):
+                    chunk = album_media[i : i + 10]
+                    await event.reply_media_group(chunk)
 
             await event.delete()
 
         except Exception as e:
             error_msg = str(e)[:200]
             self.logger.error(f"MediaDL failed: {error_msg}")
-            await event.edit_text(f"<b>Error:</b> <code>{html.escape(error_msg)}</code>")
+            await event.edit_text(
+                f"<b>Error:</b> <code>{html.escape(str(e))}</code>"
+            )
         finally:
-            if download_dir.exists():
+            if temp_dir_path and temp_dir_path.exists():
                 try:
-                    shutil.rmtree(download_dir)
+                    # Gunakan asyncio.to_thread untuk operasi I/O yang memblokir
+                    await asyncio.to_thread(shutil.rmtree, temp_dir_path)
                 except Exception as e:
-                    self.logger.warning(f"Failed to cleanup {download_dir}: {e}")
+                    self.logger.warning(f"Failed to cleanup {temp_dir_path}: {e}")

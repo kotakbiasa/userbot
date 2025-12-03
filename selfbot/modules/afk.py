@@ -9,18 +9,23 @@ from pyrogram.types import Message
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, fmtstr, ikm
+from selfbot.utils import fmtmsg, fmtsec, ikm
 
 pattern = re.compile(r"^afk(?:\s-r\s(.+))?$")
 
 
 class AFK(Module):
-    name = "AFK"
+    name = "Away From Keyboard"
     cmds = "afk (-r {reason})?"
-    desc = {"reason": "String", "?": "Optional", "e.g.": "afk -r Reason"}
+    desc = {
+        "afk": "Toggle",
+        "reason": "String",
+        "?": "Optional",
+        "e.g.": "afk -r Hello, World!",
+    }
     status, reason, since = False, "", None
 
-    async def on_starting(self) -> None:
+    async def on_loading(self) -> None:
         row = await self.client.db.fetchrow("SELECT reason, since FROM afk.meta;")
         if row:
             self.status = True
@@ -57,8 +62,8 @@ class AFK(Module):
             self.status, self.reason, self.since = True, reason, since
 
         await event.edit_text(
-            fmtstr(
-                "Away from Keyboard",
+            fmtmsg(
+                "Away From Keyboard",
                 {"Status": self.status, "Reason": reason},
                 fmtsec(since),
             )
@@ -73,8 +78,8 @@ class AFK(Module):
             wib = self.since.astimezone(datetime.timezone(datetime.timedelta(hours=7)))
             new, old = await asyncio.gather(
                 event.reply_text(
-                    fmtstr(
-                        "Away from Keyboard",
+                    fmtmsg(
+                        "Away From Keyboard",
                         {
                             "Since": wib.strftime("%B %-d, %-I:%M %p"),
                             "Timezone": "UTC+7\n",
@@ -109,7 +114,7 @@ class AFK(Module):
             event._client.invoke(ReadMentions(peer=peer)),
             self.client.bot.send_sticker(
                 event._client.me.id,
-                self.client.config["sticker_file_id"],
+                self.client.config["STICKER_FILE_ID"],
                 disable_notification=True,
                 reply_markup=ikm(
                     (

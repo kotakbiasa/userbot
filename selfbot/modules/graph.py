@@ -8,7 +8,7 @@ from telegraph.aio import Telegraph
 
 from selfbot import listener
 from selfbot.module import Module
-from selfbot.utils import fmtsec, fmtstr
+from selfbot.utils import fmtmsg, fmtsec
 
 pattern = re.compile(r"^graph(?:\s-t\s(.+))?$")
 
@@ -63,7 +63,7 @@ class Graph(Module):
             )
             url = res["url"]
         except Exception as e:
-            await event.edit_text(fmtstr(e.__class__.__name__, str(e), fmtsec(now)))
+            await event.edit_text(fmtmsg(e.__class__.__name__, str(e), fmtsec(now)))
         else:
             if event.chat.type in (ChatType.PRIVATE, ChatType.BOT) or (
                 event.chat.type not in (ChatType.PRIVATE, ChatType.BOT)
@@ -87,7 +87,7 @@ class Graph(Module):
                 )
             else:
                 await event.edit_text(
-                    fmtstr(
+                    fmtmsg(
                         "Graph Page",
                         {"Link": url, "Title": title or "Untitled"},
                         fmtsec(now),
