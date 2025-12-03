@@ -1,13 +1,14 @@
 from .debug import aexec, shell
-from .fmt import fmtbyte, fmtexc, fmtsec, fmtstr
+from .fmt import fmtbar, fmtbyte, fmtexc, fmtmsg, fmtsec
 from .tg import ids, ikm, prog
 
 __all__ = [
     "aexec",
+    "fmtbar",
     "fmtbyte",
     "fmtexc",
+    "fmtmsg",
     "fmtsec",
-    "fmtstr",
     "ids",
     "ikm",
     "prog",

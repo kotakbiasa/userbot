@@ -7,7 +7,7 @@ from pyrogram.utils import (
     unpack_inline_message_id,
 )
 
-from .fmt import fmtbyte, fmtsec, fmtstr
+from .fmt import fmtbar, fmtbyte, fmtmsg, fmtsec
 
 
 def ids(inline_message_id: str) -> tuple:
@@ -63,11 +63,8 @@ async def prog(current: int, total: int, event: Update, title: str = "") -> None
         else:
             edit = event.edit_message_text
 
-        fillbar = round(current / total * 8)
-        progbar = chr(9635) * fillbar + chr(9633) * (8 - fillbar)
-        percent = f"{(current / total * 100):.2f}".rstrip("0").rstrip(".")
         await edit(
-            fmtstr(
+            fmtmsg(
                 f"{title.title()} Progress".lstrip(),
                 {
                     "Current": fmtbyte(current),
@@ -78,7 +75,7 @@ async def prog(current: int, total: int, event: Update, title: str = "") -> None
                         (total - current) / speed if speed > 0 else 0, human=True
                     ),
                 },
-                f"[ {progbar} ] {percent}%",
+                fmtbar(current, total),
             )
         )
         event._last = time
