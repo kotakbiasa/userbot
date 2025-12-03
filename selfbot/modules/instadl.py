@@ -224,15 +224,15 @@ class InstaDL(Module):
             if len(media_files) == 1:
                 media_type = media_types[0]
                 file_path = media_files[0]
-                media_to_send = (
-                    InputMediaVideo(file_path, caption=final_caption)
-                    if media_type == "video" else
-                    InputMediaPhoto(file_path, caption=final_caption)
+                reply_to = (
+                    event.reply_to_message.id if event.reply_to_message else event.id
                 )
+
                 if media_type == "video":
-                    await event.edit_media(media_to_send)
+                    await self.client.app.send_video(chat_id=event.chat.id, video=file_path, caption=final_caption, reply_to_message_id=reply_to)
                 else:
-                    await event.edit_media(media_to_send)
+                    await self.client.app.send_photo(chat_id=event.chat.id, photo=file_path, caption=final_caption, reply_to_message_id=reply_to)
+                await event.delete()
             else:
                 # For albums, we reply to the original message and delete the command message
                 reply_to = (

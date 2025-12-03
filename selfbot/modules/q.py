@@ -123,19 +123,20 @@ class Quotly(Module):
     async def _find_quotly_response(self, client, start_time: datetime, timeout: int) -> Message | None:
         """Mencari balasan dari @QuotLyBot dalam riwayat obrolan."""
         end_time = start_time + datetime.timedelta(seconds=timeout)
+        last_checked_date = start_time
         
         while datetime.datetime.now(timezone.utc) < end_time:
             try:
-                async for last_message in client.get_chat_history(QUOTLY_BOT_ID, limit=1):
-                    # Check if message is from QuotLyBot and newer than start_time
-                    if (last_message.date > start_time and 
-                        last_message.from_user and 
-                        last_message.from_user.id == QUOTLY_BOT_ID):
-                        return last_message
+                async for message in client.get_chat_history(QUOTLY_BOT_ID, limit=5):
+                    if message.date <= last_checked_date:
+                        continue
+                    last_checked_date = message.date
+                    if message.from_user and message.from_user.id == QUOTLY_BOT_ID:
+                        return message
             except Exception as e:
                 self.logger.debug(f"Error checking QuotLyBot response: {e}")
             
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1)
         
         return None
 
