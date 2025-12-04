@@ -11,7 +11,8 @@ from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import fmtsec
 
-pattern = re.compile(r"^(s)?remind(me)?\s+(\S+)\s+(.+)$", re.DOTALL)
+remind_pattern = re.compile(r"^(s)?remind(me)?\s+(\S+)\s+(.+)$", re.DOTALL)
+reminders_pattern = re.compile(r"^reminders$")
 
 
 class Reminder(Module):
@@ -111,18 +112,18 @@ class Reminder(Module):
             "repeat": f"{repeat_count} times, every {fmtsec(datetime.timedelta(seconds=repeat_interval), True)}" if repeat_interval else "once"
         }
 
-    @listener.handler(filters.regex(pattern), 1)
+    @listener.handler(filters.me & filters.command(["remind", "remindme", "sremind", "sremindme"], prefixes=""), 1)
     async def on_remind(self, event: Message):
         """Handles all reminder commands."""
-        match = pattern.match(event.text.strip())
+        match = remind_pattern.match(event.text.strip())
         silent, self_only, time_str, text = match.groups()
 
         await self.set_reminder(event, time_str, text, silent=bool(silent), self_only=bool(self_only))
 
-    @listener.handler(filters.regex(r"^reminders$"), 2)
+    @listener.handler(filters.me & filters.command("reminders", prefixes=""), 2)
     async def on_list_reminders(self, event: Message):
         """Lists all active reminders."""
-        if not self.active_reminders:
+        if not self.active_reminders: # Check if the dictionary is empty
             await event.edit_text("No active reminders.")
             return
 
