@@ -13,7 +13,7 @@ from selfbot.module import Module
 from selfbot.utils import fmtsec
 
 # --- Konstanta ---
-SANGMATA_BOT_USERNAME = "SangMata_beta_bot"
+SANGMATA_BOT_USERNAME = "sangmata_beta_bot"
 SANGMATA_TIMEOUT = 25
 ERROR_VISIBLE_DURATION = 8
 
@@ -122,34 +122,27 @@ class SangMata(Module):
     ) -> Message | None:
         """Mencari balasan dari bot dalam riwayat obrolan."""
         end_time = start_time + datetime.timedelta(seconds=timeout)
-        last_checked_date = start_time
-        
+
         while datetime.datetime.now(timezone.utc) < end_time:
             try:
                 async for message in client.get_chat_history(
-                    SANGMATA_BOT_USERNAME, limit=10
+                    SANGMATA_BOT_USERNAME, limit=5
                 ):
-                    # Skip jika message sebelum query atau sudah di-check
-                    if message.date <= last_checked_date:
-                        continue
-                    
-                    # Validasi message dari bot (bukan dari self)
-                    if not message.from_user or message.from_user.is_self:
-                        continue
-                    
-                    # Update last checked date
-                    last_checked_date = message.date
-                    
-                    # Check apakah message memiliki content
-                    if message.text or message.caption or message.media:
-                        self.logger.info(f"Found bot response: {message.id}")
-                        return message
-                    
+                    # We are looking for a message from the bot, after our command
+                    if (
+                        message.from_user
+                        and not message.from_user.is_self
+                        and message.date > start_time
+                    ):
+                        if message.text or message.caption or message.media:
+                            self.logger.info(f"Found bot response: {message.id}")
+                            return message
+
             except Exception as e:
                 self.logger.debug(f"Error checking bot response: {e}")
-            
-            await asyncio.sleep(0.3)
-        
+
+            await asyncio.sleep(1) # Sleep for 1 second before polling again
+
         self.logger.warning(f"No response from bot after {timeout} seconds")
         return None
 
