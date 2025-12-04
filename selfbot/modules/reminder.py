@@ -112,7 +112,7 @@ class Reminder(Module):
             "repeat": f"{repeat_count} times, every {fmtsec(datetime.timedelta(seconds=repeat_interval), True)}" if repeat_interval else "once"
         }
 
-    @listener.handler(filters.regex(remind_pattern), 1)
+    @listener.handler(filters.regex(remind_pattern) & ~listener.fltrep, 1)
     async def on_remind(self, event: Message):
         """Handles all reminder commands."""
         command, time_str, text = event.matches[0].groups()
@@ -121,7 +121,7 @@ class Reminder(Module):
 
         await self.set_reminder(event, time_str, text, silent=silent, self_only=self_only)
 
-    @listener.handler(filters.regex(reminders_pattern), 2)
+    @listener.handler(filters.regex(r"^reminders") & ~listener.fltrep, 2)
     async def on_list_reminders(self, event: Message):
         """Lists all active reminders."""
         if not self.active_reminders: # Check if the dictionary is empty

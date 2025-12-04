@@ -40,49 +40,49 @@ class Converter(Module):
         await event.edit_text(f"<code>{text}</code>")
         return await event.reply_to_message.download()
 
-    @listener.handler(filters.regex(r"^toimg$"), 1)
+    @listener.handler(filters.regex(r"^toimg") & listener.fltrep, 1)
     async def to_img(self, event: Message):
         if file_path := await self._download_and_edit(event, "Converting to image..."):
             await event.client.send_photo(event.chat.id, photo=file_path)
             await event.delete()
             os.remove(file_path)
 
-    @listener.handler(filters.regex(r"^tosticker$"), 1)
+    @listener.handler(filters.regex(r"^tosticker") & listener.fltrep, 1)
     async def to_sticker(self, event: Message):
         if file_path := await self._download_and_edit(event, "Converting to sticker..."):
             await event.client.send_sticker(event.chat.id, sticker=file_path)
             await event.delete()
             os.remove(file_path)
 
-    @listener.handler(filters.regex(r"^togif$"), 1)
+    @listener.handler(filters.regex(r"^togif") & listener.fltrep, 1)
     async def to_gif(self, event: Message):
         if file_path := await self._download_and_edit(event, "Converting to GIF..."):
             await event.client.send_animation(event.chat.id, animation=file_path)
             await event.delete()
             os.remove(file_path)
 
-    @listener.handler(filters.regex(r"^toaudio$"), 1)
+    @listener.handler(filters.regex(r"^toaudio") & listener.fltrep, 1)
     async def to_audio(self, event: Message):
         if file_path := await self._download_and_edit(event, "Converting to audio..."):
             await event.client.send_audio(event.chat.id, audio=file_path)
             await event.delete()
             os.remove(file_path)
 
-    @listener.handler(filters.regex(r"^tovoice$"), 1)
+    @listener.handler(filters.regex(r"^tovoice") & listener.fltrep, 1)
     async def to_voice(self, event: Message):
         if file_path := await self._download_and_edit(event, "Converting to voice message..."):
             await event.client.send_voice(event.chat.id, voice=file_path)
             await event.delete()
             os.remove(file_path)
 
-    @listener.handler(filters.regex(r"^tovnote$"), 1)
+    @listener.handler(filters.regex(r"^tovnote") & listener.fltrep, 1)
     async def to_vnote(self, event: Message):
         if file_path := await self._download_and_edit(event, "Converting to video note..."):
             await event.client.send_video_note(event.chat.id, video_note=file_path)
             await event.delete()
             os.remove(file_path)
 
-    @listener.handler(filters.regex(r"^topdf$"), 1)
+    @listener.handler(filters.regex(r"^topdf") & listener.fltrep, 1)
     async def to_pdf(self, event: Message):
         if not event.reply_to_message:
             await event.edit_text("❌ Reply to an image or a media group.")
