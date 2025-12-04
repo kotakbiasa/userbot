@@ -23,9 +23,10 @@ class Help(Module):
         for i, mod in enumerate(mods):
             name = mod.__class__.__name__.lower()
             self.maps[name] = len(self.ikbs)
+            cmds_str = "\n".join(mod.cmds) if isinstance(mod.cmds, list) else mod.cmds
             self.mods[name] = (
                 f"<b>{mod.name}</b>\n\n{' ' * 2}<b>Pattern</b>"
-                f"\n{' ' * 4}<code>{html.escape(mod.cmds)}</code>"
+                f"\n{' ' * 4}<code>{html.escape(cmds_str)}</code>"
                 f"\n\n{self._fmthelp(mod.desc)}"
             )
             page.append((mod.__class__.__name__, f"help/mod/{name}".encode()))
