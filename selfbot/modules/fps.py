@@ -15,7 +15,7 @@ from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import fmtsec
 
-pattern = re.compile(r"^fps60$")
+pattern = re.compile(r"^fps60\s*$")
 
 
 class FPSConverter(Module):
@@ -44,13 +44,21 @@ class FPSConverter(Module):
     async def on_convert_fps(self, event: Message) -> None:
         """Handles the video to 60 FPS conversion command."""
         replied_message = event.reply_to_message
-        if not replied_message or not replied_message.video:
-            await event.edit_text("<code>Please reply to a video message.</code>")
+        
+        # Cek video dari berbagai sumber (video, animation, atau document)
+        video = replied_message.video or replied_message.animation
+        if not video and replied_message.document:
+            mime = replied_message.document.mime_type or ""
+            if mime.startswith("video/"):
+                video = replied_message.document
+        
+        if not replied_message or not video:
+            await event.edit_text("<code>Reply ke pesan video untuk mengkonversinya.</code>")
             return
 
-        video = replied_message.video
-        if video and video.duration > 60:
-            await event.edit_text("<code>Video duration exceeds the 1-minute limit.</code>")
+        duration = getattr(video, 'duration', 0) or 0
+        if duration > 60:
+            await event.edit_text("<code>Durasi video melebihi batas 1 menit.</code>")
             return
 
         await event.edit_text("<code>Processing...</code>")
