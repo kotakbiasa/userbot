@@ -145,20 +145,30 @@ class Sticker(Module):
         return temp_msg.document.file_id, None, temp_msg
 
     async def _resize_video(self, input_file: Path | str, output_file: Path | str, duration: int, ff: bool = False):
-        cmd = f"ffmpeg -hide_banner -loglevel error -i '{input_file}' -vf "
+        """Convert video/GIF to WebM sticker format with optimized quality."""
+        cmd = f"ffmpeg -hide_banner -loglevel error -i '{input_file}' "
+        
+        # Video filter with better scaling
         if ff:
-            cmd += '"scale=w=512:h=512:force_original_aspect_ratio=decrease,setpts=0.3*PTS" '
-            cmd += "-ss 0 -t 3 -r 30 -loop 0 -an -c:v libvpx-vp9 -b:v 256k -fs 256k "
+            # Fast-forward mode: compress timeline to fit 3 seconds
+            cmd += '-vf "scale=512:512:force_original_aspect_ratio=decrease:flags=lanczos,fps=30,setpts=0.3*PTS" '
+            cmd += "-ss 0 -t 3 "
         else:
-            cmd += '"scale=w=512:h=512:force_original_aspect_ratio=decrease" '
-            cmd += f"-ss 0 -t {min(duration, 3)} -r 30 -an -c:v libvpx-vp9 -b:v 256k -fs 256k "
-        await shell(f"{cmd}'{output_file}'")
+            # Normal mode: trim to max 3 seconds
+            cmd += '-vf "scale=512:512:force_original_aspect_ratio=decrease:flags=lanczos,fps=30" '
+            cmd += f"-ss 0 -t {min(duration, 3)} "
+        
+        # WebM encoding with better quality and loop support
+        cmd += "-c:v libvpx-vp9 -pix_fmt yuva420p -b:v 400k -maxrate 500k -bufsize 1000k "
+        cmd += f"-auto-alt-ref 0 -an -loop 0 '{output_file}'"
+        
+        await shell(cmd)
 
     async def _document_kang(self, message: Message, ff: bool = False) -> tuple[str, None, Message]:
         file_name = getattr(message.document, 'file_name', '')
-        if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+        if file_name.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp')):
             return await self._photo_kang(message)
-        elif file_name.lower().endswith(('.mp4', '.mov', '.webm', '.gif')):
+        elif file_name.lower().endswith(('.mp4', '.mov', '.webm', '.gif', '.avi', '.mkv', '.flv', '.m4v', '.mpeg')):
             return await self._video_kang(message=message, ff=ff)
         raise TypeError("Unsupported document type.")
 
