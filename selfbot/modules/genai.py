@@ -30,10 +30,16 @@ class GenAI(Module):
 
     async def on_loading(self) -> None:
         try:
+            api_key = self.client.config.get("GEMINI_API_KEY")
+            if not api_key:
+                self.logger.error("GEMINI_API_KEY not found in config")
+                self.client.unload(self)
+                return
+            
             self.goog = AsyncClient(
                 headers={
                     "Content-Type": "application/json",
-                    "x-goog-api-key": self.client.config["GEMINI_API_KEY"],
+                    "x-goog-api-key": api_key,
                 },
                 http2=True,
                 base_url="https://generativelanguage.googleapis.com",
@@ -95,6 +101,10 @@ class GenAI(Module):
                 json = resp.json()
                 data = json["candidates"][0]["content"]
                 text = data["parts"][0]["text"]
+            except (KeyError, IndexError) as e:
+                # Better error message for API response issues
+                error_msg = json.get("error", {}).get("message", str(e)) if 'json' in locals() else str(e)
+                return f"**API Response Error**:\n  `{error_msg}`\n\nResponse: `{json if 'json' in locals() else 'No response'}`"
             except Exception as e:
                 return f"**{e.__class__.__name__}**:\n  `{e}`"
             else:
@@ -198,7 +208,7 @@ class GenAI(Module):
         async with self.lock:
             self.data.append({"role": "user", "parts": parts})
             res = await self.gemini(
-                self.client.config.get("GEMINI_MODEL", "gemini-2.5-flash-lite")
+                self.client.config.get("GEMINI_MODEL", "gemini-2.0-flash-exp")
             )
             rtt = fmtsec(now)
             if len(res) > 2048:
