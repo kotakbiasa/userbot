@@ -56,9 +56,16 @@ class FPSConverter(Module):
             await event.edit_text("<code>Reply ke pesan video untuk mengkonversinya.</code>")
             return
 
+        # Get duration, fallback to 0 if not available
         duration = getattr(video, 'duration', 0) or 0
-        if duration > 60:
-            await event.edit_text("<code>Durasi video melebihi batas 1 menit.</code>")
+        file_size = getattr(video, 'file_size', 0) or 0
+        
+        if duration > 120:
+            await event.edit_text("<code>Durasi video melebihi batas 2 menit.</code>")
+            return
+        
+        if file_size > 50 * 1024 * 1024:  # 50 MB
+            await event.edit_text("<code>Ukuran file melebihi batas 50 MB.</code>")
             return
 
         await event.edit_text("<code>Processing...</code>")
@@ -85,11 +92,13 @@ class FPSConverter(Module):
             # 2. Convert the video using FFmpeg
             output_path = str(temp_dir / "output_60fps.mp4")
 
+            # Optimized FFmpeg command for smooth 60 FPS conversion
             command = (
                 f'ffmpeg -i "{input_path}" '
-                f'-vf "minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1" '
-                f'-c:v libx264 -preset fast -crf 23 '
-                f'-c:a copy "{output_path}" -y'
+                f'-vf "minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,scale=trunc(iw/2)*2:trunc(ih/2)*2" '
+                f'-c:v libx264 -preset medium -crf 20 -profile:v high -level 4.1 '
+                f'-movflags +faststart -pix_fmt yuv420p '
+                f'-c:a aac -b:a 128k "{output_path}" -y'
             )
 
             self.logger.info(f"Executing FFmpeg command: {command}")
@@ -113,7 +122,13 @@ class FPSConverter(Module):
                 match = time_pattern.search(line)
                 if match:
                     current_time = self._parse_ffmpeg_time(match.group(1))
-                    percentage = int((current_time / video.duration) * 100)
+                    
+                    # Safe percentage calculation
+                    if duration > 0:
+                        percentage = int((current_time / duration) * 100)
+                    else:
+                        # Estimate based on processed time
+                        percentage = min(int(current_time * 10), 99)
                     
                     # Batasi persentase antara 0 dan 100
                     percentage = max(0, min(100, percentage))
