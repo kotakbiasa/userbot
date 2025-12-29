@@ -15,15 +15,15 @@ from selfbot import listener
 from selfbot.module import Module
 from selfbot.utils import fmtsec
 
-pattern = re.compile(r"^fps60\s*$")
+pattern = re.compile(r"^fps\s*$")
 
 
 class FPSConverter(Module):
     name = "FPS Converter"
-    cmds = "<Reply to Video> fps60"
+    cmds = "<Reply to Video> fps"
     desc = {
         "Info": "Converts the replied video to 60 FPS using FFmpeg motion interpolation.",
-        "e.g.": "<Reply to Video> fps60",
+        "e.g.": "<Reply to Video> fps",
     }
 
     def _parse_ffmpeg_time(self, time_str: str) -> float:
