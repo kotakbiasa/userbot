@@ -3,7 +3,7 @@ import asyncio
 import inspect
 
 
-async def aexec(code: str, args: dict = {}) -> object:
+async def aexec(code: str, kwargs: dict = {}) -> object:
     body = ast.parse(code, "exec").body
     if body and isinstance(body[-1], ast.Expr):
         body[-1] = ast.Return(value=body[-1].value)
@@ -15,7 +15,7 @@ async def aexec(code: str, args: dict = {}) -> object:
                 name=name,
                 args=ast.arguments(
                     posonlyargs=[],
-                    args=[ast.arg(arg=key) for key in args],
+                    args=[ast.arg(arg=key) for key in kwargs],
                     vararg=None,
                     kwonlyargs=[],
                     kw_defaults=[],
@@ -33,7 +33,7 @@ async def aexec(code: str, args: dict = {}) -> object:
     ast.fix_missing_locations(node)
     temp = {}
     exec(compile(node, "<string>", "exec"), temp)
-    func = await temp[name](*args.values())
+    func = await temp[name](*kwargs.values())
     return await func if inspect.iscoroutine(func) else func
 
 

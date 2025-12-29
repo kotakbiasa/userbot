@@ -49,7 +49,7 @@ class Module:
             **kwargs,
         )
 
-    async def listen(self) -> object:
+    async def listen(self, timeout: int = 15) -> Message:
         fut = asyncio.Future()
 
         async def result(event: Message) -> None:
@@ -60,7 +60,7 @@ class Module:
 
         self.client.register(self, result, "message_bot", priority=-1)
         try:
-            res = await asyncio.wait_for(fut, timeout=5)
+            res = await asyncio.wait_for(fut, timeout=timeout)
         except Exception:
             return None
         else:
@@ -69,12 +69,6 @@ class Module:
             for listener in tuple(self.client.listeners["message_bot"]):
                 if listener.mod is self:
                     self.client.unregister(listener)
-
-    async def message(self, event: Message) -> object:
-        res, msg = await asyncio.gather(
-            asyncio.create_task(self.listen()), event.copy(self.client.bot.me.id)
-        )
-        return res
 
 
 class ModuleError(Exception):

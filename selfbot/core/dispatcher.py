@@ -2,7 +2,6 @@ import abc
 import asyncio
 import bisect
 import contextlib
-import os
 import typing
 
 from pyrogram.errors import (
@@ -17,7 +16,7 @@ from pyrogram.types import Update
 
 from selfbot.listener import Listener
 from selfbot.module import Module
-from selfbot.utils import fmtmsg, ikm
+from selfbot.utils import fmtmsg
 
 
 class Dispatcher(abc.ABC):
@@ -26,21 +25,6 @@ class Dispatcher(abc.ABC):
         super().__init__(**kwargs)
 
     async def dispatch(self, event: str, *args, **kwargs) -> None:
-        def blob(path: str, line: int) -> str | None:
-            try:
-                absp = os.path.abspath(path)
-                if not absp.startswith(os.path.join(self.git, "selfbot")):
-                    return None
-
-                relp = os.path.relpath(absp, self.git).replace("\\", "/")
-            except ValueError:
-                return None
-            else:
-                remote, branch = self.config.get(
-                    "REMOTE", "https://github.com/kotakbiasa/userbot"
-                ).removesuffix(".git"), self.config.get("BRANCH", "staging")
-                return f"{remote}/blob/{branch}/{relp}#L{line}"
-
         for listener in self.listeners.get(event, []):
             try:
                 if listener.filters and args and isinstance(args[0], Update):
@@ -65,7 +49,6 @@ class Dispatcher(abc.ABC):
                 fn = getattr(tb.tb_frame.f_code, "co_filename", "-")
                 ln = getattr(tb, "tb_lineno", "-")
                 with contextlib.suppress(Exception):
-                    url = await asyncio.to_thread(blob, fn, ln)
                     await self.bot.send_message(
                         self.app.me.id,
                         fmtmsg(
@@ -78,7 +61,6 @@ class Dispatcher(abc.ABC):
                             },
                             str(e),
                         ),
-                        reply_markup=ikm(("Code", "url", url)) if url else None,
                     )
 
                 listener.mod.logger.error(f"{e.__class__.__name__}: {e} at {fn}:{ln}")

@@ -1,1 +1,1 @@
-worker: python -m selfbot
+worker: selfbot

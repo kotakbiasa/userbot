@@ -23,10 +23,9 @@ class Help(Module):
         for i, mod in enumerate(mods):
             name = mod.__class__.__name__.lower()
             self.maps[name] = len(self.ikbs)
-            cmds_str = "\n".join(mod.cmds) if isinstance(mod.cmds, list) else mod.cmds
             self.mods[name] = (
                 f"<b>{mod.name}</b>\n\n{' ' * 2}<b>Pattern</b>"
-                f"\n{' ' * 4}<code>{html.escape(cmds_str)}</code>"
+                f"\n{' ' * 4}<code>{html.escape(mod.cmds)}</code>"
                 f"\n\n{self._fmthelp(mod.desc)}"
             )
             page.append((mod.__class__.__name__, f"help/mod/{name}".encode()))
@@ -41,7 +40,9 @@ class Help(Module):
     async def on_message_out(self, event: Message) -> None:
         _, res = await asyncio.gather(
             event.edit_text("<code>...</code>"),
-            event._client.get_inline_bot_results(self.client.bot.me.id, event.content),
+            event._client.get_inline_bot_results(
+                self.client.bot.me.id, event.content, chat_id=event.chat.id
+            ),
         )
         await asyncio.gather(
             event.reply_inline_bot_result(
@@ -133,7 +134,7 @@ class Help(Module):
     def _fmthelp(data: object) -> str:
         if isinstance(data, dict):
             res = [
-                f"{' ' * 4}• <b>{k}</b>\n{' ' * 6}<code>{html.escape(str(v))}</code>"
+                f"{' ' * 4}• <b>{k}</b>\n{' ' * 6}<code>{html.escape(v)}</code>"
                 for k, v in data.items()
             ]
             return "\n".join(res)

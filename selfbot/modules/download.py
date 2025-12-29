@@ -33,8 +33,9 @@ class Download(Module):
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
         await event.edit_text("<code>...</code>")
-        update, (private, chat_id, story, update_id, file_name) = None, (
-            pattern.match(event.content).groups()
+        update, (private, chat_id, story, update_id, file_name) = (
+            None,
+            (pattern.match(event.content).groups()),
         )
         if event.reply_to_message:
             if not event.reply_to_message.media:
@@ -78,6 +79,7 @@ class Download(Module):
                     if private:
                         chat_id = get_channel_id(int(chat_id))
 
+                now = datetime.datetime.now(datetime.UTC)
                 try:
                     update = await func(chat_id, int(update_id))
                 except RPCError as e:

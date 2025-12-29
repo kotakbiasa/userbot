@@ -34,15 +34,15 @@ def ikm(rows: list | tuple) -> InlineKeyboardMarkup:
     for row in rows:
         line = []
         for i in row:
-            args, last = {"text": i[0]}, i[-1]
+            kwargs, last = {"text": i[0]}, i[-1]
             if len(i) == 2:
-                args["callback_data"] = last
+                kwargs["callback_data"] = last
             elif len(i) == 3:
-                args[i[1]] = last
+                kwargs[i[1]] = last
             else:
                 raise ValueError
 
-            line.append(InlineKeyboardButton(**args))
+            line.append(InlineKeyboardButton(**kwargs))
 
         ikb.append(line)
 

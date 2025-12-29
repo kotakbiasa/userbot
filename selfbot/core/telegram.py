@@ -29,7 +29,6 @@ from pyrogram.types import (
     LinkPreviewOptions,
     ReplyKeyboardMarkup,
     Update,
-    WebAppInfo,
 )
 
 from selfbot import __version__
@@ -80,16 +79,6 @@ class Telegram(abc.ABC):
                         [
                             [
                                 KeyboardButton(
-                                    "GitHub Commit History",
-                                    web_app=WebAppInfo(
-                                        url=f"{self.config.get(
-            'REMOTE', 'https://github.com/DeltaUniverse/selfbot'
-        ).removesuffix('.git')}/commits/{self.config.get('BRANCH', 'staging')}"
-                                    ),
-                                )
-                            ],
-                            [
-                                KeyboardButton(
                                     "Admin Channels",
                                     request_chat=KeyboardButtonRequestChat(
                                         10,
@@ -133,17 +122,20 @@ class Telegram(abc.ABC):
         else:
             self.logger.info(f"{self.__class__.__name__} {res}tarted")
             await self.idle()
-        finally:
-            await self.stop()
-            self.logger.info(f"{self.__class__.__name__} Stopped")
 
     async def start(self) -> None:
-        self.app = self._app
-        self.bot = self._bot
-        for key in ("API_ID", "API_HASH", "BOT_TOKEN"):
-            self.config.pop(key, None)
-
-        self.git = self._git
+        self.app = self.build(
+            "app", updates=(UpdateNewChannelMessage, UpdateNewMessage)
+        )
+        self.bot = self.build(
+            "bot",
+            updates=(
+                UpdateBotInlineQuery,
+                UpdateBotInlineSend,
+                UpdateInlineBotCallbackQuery,
+                UpdateNewMessage,
+            ),
+        )
         try:
             await self.app.start()
         except RPCError as e:
@@ -190,7 +182,7 @@ class Telegram(abc.ABC):
                 self.__idle__.set()
 
         for signame in signames:
-            asyncio.get_running_loop().add_signal_handler(
+            self.loop.add_signal_handler(
                 signame, functools.partial(sighandler, signame)
             )
 
@@ -200,7 +192,7 @@ class Telegram(abc.ABC):
         finally:
             for signame in signames:
                 with contextlib.suppress(Exception):
-                    asyncio.get_running_loop().remove_signal_handler(signame)
+                    self.loop.remove_signal_handler(signame)
 
     def updates(self) -> None:
         fltapp = flt.user(self.app.me.id)
@@ -238,13 +230,14 @@ class Telegram(abc.ABC):
                 finally:
                     self.handlers[name] = dispatcher
 
-    def build(self, name: str, updates: tuple = (), **kwargs) -> Client:
+    def build(self, name: str, updates: tuple = ()) -> Client:
         client = Client(
             name=name,
-            api_id=self.config.get("API_ID"),
-            api_hash=self.config.get("API_HASH"),
-            app_version=__version__,
-            device_model=self.__class__.__name__,
+            api_id=2496,
+            api_hash="8da85b0d5bfe62527e5b244c209159c3",
+            app_version="2.2 K",
+            device_model="Chrome 143",
+            workdir="./selfbot/",
             parse_mode=ParseMode.HTML,
             skip_updates=True,
             sleep_threshold=15,
@@ -255,7 +248,6 @@ class Telegram(abc.ABC):
             client_platform=ClientPlatform.WEB,
             link_preview_options=LinkPreviewOptions(is_disabled=True),
             storage_engine=PostgreStorage(name, self.db),
-            **kwargs,
         )
         if updates:
             client.dispatcher.update_parsers = {
@@ -263,23 +255,6 @@ class Telegram(abc.ABC):
                 for k, v in client.dispatcher.update_parsers.items()
                 if k in updates
             }
+            client.workers = len(client.dispatcher.update_parsers)
 
-        setattr(client, "workers", len(client.dispatcher.update_parsers))
         return client
-
-    @property
-    def _app(self) -> Client:
-        return self.build("app", updates=(UpdateNewChannelMessage, UpdateNewMessage))
-
-    @property
-    def _bot(self) -> Client:
-        return self.build(
-            "bot",
-            updates=(
-                UpdateBotInlineQuery,
-                UpdateBotInlineSend,
-                UpdateInlineBotCallbackQuery,
-                UpdateNewMessage,
-            ),
-            bot_token=self.config.get("BOT_TOKEN"),
-        )

@@ -62,12 +62,6 @@ CREATE TABLE IF NOT EXISTS call.chats (
     join_as BIGINT,
     mute    BOOLEAN DEFAULT FALSE
 );
-CREATE SCHEMA IF NOT EXISTS pmbl;
-CREATE TABLE IF NOT EXISTS pmbl.meta (
-    status  BOOLEAN,
-    msg     TEXT,
-    url     TEXT
-);
 """
 
 

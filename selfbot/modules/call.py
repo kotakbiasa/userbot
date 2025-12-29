@@ -7,7 +7,11 @@ from pyrogram.errors import ChannelPrivate, PeerIdInvalid, RPCError
 from pyrogram.types import Message
 from pyrogram.utils import get_channel_id
 
-load: bool
+from selfbot import listener
+from selfbot.module import Module
+from selfbot.utils import fmtmsg, fmtsec
+
+load = True
 try:
     from pytgcalls import PyTgCalls
     from pytgcalls.pytgcalls_session import PyTgCallsSession
@@ -15,15 +19,10 @@ try:
 except Exception:
     load = False
 else:
-    load = True
     PyTgCallsSession.notice_displayed = True
 
-from selfbot import listener
-from selfbot.module import Module
-from selfbot.utils import fmtmsg, fmtsec
-
 pattern = re.compile(
-    r"^call(?:\s-(start|end|join|leave))?"
+    r"^call(?:\s-(start|end|join|leave))"
     r"(?:\s(@?[a-zA-Z][a-zA-Z0-9_]{2,31}[a-zA-Z0-9]|-100[1-9]\d{9}|[1-9]\d{1,9}))?"
     r"(?:\s-as\s(@?[a-zA-Z][a-zA-Z0-9_]{1,31}[a-zA-Z0-9]))?"
     r"(?:\s(-mute))?(?:\s-t\s(.+))?$"
@@ -32,9 +31,8 @@ pattern = re.compile(
 
 class Call(Module):
     name = "Group Call"
-    cmds = "call (-{action} {chat})? (-as {peer})? (-mute)? (-t {title})?"
+    cmds = "call -{action} {chat}? (-as {peer})? (-mute)? (-t {title})?"
     desc = {
-        "call": "Joined Call IDs",
         "action": "(join|leave|start|end)",
         "chat": "Chat ID or Username",
         "peer": "Username",
@@ -71,7 +69,7 @@ class Call(Module):
             "SELECT chat_id, join_as, mute FROM call.chats;"
         )
         for row in rows:
-            args = {"chat_id": row["chat_id"]}
+            kwargs = {"chat_id": row["chat_id"]}
             if row.get("join_as"):
                 try:
                     peer = await self.client.app.resolve_peer(row["join_as"])
@@ -81,10 +79,10 @@ class Call(Module):
                         row["chat_id"],
                     )
                 else:
-                    args["config"] = GroupCallConfig(join_as=peer)
+                    kwargs["config"] = GroupCallConfig(join_as=peer)
 
             try:
-                await self.client.call.play(**args)
+                await self.client.call.play(**kwargs)
             except Exception as e:
                 if isinstance(e, (ChannelPrivate, PeerIdInvalid)):
                     await self.client.db.execute(
@@ -103,14 +101,6 @@ class Call(Module):
             datetime.datetime.now(datetime.UTC),
             pattern.match(event.content).groups(),
         )
-        if not action:
-            await event.edit_text(
-                fmtmsg(
-                    "Joined Call IDs", tuple(await self.client.call.calls), fmtsec(now)
-                )
-            )
-            return
-
         if not chat_id:
             chat_id = event.chat.id
         else:
@@ -128,7 +118,7 @@ class Call(Module):
             else:
                 chat_id = chat.id
 
-        func, args, text = None, {"chat_id": chat_id}, {"data": {"Chat ID": chat_id}}
+        func, kwargs, text = None, {"chat_id": chat_id}, {"data": {"Chat ID": chat_id}}
         if action == "join":
             func = self.client.call.play
             text["head"] = "Joined Call"
@@ -147,7 +137,7 @@ class Call(Module):
                 else:
                     join_as = get_channel_id(peer.channel_id)
                     text["data"]["Join as"] = join_as
-                    args["config"] = GroupCallConfig(join_as=peer)
+                    kwargs["config"] = GroupCallConfig(join_as=peer)
 
             text["data"]["Mute"] = bool(mute)
         elif action == "leave":
@@ -157,14 +147,14 @@ class Call(Module):
             func = event._client.create_video_chat
             text["head"] = "Started Call"
             if title:
-                args["title"] = title
+                kwargs["title"] = title
                 text["data"]["Title"] = title
         else:
             func = event._client.discard_group_call
             text["head"] = "Ended Call"
 
         try:
-            await func(**args)
+            await func(**kwargs)
         except RPCError as e:
             await event.edit_text(
                 fmtmsg(

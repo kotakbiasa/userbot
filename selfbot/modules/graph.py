@@ -51,7 +51,14 @@ class Graph(Module):
             content,
         )
         if event.reply_to_message.web_page and event.reply_to_message.web_page.photo:
-            content = f"{content}<img src='{event.reply_to_message.web_page.url}'>"
+            img = event.reply_to_message.web_page.url
+            if (
+                event.reply_to_message.link_preview_options
+                and event.reply_to_message.link_preview_options.show_above_text
+            ):
+                content = f"<img src='{img}'>{content}"
+            else:
+                content = f"{content}<img src='{img}'>"
 
         now = datetime.datetime.now(datetime.UTC)
         try:

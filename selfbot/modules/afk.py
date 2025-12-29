@@ -53,7 +53,7 @@ class AFK(Module):
                 except RPCError:
                     continue
 
-            await self.client.db.execute("TRUNCATE afk.meta, afk.msgs;"),
+            (await self.client.db.execute("TRUNCATE afk.meta, afk.msgs;"),)
             self.status, self.reason, self.since = False, "", None
         else:
             await self.client.db.execute(

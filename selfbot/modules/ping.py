@@ -58,8 +58,11 @@ class Ping(Module):
                 ikm(("...", "user_id", event._client.me.id))
             )
 
-        now, (app, bot) = datetime.datetime.now(datetime.UTC), await asyncio.gather(
-            self.ping(self.client.app), self.ping(self.client.bot)
+        now, (app, bot) = (
+            datetime.datetime.now(datetime.UTC),
+            await asyncio.gather(
+                self.ping(self.client.app), self.ping(self.client.bot)
+            ),
         )
         await edit(
             fmtmsg("Selfbot Latency", {"App": app, "Bot": bot}, fmtsec(now)),

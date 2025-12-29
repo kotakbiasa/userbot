@@ -44,10 +44,3 @@ async def reply(_, __, event: Message) -> bool:
 
 
 fltrep = filters.create(reply, "FltRep")
-
-
-async def user(_, __, event: Message) -> bool:
-    return bool(event.from_user.is_contact or event.from_user.is_support)
-
-
-fltusr = filters.create(user, "FltUsr")

@@ -30,8 +30,6 @@ class Purge(Module):
         (me, limit) = pattern.match(event.content).groups()
         if limit:
             limit = int(limit)
-        else:
-            limit = 0
 
         mids = []
         if me:
@@ -40,35 +38,34 @@ class Purge(Module):
                 async for m in event._client.search_messages(
                     event.chat.id,
                     from_user="me",
+                    limit=(limit or 100) + 1,
                     min_id=(event.reply_to_message_id or 1) - 1,
                     max_id=event.id,
-                    limit=(limit or 100) + 1,
                 )
             ]
         else:
-            if event.chat.type not in (ChatType.SUPERGROUP, ChatType.CHANNEL) or (
-                event.chat.type == ChatType.SUPERGROUP
-                and (event.chat.is_direct_messages or event.chat.is_forum)
+            if event.chat.type == ChatType.SUPERGROUP and (
+                event.chat.is_direct_messages or event.chat.is_forum
             ):
                 await event.edit_text(
                     f"<code>Unsupported {html.escape('<ChatType>')}</code>"
                 )
                 return
 
-            if event.reply_to_message_id:
-                if limit:
-                    mids = range(
-                        event.reply_to_message_id, event.reply_to_message_id + limit
-                    )
-                else:
-                    mids = range(event.reply_to_message_id, event.id)
-            else:
-                mids = range(event.id - 1, event.id - ((limit or 100) + 1), -1)
+            mids = [
+                m.id
+                async for m in event._client.get_chat_history(
+                    event.chat.id,
+                    limit=limit or 100,
+                    min_id=(event.reply_to_message_id or 1) - 1,
+                    max_id=event.id,
+                )
+            ]
 
         res, now = 0, datetime.datetime.now(datetime.UTC)
         for chunk in (mids[i : i + 100] for i in range(0, len(mids), 100)):
             res += await event._client.delete_messages(event.chat.id, chunk)
-            if res % 100 == 0:
+            if len(mids) > 100 and res % 100 == 0:
                 await asyncio.sleep(2.5)
 
         await asyncio.gather(

@@ -31,58 +31,55 @@ from selfbot.utils import (
     shell,
 )
 
-pattern = re.compile(r"^(?:e\s+.+|.+?\s+#|#)$", flags=re.DOTALL)
+pattern = re.compile(r"^(?:e\s.+|.*#)$", flags=re.DOTALL)
 
 
 class Debug(Module):
     name = "Code Execute"
-    cmds = "e? {code} #?"
+    cmds = "{prefix}? {code} {suffix}?"
     desc = {
-        "e": "Prefix (No Inline)",
+        "prefix": "e",
         "code": "String",
-        "#": "Suffix (Inline)",
+        "suffix": "# (Inline)",
         "?": "Optional",
         "e.g.": 'print("Hello, World!")#',
     }
-    args = {
-        "asyncio": asyncio,
-        "dt": datetime,
-        "inspect": inspect,
-        "io": io,
-        "re": re,
-        "pyrogram": pyrogram,
-        "filters": filters,
-        "enums": pyrogram.enums,
-        "raw": pyrogram.raw,
-        "types": pyrogram.types,
-        "utils": pyrogram.utils,
-        "aexec": aexec,
-        "fmtbar": fmtbar,
-        "fmtbyte": fmtbyte,
-        "fmtexc": fmtexc,
-        "fmtmsg": fmtmsg,
-        "fmtsec": fmtsec,
-        "ids": ids,
-        "ikm": ikm,
-        "prog": prog,
-        "shell": shell,
-    }
 
     async def on_loading(self) -> None:
-        self.args.update(
-            {
-                "self": self,
-                "client": self.client,
-                "db": self.client.db,
-                "app": self.client.app,
-                "bot": self.client.bot,
-                "http": self.client.http,
-            }
-        )
+        self.kwargs = {
+            "asyncio": asyncio,
+            "dt": datetime,
+            "inspect": inspect,
+            "io": io,
+            "re": re,
+            "pyrogram": pyrogram,
+            "filters": filters,
+            "enums": pyrogram.enums,
+            "raw": pyrogram.raw,
+            "types": pyrogram.types,
+            "utils": pyrogram.utils,
+            "aexec": aexec,
+            "fmtbar": fmtbar,
+            "fmtbyte": fmtbyte,
+            "fmtexc": fmtexc,
+            "fmtmsg": fmtmsg,
+            "fmtsec": fmtsec,
+            "ids": ids,
+            "ikm": ikm,
+            "prog": prog,
+            "shell": shell,
+            "self": self,
+            "client": self.client,
+            "db": self.client.db,
+            "app": self.client.app,
+            "bot": self.client.bot,
+            "http": self.client.http,
+            "loop": self.client.loop,
+        }
 
     async def on_started(self) -> None:
         if hasattr(self.client, "call"):
-            self.args["call"] = self.client.call
+            self.kwargs["call"] = self.client.call
 
     @listener.handler(filters.regex(pattern), 1)
     async def on_message_out(self, event: Message) -> None:
@@ -103,7 +100,9 @@ class Debug(Module):
                 event.edit_text(
                     html.escape(event.content.markdown).removesuffix("#").rstrip()
                 ),
-                event._client.get_inline_bot_results(self.client.bot.me.id, "#"),
+                event._client.get_inline_bot_results(
+                    self.client.bot.me.id, "#", chat_id=event.chat.id
+                ),
             )
             await event.reply_inline_bot_result(
                 res.query_id, res.results[0].id, quote=True
@@ -118,11 +117,12 @@ class Debug(Module):
         )
         await self.execute(cmd, msg)
 
-    @listener.handler(filters.private & listener.fltusr & filters.self_destruct, 2)
+    @listener.handler(filters.private & filters.self_destruct, 2)
     async def on_message_in(self, event: Message) -> None:
         func = getattr(self.client.bot, f"send_{event.media.value}")
-        args, attr = inspect.signature(func).parameters, getattr(
-            event, event.media.value
+        kwargs, attr = (
+            inspect.signature(func).parameters,
+            getattr(event, event.media.value),
         )
         await func(
             **{
@@ -136,13 +136,13 @@ class Debug(Module):
                         attr.thumbs[0].file_id, in_memory=True
                     )
                 }
-                if attr.thumbs and "thumb" in args
+                if attr.thumbs and "thumb" in kwargs
                 else {}
             ),
             **{
                 k: v
                 for k, v in attr.__dict__.items()
-                if k in args and k not in ("ttl_seconds", "protect_content")
+                if k in kwargs and k not in ("ttl_seconds", "protect_content")
             },
             disable_notification=True,
             reply_markup=ikm(
@@ -209,7 +209,11 @@ class Debug(Module):
         msg, cmd = await asyncio.gather(
             self.client.app.get_replied_message(cid, mid),
             self.client.app.get_messages(cid, mid),
+            return_exceptions=True,
         )
+        if isinstance(msg, Exception):
+            msg = None
+
         return msg, cmd
 
     async def execute(self, msg: Message, event: Update, btn: bool = False) -> None:
@@ -227,10 +231,10 @@ class Debug(Module):
             code = msg.content.markdown
             ikb[0].insert(0, ("Run", "1"))
 
-        self.args.update(
+        self.kwargs.update(
             {
                 "msg": msg,
-                "rep": msg.reply_to_message,
+                "rep": msg.external_reply or msg.reply_to_message,
                 "chat": msg.chat,
                 "user": (msg.reply_to_message or msg).from_user,
                 "event": event,
@@ -242,7 +246,7 @@ class Debug(Module):
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             fut = asyncio.create_task(
-                aexec(code, self.args),
+                aexec(code, self.kwargs),
                 name=(
                     f"{event.chat.id}/{event.id}"
                     if isinstance(event, Message)
@@ -259,7 +263,7 @@ class Debug(Module):
             finally:
                 rtt = fmtsec(now)
 
-        if code.endswith("#"):
+        if code.endswith("return"):
             return
 
         if len(out) > 756:

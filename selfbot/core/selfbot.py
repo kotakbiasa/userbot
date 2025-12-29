@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import pathlib
 
 from httpx import AsyncClient
 
@@ -17,15 +16,14 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
         super().__init__()
 
     @classmethod
-    async def launch(cls, config: dict) -> "Selfbot":
+    async def launch(cls, config: dict, loop: asyncio.AbstractEventLoop) -> "Selfbot":
         selfbot = cls(config)
         try:
-            selfbot.http = AsyncClient(timeout=900)
+            selfbot.http = AsyncClient(http2=True)
+            selfbot.loop = loop
             await selfbot.run()
         finally:
-            loop = asyncio.get_running_loop()
-            if loop and not loop.is_closed():
-                loop.call_soon(loop.stop)
+            await selfbot.stop()
 
         return selfbot
 
@@ -43,14 +41,5 @@ class Selfbot(Database, Dispatcher, Extender, Telegram):
             await self.db.close()
         except Exception as e:
             self.logger.error(f"{e.__class__.__name__}: {e}")
-
-    @property
-    def _git(self) -> str:
-        cwd = pathlib.Path.cwd().resolve()
-        while cwd != cwd.parent:
-            if (cwd / ".git").is_dir():
-                return str(cwd)
-
-            cwd = cwd.parent
-
-        return str(pathlib.Path.cwd())
+        else:
+            self.logger.info(f"{self.__class__.__name__} Stopped")

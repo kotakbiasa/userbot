@@ -2,8 +2,16 @@ import asyncio
 import logging
 import os
 
-import aiorun
 from dotenv import dotenv_values
+
+try:
+    import uvloop
+except ImportError:
+    loop = asyncio.new_event_loop()
+else:
+    loop = uvloop.new_event_loop()
+finally:
+    asyncio.set_event_loop(loop)
 
 from .core import Selfbot
 
@@ -23,17 +31,7 @@ def config() -> dict:
             k: v
             for k, v in os.environ.items()
             if k
-            in (
-                "API_ID",
-                "API_HASH",
-                "BOT_TOKEN",
-                "BRANCH",
-                "DATABASE_URL",
-                "GEMINI_API_KEY",
-                "GEMINI_MODEL",
-                "REMOTE",
-                "STICKER_FILE_ID",
-            )
+            in ("DATABASE_URL", "GEMINI_API_KEY", "GEMINI_MODEL", "STICKER_FILE_ID")
         }
 
     return config
@@ -41,11 +39,13 @@ def config() -> dict:
 
 def run() -> None:
     try:
-        import uvloop
-    except ImportError:
-        pass
-    else:
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        loop.run_until_complete(Selfbot.launch(config(), loop))
+    except RuntimeError as e:
+        logging.critical(f"{e.__class__.__name__}: {e}")
+    finally:
+        if loop and not loop.is_closed():
+            loop.close()
 
-    aiorun.logger.disabled = True
-    aiorun.run(Selfbot.launch(config()))
+
+if __name__ == "__main__":
+    run()
