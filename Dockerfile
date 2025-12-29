@@ -18,7 +18,7 @@ RUN apt-get update -qq \
     git \
     ffmpeg \
     && curl -LsSf https://astral.sh/uv/install.sh | sh \
-    && ln -s /root/.cargo/bin/uv /usr/local/bin/uv \
+    && ln -s /root/.local/bin/uv /usr/local/bin/uv \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
