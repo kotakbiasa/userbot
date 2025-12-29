@@ -162,7 +162,10 @@ class Sticker(Module):
         cmd += "-c:v libvpx-vp9 -pix_fmt yuva420p -b:v 400k -maxrate 500k -bufsize 1000k "
         cmd += f"-auto-alt-ref 0 -an -loop 0 '{output_file}'"
         
-        await shell(cmd)
+        output = await shell(cmd)
+        
+        if not Path(output_file).exists() or Path(output_file).stat().st_size == 0:
+            raise Exception(f"FFmpeg conversion failed.\nOutput: {output}")
 
     async def _document_kang(self, message: Message, ff: bool = False) -> tuple[str, None, Message]:
         file_name = getattr(message.document, 'file_name', '')
