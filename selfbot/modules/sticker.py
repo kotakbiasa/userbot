@@ -26,17 +26,18 @@ from selfbot.utils import shell, fmtsec
 
 EMOJIS = ("☕", "🤡", "🙂", "🤔", "🔪", "😂", "💀")
 
-pattern = re.compile(r"^kang(\s-f)?$")
+pattern = re.compile(r"^kang(?:\s-f)?(?:\s-e\s+(.+?))?$")
 
 
 class Sticker(Module):
     name = "Sticker"
 
-    cmds = "<Reply to Media> kang (-f)?"
+    cmds = "<Reply to Media> kang (-f)? (-e emoji)?"
     desc = {
         "Info": "Saves a sticker/image/gif/video to your sticker pack.",
         "-f": "Fast-forwards the video to fit the 3-second duration.",
-        "e.g.": "<Reply to Video> kang -f",
+        "-e": "Specify custom emoji for the sticker.",
+        "e.g.": "<Reply to Video> kang -f -e 🔥",
     }
 
     @listener.handler(filters.regex(pattern) & listener.fltrep, 1)
@@ -45,6 +46,11 @@ class Sticker(Module):
         response = await event.edit_text("<code>Processing...</code>")
         replied_msg = event.reply_to_message
         messages_to_process = []
+        
+        # Extract custom emoji from command if specified
+        custom_emoji = None
+        if event.matches and event.matches[0].group(1):
+            custom_emoji = event.matches[0].group(1).strip()
 
         if replied_msg.media_group_id:
             messages_to_process = await self.client.app.get_media_group(
@@ -67,7 +73,9 @@ class Sticker(Module):
 
             try:
                 file_id, emoji, temp_msg = await media_func(self, message=message, ff="-f" in event.text)
-                stickers = await self._kang_sticker(event._client, file_id, emoji, user=event.from_user)
+                # Use custom emoji if specified, otherwise use detected emoji or random
+                final_emoji = custom_emoji or emoji
+                stickers = await self._kang_sticker(event._client, file_id, final_emoji, user=event.from_user)
                 if temp_msg:
                     await temp_msg.delete()
             except Exception as e:
